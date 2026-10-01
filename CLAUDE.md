@@ -1,5 +1,5 @@
 # Planner
-Planner web app for the user's girlfriend (marketing project manager). UI in English; the user talks in Russian. Plain single-file HTML/CSS/JS, no build. Git repo `Doppelgvnger/Planner` (branch `main`); commit each fix separately. Lives in `H:GITPlanner`; `H:Claude CodeProjectsPlanner` is a junction to it (same folder, two paths). Requirements are still being discovered module by module.
+Planner web app for the user's girlfriend (marketing project manager). UI in English; the user talks in Russian. Plain single-file HTML/CSS/JS, no build. Git repo `Doppelgvnger/Planner` (branch `main`); commit each fix separately. Lives in `H:\GIT\Planner`; `H:\Claude Code\Projects\Planner` is a junction to it (same folder, two paths). Requirements are still being discovered module by module.
 
 ## Run
 Live: https://doppelgvnger.github.io/Planner/ (GitHub Pages from `main` / root of `Doppelgvnger/Planner`; `git push` deploys in ~1 min). Locally: open `index.html` (works from `file://`).
