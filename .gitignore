@@ -3,3 +3,5 @@ NIGHT_LOG.md
 PROPOSALS.md
 # Claude app settings
 .claude/
+# runtime lock left by scheduled loops
+scheduled_tasks.lock
