@@ -1473,7 +1473,11 @@ form.addEventListener('submit', e => {
     if (badLg) return err.textContent = badLg;
     data.leadgen = lg;
   }
-  if (editingId) Object.assign(campaigns.find(x => x.id === editingId), data);
+  if (editingId) {
+    const c = Object.assign(campaigns.find(x => x.id === editingId), data);
+    // a market dropped from the campaign can't stay on its tasks
+    for (const t of c.tasks) t.segments = t.segments.filter(s => c.segments.includes(s));
+  }
   else {
     const c = { id: uid(), tasks: [], ...data };
     campaigns.push(c);
