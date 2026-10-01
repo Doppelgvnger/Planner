@@ -589,6 +589,11 @@
   .ar-row input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
   .ar-row span { overflow-wrap: anywhere; }
   .tr-note { margin: -6px 0 0; font-size: 13px; color: var(--ink-2); }
+  .top-backup { margin-left: auto; }
+  .bk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .bk-msg { margin: 0; font-size: 13px; color: var(--mint-ink); }
+  .bk-msg.bad { color: var(--danger); }
+  .bk-msg:empty { display: none; }
   .tr-row .btn:disabled { opacity: .45; cursor: default; }
 
   /* in-page confirmation, replaces the browser's confirm() */
@@ -643,6 +648,7 @@
     <button class="tab" data-view="campaigns">Campaigns</button>
     <button class="tab" data-view="timeline" aria-current="page">Timeline</button>
   </nav>
+  <button class="link subtle top-backup" id="open-backup">Backup</button>
 </header>
 
 <main>
@@ -765,6 +771,23 @@
       <button type="submit" class="btn primary">Save</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="backup-dlg">
+  <div class="ar-wrap">
+    <div class="ar-top"><h2>Backup</h2></div>
+    <p class="tr-note">Everything lives in this browser. Export saves all campaigns, tasks, Trash and board settings to a file; Import loads such a file back. Use it to move to another browser or address, or just to keep a copy.</p>
+    <div class="bk-actions">
+      <button type="button" class="btn primary" id="bk-export">Export backup</button>
+      <button type="button" class="btn" id="bk-import">Import backup…</button>
+      <input type="file" id="bk-file" accept=".json,application/json" hidden>
+    </div>
+    <p class="bk-msg" id="bk-msg"></p>
+    <div class="actions">
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="bk-close">Close</button>
+    </div>
+  </div>
 </dialog>
 
 <dialog id="ask-dlg" class="ask">
@@ -965,11 +988,10 @@ function save() {
 let campaigns = load();
 // deleted campaigns: [{ c: the whole campaign incl. tasks, at: deletedAt, pos: its index in the board order }]
 const TRASH_STORE = 'planner.trash.v1';
+// trashed campaigns may come from older versions too, so fill them in like live ones
+const normTrashItem = x => (x.type === 'task' ? x : { ...x, c: normCampaign(x.c) });
 let trash = (() => {
-  try {
-    // trashed campaigns may come from older versions too, so fill them in like live ones
-    return (JSON.parse(localStorage.getItem(TRASH_STORE)) || []).map(x => (x.type === 'task' ? x : { ...x, c: normCampaign(x.c) }));
-  } catch (e) { return []; }
+  try { return (JSON.parse(localStorage.getItem(TRASH_STORE)) || []).map(normTrashItem); } catch (e) { return []; }
 })();
 function saveTrash() {
   try { localStorage.setItem(TRASH_STORE, JSON.stringify(trash)); } catch (e) {}
@@ -2266,6 +2288,52 @@ document.getElementById('open-trash').addEventListener('click', () => {
   renderTrash();
   trDlg.showModal();
 });
+
+// ---------- backup: everything in one JSON file, built from what's in memory ----------
+const bkDlg = document.getElementById('backup-dlg'), bkMsg = document.getElementById('bk-msg'), bkFile = document.getElementById('bk-file');
+const showBkMsg = (text, bad = false) => { bkMsg.textContent = text; bkMsg.classList.toggle('bad', bad); };
+const countTasks = list => list.reduce((n, c) => n + c.tasks.length, 0);
+
+document.getElementById('bk-export').addEventListener('click', () => {
+  const backup = { app: 'planner', version: 1, exportedAt: new Date().toISOString(), campaigns, trash, colOrder, dense };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+  a.download = `planner-backup-${toISO(new Date())}.json`;
+  document.body.appendChild(a); // Firefox only downloads from a link that's in the page
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  showBkMsg(`Saved ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(campaigns), 'task')}.`);
+});
+
+document.getElementById('bk-import').addEventListener('click', () => bkFile.click());
+bkFile.addEventListener('change', async () => {
+  const file = bkFile.files[0];
+  bkFile.value = ''; // so picking the same file again still fires
+  if (!file) return;
+  let b;
+  try { b = JSON.parse(await file.text()); } catch (e) { b = null; }
+  if (!b || b.app !== 'planner' || !Array.isArray(b.campaigns)) return showBkMsg('That file isn’t a Planner backup.', true);
+  const ok = await ask({
+    title: 'Replace everything with this backup?',
+    text: `The backup from ${fmt(new Date(b.exportedAt))} has ${plural(b.campaigns.length, 'campaign')} and ${plural(countTasks(b.campaigns.map(normCampaign)), 'task')}. What's here now will be replaced.`,
+    ok: 'Replace',
+  });
+  if (!ok) return;
+  campaigns = b.campaigns.map(normCampaign);
+  trash = (b.trash || []).map(normTrashItem);
+  colOrder = Array.isArray(b.colOrder) ? b.colOrder : [];
+  dense = !!b.dense;
+  save();
+  saveTrash();
+  saveOrder();
+  try { localStorage.setItem(DENSE_STORE, dense ? '1' : '0'); } catch (e) {}
+  document.querySelectorAll('#density button').forEach(x => x.setAttribute('aria-pressed', (x.dataset.dense === '1') === dense));
+  renderAll();
+  showBkMsg(`Imported ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(campaigns), 'task')}.`);
+});
+document.getElementById('open-backup').addEventListener('click', () => { showBkMsg(''); bkDlg.showModal(); });
+document.getElementById('bk-close').addEventListener('click', () => bkDlg.close());
 
 // ---------- tabs: the open tab lives in the URL hash so a refresh keeps it ----------
 function showView(view) {

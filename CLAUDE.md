@@ -15,5 +15,6 @@ Open `index.html` in a browser (works from `file://`).
 - Segment flags are emoji rendered via the Noto Color Emoji webfont (Windows has no flag glyphs). Custom colors use the in-page wheel (`openWheel`), not `<input type=color>` — the user wanted it inside the site.
 - Every campaign must have `tasks: []` — `renderBoard` throws without it (new campaigns are created with it; `load()` backfills).
 - Header fold animates only `.col-details` height (spacing lives in `.col-details-in`); never animate negative margins on grid items, the track clamps at 0 and the motion stalls then jumps.
+- Backup (top bar): Export downloads `planner-backup-<date>.json` = `{app:"planner", version:1, exportedAt, campaigns, trash, colOrder, dense}` built from memory; Import validates `app`, asks, then replaces state (`normCampaign`/`normTrashItem`). Data is per-origin, so moving file:// → hosted URL goes through Export/Import.
 - Firefox fires a click on the row/header under the pointer after a pointer drag; a capture-phase listener swallows clicks within 400ms of `dragEndedAt`. Drag move/up listeners live on `window` because moving the dragged node in the DOM drops pointer capture.
 - Visual direction taken from Inspo reference daybridge.com: light, Inter, pastel event bars, periwinkle accent.
