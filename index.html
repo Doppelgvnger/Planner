@@ -930,12 +930,13 @@ function seed() {
     c('Black Friday', ['br', 'mx'], ['dtc'], 52, 62, 'butter', [45, 51]),
   ];
 }
+// campaigns saved by older versions: no destinations means both (so no filter hides them); tasks get filled in
+const normCampaign = c => ({ destinations: DESTS.map(d => d.id), ...c, tasks: (c.tasks || []).map(normTask) });
 function load() {
   try {
     const raw = localStorage.getItem(STORE);
-    // campaigns saved before Destination existed count as both, so no filter hides them
     if (raw) {
-      return JSON.parse(raw).map(c => ({ destinations: DESTS.map(d => d.id), ...c, tasks: (c.tasks || []).map(normTask) }));
+      return JSON.parse(raw).map(normCampaign);
     }
   } catch (e) {}
   return seed();
@@ -947,7 +948,12 @@ function save() {
 let campaigns = load();
 // deleted campaigns: [{ c: the whole campaign incl. tasks, at: deletedAt, pos: its index in the board order }]
 const TRASH_STORE = 'planner.trash.v1';
-let trash = (() => { try { return JSON.parse(localStorage.getItem(TRASH_STORE)) || []; } catch (e) { return []; } })();
+let trash = (() => {
+  try {
+    // trashed campaigns may come from older versions too, so fill them in like live ones
+    return (JSON.parse(localStorage.getItem(TRASH_STORE)) || []).map(x => (x.type === 'task' ? x : { ...x, c: normCampaign(x.c) }));
+  } catch (e) { return []; }
+})();
 function saveTrash() {
   try { localStorage.setItem(TRASH_STORE, JSON.stringify(trash)); } catch (e) {}
 }
