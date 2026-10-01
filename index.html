@@ -1,0 +1,2293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planner · Timeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f7fc;
+    --surface: #ffffff;
+    --ink: #1d2340;
+    --ink-2: #5b6283;
+    --ink-3: #9aa0bb;
+    --line: #e7e9f3;
+    --line-soft: #f1f2f8;
+    --weekend: #f9fafd;
+    --accent: #5b5fe0;
+    --accent-soft: #ecedfd;
+    --danger: #d64a6a;
+
+    --label-w: 208px;
+    --day-w: 32px;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(29, 35, 64, .04), 0 8px 24px rgba(29, 35, 64, .06);
+
+    /* campaign colors: fill / edge / text */
+    --lavender-bg: #ebe9fe; --lavender-edge: #8b85f0; --lavender-ink: #3b347f;
+    --sky-bg: #e2f0fc;      --sky-edge: #4aa3ea;      --sky-ink: #0f4a78;
+    --mint-bg: #ddf4ea;     --mint-edge: #3fb883;     --mint-ink: #145c3c;
+    --peach-bg: #fde9dc;    --peach-edge: #f29a61;    --peach-ink: #7a3a12;
+    --rose-bg: #fde4ea;     --rose-edge: #ec6f8e;     --rose-ink: #7c1d36;
+    --butter-bg: #fcf1cf;   --butter-edge: #e0b12a;   --butter-ink: #6b5208;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 28px;
+    padding: 14px clamp(16px, 2.5vw, 56px);
+    background: rgba(255,255,255,.8);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, #8b85f0, #4aa3ea);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+  }
+  .tabs { display: flex; gap: 4px; background: var(--line-soft); padding: 4px; border-radius: 999px; }
+  .tab {
+    border: 0; background: none; padding: 6px 16px; border-radius: 999px;
+    color: var(--ink-2); font-weight: 500; cursor: pointer;
+  }
+  .tab[aria-current="page"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(29,35,64,.1); }
+  .tab:disabled { cursor: default; opacity: .55; }
+
+  /* ---------- page ---------- */
+  /* use the whole screen on big monitors, with side gutters that grow with it */
+  main { max-width: 2560px; margin: 0 auto; padding: 32px clamp(16px, 2.5vw, 56px); }
+  .toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+  h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.02em; }
+  .sub { margin: 4px 0 0; color: var(--ink-2); }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 10px;
+    padding: 8px 14px; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s;
+  }
+  .btn:hover { border-color: #d6d9e8; background: #fbfbfe; }
+  .btn.icon { width: 36px; padding: 8px 0; text-align: center; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #4d51d4; }
+  .btn.danger { color: var(--danger); }
+  .range { min-width: 130px; text-align: center; font-weight: 600; white-space: nowrap; }
+
+  /* ---------- timeline ---------- */
+  .board { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .scroller { overflow-x: auto; }
+  .tl { position: relative; width: calc(var(--label-w) + var(--days) * var(--day-w)); }
+
+  .tl-head { display: flex; border-bottom: 1px solid var(--line); }
+  .corner {
+    width: var(--label-w); flex: none; position: sticky; left: 0; z-index: 4;
+    background: var(--surface); border-right: 1px solid var(--line);
+    display: flex; align-items: flex-end; padding: 0 20px 10px;
+    font-size: 12px; font-weight: 500; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em;
+  }
+  .months, .days { display: flex; }
+  .month {
+    flex: none; padding: 12px 10px 6px; font-weight: 600; font-size: 13px;
+    border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden;
+  }
+  .month:first-child { border-left: 0; }
+  .month span { color: var(--ink-3); font-weight: 500; }
+  .day {
+    width: var(--day-w); flex: none; text-align: center; padding: 2px 0 8px;
+    font-size: 12px; color: var(--ink-2); line-height: 1.25;
+  }
+  .day small { display: block; font-size: 10px; color: var(--ink-3); }
+  .day.weekend { color: var(--ink-3); }
+  .day.today b {
+    display: inline-block; min-width: 22px; padding: 1px 0; border-radius: 999px;
+    background: var(--accent); color: #fff; font-weight: 600;
+  }
+  .day b { font-weight: 500; }
+
+  .tl-body { position: relative; }
+  .cols { position: absolute; top: 0; bottom: 0; left: var(--label-w); display: flex; pointer-events: none; }
+  .col { width: var(--day-w); flex: none; }
+  .col.weekend { background: var(--weekend); }
+  .col.month-start { box-shadow: inset 1px 0 0 var(--line); }
+  .today-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); opacity: .5; z-index: 1; pointer-events: none; }
+
+  /* positioned so the divider paints above the absolutely positioned weekend columns */
+  .row { display: flex; border-bottom: 2px solid var(--line); position: relative; z-index: 1; }
+  .row:last-child { border-bottom: 0; }
+  .label {
+    width: var(--label-w); flex: none; position: sticky; left: 0; z-index: 3;
+    background: var(--surface); border-right: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; padding: 0 20px;
+  }
+  .code {
+    flex: none; min-width: 44px; text-align: center; padding: 3px 6px; border-radius: 6px;
+    background: var(--line-soft); color: var(--ink-2); font-size: 11px; font-weight: 600; letter-spacing: .03em;
+  }
+  /* Windows has no color flag glyphs of its own, so flags come from the Noto Color Emoji webfont */
+  .flag { font-family: 'Noto Color Emoji', sans-serif; font-size: 22px; line-height: 1; }
+  .track { position: relative; flex: none; width: calc(var(--days) * var(--day-w)); cursor: crosshair; touch-action: pan-x pan-y; }
+
+  .bar, .ghost {
+    position: absolute; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px;
+    overflow: clip; white-space: nowrap; text-align: left;
+  }
+  .bar {
+    border: 0; cursor: pointer; z-index: 2;
+    background: var(--c-bg); color: var(--c-ink);
+    box-shadow: inset 3px 0 0 var(--c-edge), 0 1px 2px rgba(29,35,64,.06);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .bar:hover { transform: translateY(-1px); box-shadow: inset 3px 0 0 var(--c-edge), 0 6px 16px rgba(29,35,64,.12); }
+  .bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .bar.cut-left { border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: 0 1px 2px rgba(29,35,64,.06); }
+  .bar.cut-right { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  /* sticky so the name stays readable when the bar starts off-screen to the left */
+  .bar-text { position: sticky; left: calc(var(--label-w) + 10px); display: flex; align-items: baseline; gap: 8px; }
+  .bar-name { font-weight: 600; font-size: 13px; }
+  .bar-dates { font-size: 12px; opacity: .7; }
+  .ghost {
+    z-index: 2; pointer-events: none;
+    background: var(--accent-soft); border: 1.5px dashed var(--accent); color: var(--accent);
+    font-size: 12px; font-weight: 600;
+  }
+
+  .c-lavender { --c-bg: var(--lavender-bg); --c-edge: var(--lavender-edge); --c-ink: var(--lavender-ink); }
+  .c-sky      { --c-bg: var(--sky-bg);      --c-edge: var(--sky-edge);      --c-ink: var(--sky-ink); }
+  .c-mint     { --c-bg: var(--mint-bg);     --c-edge: var(--mint-edge);     --c-ink: var(--mint-ink); }
+  .c-peach    { --c-bg: var(--peach-bg);    --c-edge: var(--peach-edge);    --c-ink: var(--peach-ink); }
+  .c-rose     { --c-bg: var(--rose-bg);     --c-edge: var(--rose-edge);     --c-ink: var(--rose-ink); }
+  .c-butter   { --c-bg: var(--butter-bg);   --c-edge: var(--butter-edge);   --c-ink: var(--butter-ink); }
+
+  /* lead gen bar: same color as its campaign, but hatched and outlined so it reads as "pre-campaign" */
+  .bar.lg {
+    z-index: 1;
+    background-image: repeating-linear-gradient(-45deg, rgba(255,255,255,.7) 0 4px, transparent 4px 9px);
+    box-shadow: none; outline: 1px dashed var(--c-edge); outline-offset: -1px;
+  }
+  .bar.lg:hover { box-shadow: 0 6px 16px rgba(29,35,64,.12); }
+  .bar.lg .bar-name { font-size: 12px; }
+
+  .bar-dest { font-size: 10px; font-weight: 600; letter-spacing: .02em; padding: 1px 6px; border-radius: 999px; background: rgba(255,255,255,.65); }
+
+  /* ---------- view bar: destination filter + zoom ---------- */
+  .viewbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filter { display: flex; align-items: center; gap: 6px; }
+  .filter-label { font-size: 13px; font-weight: 500; color: var(--ink-3); margin-right: 4px; }
+  .toggle {
+    display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px 5px 10px;
+    font-size: 13px; font-weight: 500; color: var(--ink-2);
+  }
+  .toggle::before { content: ''; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid #c9cde0; }
+  .toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .toggle[aria-pressed="true"]::before {
+    border-color: var(--accent);
+    background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 4l3 3 5-6' fill='none' stroke='white' stroke-width='1.8'/%3E%3C/svg%3E") center / 9px no-repeat;
+  }
+  .zoom { display: flex; gap: 2px; background: #eceef6; padding: 3px; border-radius: 10px; }
+  .zoom button { border: 0; background: none; padding: 5px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
+  .zoom button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(29,35,64,.1); }
+
+  /* 6-month overview: days too narrow for labels, so only Mondays get a number */
+  .tl.compact .days { overflow: hidden; } /* last day's number would otherwise overflow and add a scrollbar */
+  .tl.compact .day { text-align: left; white-space: nowrap; font-size: 11px; }
+  .tl.compact .day small, .tl.compact .day:not(.mon) b { visibility: hidden; }
+  .tl.compact .day b { padding-left: 2px; }
+  .tl.compact .col.weekend { background: none; }
+  .tl.compact .col.mon { box-shadow: inset 1px 0 0 var(--line-soft); }
+  .tl.compact .col.month-start { box-shadow: inset 1px 0 0 var(--line); }
+
+  .hint { margin: 12px 4px 0; color: var(--ink-3); font-size: 13px; }
+
+  /* ---------- coming up ---------- */
+  .upcoming { margin-top: 32px; }
+  .upcoming h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+  .upcoming h2 span { color: var(--ink-3); font-weight: 500; }
+  .up-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+  .up-item {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; cursor: pointer; text-align: left;
+  }
+  .up-item:hover { border-color: #d6d9e8; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c-edge); flex: none; }
+  .up-main { flex: 1; min-width: 0; }
+  .up-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .up-meta { color: var(--ink-2); font-size: 12px; }
+  .statuses { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .status { font-size: 12px; font-weight: 500; white-space: nowrap; color: var(--ink-2); padding: 2px 8px; border-radius: 999px; }
+  .status.live { color: var(--mint-ink); background: var(--mint-bg); }
+  .status.soon { color: var(--butter-ink); background: var(--butter-bg); }
+  .status.ended { color: var(--rose-ink); background: var(--rose-bg); }
+  .st-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .up-item .st-line { justify-content: flex-end; }
+  .st-mk { font-size: 11px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+  .empty { color: var(--ink-3); }
+
+  /* ---------- dialog ---------- */
+  dialog {
+    border: 0; border-radius: 18px; padding: 0; width: min(480px, calc(100vw - 32px));
+    box-shadow: 0 24px 64px rgba(29,35,64,.22); color: var(--ink);
+  }
+  dialog::backdrop { background: rgba(29,35,64,.28); backdrop-filter: blur(2px); }
+  form { padding: 24px; display: grid; gap: 16px; }
+  dialog h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  .field input {
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--surface);
+    color: var(--ink); font-size: 14px; font-weight: 400;
+  }
+  .field input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+  legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip input, .swatch input { position: absolute; opacity: 0; pointer-events: none; }
+  .chip > span {
+    display: inline-block; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+    font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ink-2); user-select: none;
+  }
+  .chip input:checked + span { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .chip input:focus-visible + span, .swatch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch { position: relative; }
+  .swatch span {
+    display: block; width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    background: var(--c-bg); box-shadow: inset 0 0 0 2px var(--c-edge);
+  }
+  .swatch input:checked + span { box-shadow: inset 0 0 0 2px var(--c-edge), 0 0 0 3px var(--surface), 0 0 0 5px var(--c-edge); }
+  .swatch.add span {
+    background: none; box-shadow: none; border: 1.5px dashed #c9cde0;
+    display: grid; place-items: center; color: var(--ink-3); font-size: 18px; line-height: 1;
+  }
+  .swatch.add:hover span { border-color: var(--accent); color: var(--accent); }
+  .swatch.add { border: 0; background: none; padding: 0; cursor: pointer; }
+
+  /* ---------- color wheel ---------- */
+  .cw {
+    display: grid; grid-template-columns: 168px 1fr; gap: 16px; align-items: start;
+    margin-top: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fbfbfe;
+  }
+  .cw[hidden] { display: none; }
+  .cw-wheel { position: relative; width: 168px; height: 168px; cursor: crosshair; touch-action: none; }
+  .cw-wheel canvas { display: block; width: 100%; height: 100%; }
+  .cw-marker {
+    position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; pointer-events: none;
+    border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(29,35,64,.25), 0 2px 6px rgba(29,35,64,.3);
+  }
+  .cw-side { display: grid; gap: 12px; min-width: 0; }
+  .cw input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 10px; margin: 6px 0;
+    border: 0; border-radius: 999px; padding: 0; cursor: pointer;
+  }
+  .cw input[type=range]::-moz-range-track { background: transparent; }
+  .cw input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 0 1px rgba(29,35,64,.25), 0 2px 4px rgba(29,35,64,.25);
+  }
+  .cw input[type=range]::-moz-range-thumb {
+    width: 18px; height: 18px; border: 0; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 0 1px rgba(29,35,64,.25), 0 2px 4px rgba(29,35,64,.25);
+  }
+  .cw-hex { font-family: ui-monospace, Consolas, monospace; }
+  .cw-preview {
+    height: 28px; border-radius: 8px; display: flex; align-items: center; padding: 0 12px;
+    font-size: 13px; font-weight: 600; background: var(--c-bg); color: var(--c-ink); box-shadow: inset 3px 0 0 var(--c-edge);
+  }
+  .cw-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  @media (max-width: 480px) {
+    .cw { grid-template-columns: 1fr; justify-items: center; }
+    .cw-side { width: 100%; }
+  }
+  /* per-market dates */
+  .markets { display: grid; gap: 8px; }
+  .markets[hidden], .mk-list[hidden] { display: none; }
+  .link { justify-self: start; border: 0; background: none; padding: 0; color: var(--accent); font-size: 13px; font-weight: 500; cursor: pointer; }
+  .link:hover { text-decoration: underline; }
+  .mk-list { display: grid; gap: 4px; }
+  .mk-row {
+    display: grid; grid-template-columns: 48px 22px 1fr 1fr 28px; gap: 8px; align-items: center;
+    padding: 6px 8px; border-radius: 10px; border: 1px solid transparent;
+  }
+  .mk-row.moved { background: var(--accent-soft); }
+  .mk-row.focus { border-color: var(--accent); }
+  .mk-row .flag { font-size: 18px; }
+  .mk-row input {
+    min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+    background: var(--surface); font-size: 13px;
+  }
+  .mk-reset { border: 0; background: none; padding: 0; color: var(--accent); font-size: 17px; cursor: pointer; }
+  .bar.moved .bar-dates::before { content: '↷ '; }
+
+  /* lead gen */
+  .lg-box { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
+  .lg-body { display: grid; gap: 14px; }
+  .lg-body[hidden] { display: none; }
+  .check { display: flex; align-items: center; gap: 10px; font-weight: 500; cursor: pointer; }
+  .check input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+  .warn { margin: 0; color: #a5620b; font-size: 13px; }
+  .warn:empty { display: none; }
+
+  .err { margin: 0; color: var(--danger); font-size: 13px; min-height: 1em; }
+  .err:empty { display: none; }
+  .actions { display: flex; gap: 8px; }
+  .spacer { flex: 1; }
+
+  /* ---------- campaigns board ---------- */
+  .view[hidden] { display: none; }
+  .board-tools { display: flex; align-items: center; gap: 14px; }
+  .link.subtle { color: var(--ink-3); }
+  /* native scrollbar hidden; the board uses the bigger bar pinned to the bottom of the screen (.hscroll) */
+  .cboard {
+    display: flex; align-items: flex-start; gap: 16px; overflow-x: auto; padding: 4px 4px 20px; margin: 0 -4px;
+    scrollbar-width: none;
+  }
+  .cboard::-webkit-scrollbar { display: none; }
+  #view-campaigns { padding-bottom: 40px; }
+  .hscroll {
+    position: fixed; left: 50%; bottom: 16px; z-index: 30; transform: translateX(-50%);
+    width: min(420px, 60vw); height: 14px; border-radius: 999px; cursor: pointer;
+    background: rgba(29,35,64,.08); box-shadow: inset 0 0 0 1px rgba(29,35,64,.06); backdrop-filter: blur(6px);
+  }
+  .hscroll[hidden] { display: none; }
+  .hscroll-thumb {
+    position: absolute; top: 2px; bottom: 2px; border-radius: 999px; background: #a9aecb; cursor: grab; transition: background .15s;
+  }
+  .hscroll-thumb:hover, .hscroll.dragging .hscroll-thumb { background: var(--accent); }
+  .hscroll.dragging .hscroll-thumb { cursor: grabbing; }
+
+  /* compact board: thinner columns sharing the width, so more campaigns fit at once */
+  .cboard.dense { gap: 10px; }
+  .cboard.dense .ccol { flex: 1 1 0; width: auto; min-width: 170px; max-width: 300px; }
+  .cboard.dense .col-head { padding: 10px 12px; }
+  .cboard.dense .col-head .statuses { margin-top: 6px; }
+  .cboard.dense .col-name { font-size: 13px; }
+  .cboard.dense .col-toggle { display: none; }
+  .cboard.dense .tasks { padding: 6px; }
+  .cboard.dense .task { gap: 6px; padding: 5px 4px 5px 6px; }
+  .cboard.dense .t-text { font-size: 13px; }
+  .cboard.dense .t-chip:not(.due) { display: none; }
+  .cboard.dense .t-handle { padding-left: 5px; }
+  .cboard.dense .status { font-size: 11px; }
+  .cboard.dense .t-add-btn { font-size: 13px; padding: 6px; }
+  /* outer box only clips and changes height; the spacing lives inside so it folds away with it */
+  .col-details { overflow: hidden; }
+  .col-details-in { display: grid; gap: 8px; padding-top: 8px; }
+  .ccol {
+    flex: none; width: 300px; position: relative; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .ccol.ended { opacity: .6; }
+  .ccol.col-placeholder { background: var(--accent-soft); border: 1.5px dashed var(--accent); box-shadow: none; }
+  .ccol.col-placeholder > * { visibility: hidden; }
+  .col-ghost {
+    position: fixed; z-index: 1000; margin: 0; pointer-events: none;
+    transition: transform .2s ease-out, box-shadow .2s ease-out;
+  }
+  .col-ghost.lifted { transform: rotate(-1.5deg) scale(1.02); box-shadow: 0 24px 56px rgba(29,35,64,.25); }
+  .col-ghost.dropping { transition: left .3s cubic-bezier(.34, 1.4, .6, 1), top .3s cubic-bezier(.34, 1.4, .6, 1), transform .22s, box-shadow .22s; }
+  .col-btn {
+    flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: rgba(255,255,255,.6);
+    display: grid; place-items: center; color: var(--ink-2); cursor: pointer;
+  }
+  .col-btn:hover { background: var(--surface); color: var(--ink); }
+
+  /* parked campaigns: a rail of small tiles left of the board, split off by a thin line */
+  .board-wrap { display: flex; align-items: flex-start; }
+  .board-wrap .cboard { flex: 1; min-width: 0; }
+  .park {
+    flex: none; width: 210px; align-self: stretch; display: flex; flex-direction: column; gap: 8px;
+    padding: 4px 16px 20px 0; margin-right: 16px; border-right: 1px solid var(--line);
+  }
+  .park[hidden] { display: none; }
+  .park-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .tile {
+    position: relative; display: grid; gap: 6px; padding: 9px 10px 10px 14px; overflow: hidden; cursor: pointer;
+    background: linear-gradient(90deg, var(--c-bg), var(--surface) 70%); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(29,35,64,.05);
+  }
+  .tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c-edge); }
+  .tile:hover { border-color: #d6d9e8; box-shadow: var(--shadow); }
+  .tile-top { display: flex; align-items: center; gap: 6px; }
+  .tile-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .col-btn { width: 22px; height: 22px; }
+  .tile-meta { font-size: 11px; color: var(--ink-2); }
+  .tile .mini { font-size: 10px; padding: 1px 5px; }
+  .tile .mini .flag { font-size: 11px; }
+  .tile .statuses { align-items: flex-start; }
+  .tile .status { font-size: 11px; padding: 1px 7px; }
+  .tile .st-mk { font-size: 10px; }
+  .tile-tasks { font-size: 11px; font-weight: 600; color: var(--accent); }
+  @media (max-width: 720px) {
+    .board-wrap { flex-direction: column; align-items: stretch; }
+    .park { width: auto; flex-direction: row; flex-wrap: wrap; padding: 0 0 12px; margin: 0 0 12px; border-right: 0; border-bottom: 1px solid var(--line); }
+    .park-label { width: 100%; }
+    .tile { width: 180px; }
+  }
+  .col-toggle svg { transition: transform .34s cubic-bezier(.4, 0, .2, 1); }
+  .ccol.compact .col-toggle svg { transform: rotate(180deg); }
+  .col-head {
+    display: grid; padding: 14px 16px 14px; cursor: pointer; user-select: none;
+    border-top: 4px solid var(--c-edge); background: linear-gradient(var(--c-bg), var(--surface));
+  }
+  .ccol:not(.ended) .col-head { cursor: grab; }
+  .col-title { display: flex; align-items: center; gap: 8px; }
+  .col-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col-markets { display: flex; flex-wrap: wrap; gap: 4px; }
+  .mini {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px;
+    background: rgba(255,255,255,.75); font-size: 11px; font-weight: 600; color: var(--ink-2);
+  }
+  .mini .flag { font-size: 13px; }
+  .col-meta { font-size: 12px; color: var(--ink-2); }
+  .col-head .statuses { align-items: flex-start; margin-top: 8px; }
+  .col-empty { color: var(--ink-3); padding: 24px 4px; }
+
+  .tasks { list-style: none; margin: 0; padding: 8px; border-top: 1px solid var(--line); }
+  .task { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: start; padding: 7px 6px 7px 8px; border-radius: 8px; }
+  .t-check {
+    appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 1px 0 0; cursor: pointer;
+    border: 1.5px solid #c3c7da; border-radius: 50%; display: grid; place-content: center; background: var(--surface);
+  }
+  .t-check:checked { background: var(--accent); border-color: var(--accent); }
+  .t-check:checked::after {
+    content: ''; width: 10px; height: 8px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 4l3 3 5-6' fill='none' stroke='white' stroke-width='1.8'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
+  .task { cursor: pointer; background: var(--surface); }
+  .task:hover { background: var(--bg); }
+  .task.urgent { background: #fdf1f4; }
+  .t-main { min-width: 0; display: grid; gap: 5px; }
+  .t-text { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+  .task.done .t-text { text-decoration: line-through; color: var(--ink-3); }
+  .t-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .t-chip {
+    display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 6px;
+    background: var(--line-soft); color: var(--ink-2); font-size: 11px; font-weight: 500;
+  }
+  .t-chip .flag { font-size: 12px; }
+  .t-chip.icon { padding: 2px 5px; }
+  .t-chip.soon { background: #fdf0d5; color: #8a5300; }
+  .t-chip.overdue { background: #fde3e8; color: #b4233c; }
+  .t-handle {
+    align-self: stretch; display: grid; place-items: center; padding-left: 8px; margin: -3px 0;
+    border-left: 1px solid var(--line); color: #c3c7da; cursor: grab; touch-action: none;
+  }
+  .t-handle:hover { color: var(--ink-2); }
+  .task.placeholder { background: var(--accent-soft); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
+  .task.placeholder > * { visibility: hidden; }
+  .t-ghost {
+    position: fixed; z-index: 1000; margin: 0; list-style: none; pointer-events: none; background: var(--surface);
+    box-shadow: 0 2px 6px rgba(29,35,64,.08); transition: transform .18s ease-out, box-shadow .18s ease-out;
+  }
+  .t-ghost.lifted { transform: rotate(1.5deg) scale(1.03); box-shadow: 0 18px 40px rgba(29,35,64,.22); cursor: grabbing; }
+  .t-ghost.dropping { transition: left .26s cubic-bezier(.34, 1.4, .6, 1), top .26s cubic-bezier(.34, 1.4, .6, 1), transform .2s, box-shadow .2s; }
+  .t-add-btn { width: 100%; border: 0; border-radius: 8px; padding: 8px; background: none; text-align: left; font-size: 14px; color: var(--ink-3); cursor: pointer; }
+  .t-add-btn:hover { background: var(--bg); color: var(--accent); }
+
+  /* ---------- task dialog ---------- */
+  .td-top { display: grid; grid-template-columns: 22px 1fr 30px; gap: 12px; align-items: center; }
+  .td-top .t-check { width: 22px; height: 22px; margin: 0; }
+  .td-top .t-urgent { width: 30px; height: 30px; font-size: 16px; background: var(--line-soft); }
+  .td-name {
+    border: 0; border-bottom: 1.5px solid var(--line); padding: 4px 0; font-size: 18px; font-weight: 600; background: none; min-width: 0;
+  }
+  .td-name:focus { outline: none; border-color: var(--accent); }
+  .field select, .field textarea {
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--surface);
+    color: var(--ink); font-size: 14px; font-weight: 400;
+  }
+  .field textarea { resize: vertical; min-height: 72px; line-height: 1.45; }
+  .field select:focus, .field textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .td-due { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .td-quick { display: flex; gap: 4px; }
+  .td-quick button {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 10px;
+    font-size: 12px; font-weight: 500; color: var(--ink-2); cursor: pointer;
+  }
+  .td-quick button:hover { border-color: var(--accent); color: var(--accent); }
+  .opt { font-weight: 400; color: var(--ink-3); }
+  .fs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  /* on/off slider: Hide ○━ Show */
+  .switch { position: relative; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); cursor: pointer; user-select: none; }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch .knob { position: relative; width: 32px; height: 18px; border-radius: 999px; background: #d5d8e6; transition: background .2s; }
+  .switch .knob::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(29,35,64,.25); transition: transform .3s cubic-bezier(.34, 1.4, .6, 1);
+  }
+  .switch input:checked ~ .knob { background: var(--accent); }
+  .switch input:checked ~ .knob::after { transform: translateX(14px); }
+  .switch input:focus-visible ~ .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .switch input:not(:checked) ~ .s-hide, .switch input:checked ~ .s-show { color: var(--ink); }
+  .chip .flag { font-size: 14px; }
+  .td-desc-view {
+    white-space: pre-wrap; overflow-wrap: anywhere; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
+    font-size: 14px; font-weight: 400; color: var(--ink); line-height: 1.45; cursor: text; min-height: 40px;
+  }
+  .td-desc-view:hover { border-color: #d6d9e8; background: #fbfbfe; }
+  .td-desc-view a { color: var(--accent); }
+  .td-desc-view[hidden], #td-desc[hidden] { display: none; }
+  .subs { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .subtask { display: grid; grid-template-columns: 16px 1fr 22px; gap: 10px; align-items: center; padding: 3px 4px; border-radius: 8px; }
+  .subtask:hover { background: var(--bg); }
+  .subtask .t-check { width: 16px; height: 16px; margin: 0; }
+  .sub-text { border: 0; background: none; font-size: 14px; padding: 3px 0; min-width: 0; }
+  .sub-text:focus { outline: none; border-bottom: 1px solid var(--accent); }
+  .subtask.done .sub-text { text-decoration: line-through; color: var(--ink-3); }
+  .sub-del { border: 0; background: none; color: var(--ink-3); cursor: pointer; font-size: 16px; line-height: 1; border-radius: 6px; }
+  .sub-del:hover { color: var(--danger); background: var(--line-soft); }
+  .sub-add { border: 0; border-radius: 8px; padding: 7px 4px; background: none; font-size: 14px; }
+  .sub-add::placeholder { color: var(--ink-3); }
+  .sub-add:focus { outline: none; background: var(--bg); }
+  .td-meta { margin: 0; font-size: 12px; color: var(--ink-3); }
+  .td-meta:empty { display: none; }
+  #td-archive[hidden], #td-del[hidden] { display: none; }
+  .t-btn {
+    width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+    display: grid; place-items: center; color: #b4b9cd; font-size: 14px; font-weight: 700;
+  }
+  .t-btn:hover { background: var(--line-soft); color: var(--ink-2); }
+  .t-urgent.on, .t-urgent.on:hover { background: var(--danger); color: #fff; }
+  .done-sep { height: 1px; background: var(--line); margin: 6px 8px; }
+  .t-add { width: 100%; border: 0; border-radius: 8px; padding: 8px; background: none; font-size: 14px; }
+  .t-add::placeholder { color: var(--ink-3); }
+  .t-add:focus { outline: none; background: var(--bg); }
+
+  /* ---------- archive ---------- */
+  .ar-wrap { padding: 24px; display: grid; gap: 16px; }
+  .ar-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .ar-top h2 { margin: 0; font-size: 18px; font-weight: 600; }
+  .ar-top .check { font-size: 13px; color: var(--ink-2); }
+  .ar-list { display: grid; gap: 14px; max-height: 55vh; overflow-y: auto; }
+  .ar-group { display: grid; gap: 2px; }
+  .ar-head { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+  .ar-row { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; }
+  .ar-row:hover { background: var(--bg); }
+  .ar-row input { margin: 0; width: 16px; height: 16px; accent-color: var(--accent); }
+  .ar-row span { overflow-wrap: anywhere; }
+  .tr-note { margin: -6px 0 0; font-size: 13px; color: var(--ink-2); }
+  .tr-row .btn:disabled { opacity: .45; cursor: default; }
+
+  /* in-page confirmation, replaces the browser's confirm() */
+  dialog.ask { width: min(400px, calc(100vw - 32px)); }
+  .ask h2 { margin: 0; font-size: 17px; font-weight: 600; }
+  .ask-text { margin: -6px 0 0; color: var(--ink-2); line-height: 1.5; }
+  .btn.danger-solid { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn.danger-solid:hover { background: #c23c5c; }
+  .tr-row {
+    display: grid; grid-template-columns: 10px 1fr auto auto; gap: 12px; align-items: center;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px;
+  }
+  .tr-name { font-weight: 600; overflow-wrap: anywhere; }
+  .tr-row .t-btn { font-size: 18px; font-weight: 400; }
+  .tr-row .t-btn:hover { color: var(--danger); }
+
+  @media (max-width: 720px) {
+    .ccol { width: 82vw; }
+    .cboard { scroll-snap-type: x mandatory; }
+    .ccol { scroll-snap-align: start; }
+  }
+
+  @media (max-width: 720px) {
+    :root { --label-w: 72px; --day-w: 30px; }
+    .topbar { padding: 12px 16px; gap: 14px; }
+    .brand span { display: none; }
+    .tab { padding: 6px 12px; }
+    main { padding: 20px 16px; }
+    .label .flag { display: none; }
+    .mk-row { grid-template-columns: 44px 20px 1fr 1fr 24px; gap: 6px; padding: 6px 4px; }
+    .label, .corner { padding: 0 10px; justify-content: center; }
+    .corner { font-size: 0; }
+    .range { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><div class="brand-mark"></div><span>Planner</span></div>
+  <nav class="tabs" aria-label="Sections">
+    <button class="tab" disabled title="Coming soon">Calendar</button>
+    <button class="tab" data-view="campaigns">Campaigns</button>
+    <button class="tab" data-view="timeline" aria-current="page">Timeline</button>
+  </nav>
+</header>
+
+<main>
+<section class="view" id="view-campaigns" hidden>
+  <div class="toolbar">
+    <div>
+      <h1>Campaigns</h1>
+      <p class="sub">Every campaign with its status and to-dos.</p>
+    </div>
+    <div class="controls">
+      <button class="btn primary add-campaign">+ New campaign</button>
+    </div>
+  </div>
+  <div class="viewbar">
+    <div class="filter dest-filter">
+      <span class="filter-label">Destination</span>
+    </div>
+    <div class="board-tools">
+      <button class="link" id="reset-order" hidden>Reset order</button>
+      <button class="toggle" id="show-ended" aria-pressed="false">Show ended</button>
+      <div class="zoom" id="density" role="group" aria-label="Board density">
+        <button data-dense="0" aria-pressed="true">Detailed</button>
+        <button data-dense="1" aria-pressed="false">Compact</button>
+      </div>
+      <button class="link subtle" id="open-archive">Archive</button>
+      <button class="link subtle" id="open-trash">Trash</button>
+    </div>
+  </div>
+  <div class="board-wrap">
+    <div class="park" id="park" hidden></div>
+    <div class="cboard" id="cboard"></div>
+  </div>
+  <div class="hscroll" id="hscroll" hidden><div class="hscroll-thumb" id="hscroll-thumb"></div></div>
+</section>
+
+<section class="view" id="view-timeline">
+  <div class="toolbar">
+    <div>
+      <h1>Campaign timeline</h1>
+      <p class="sub">Which campaigns are running, where, and for how long.</p>
+    </div>
+    <div class="controls">
+      <button class="btn icon" id="prev" aria-label="Previous month">‹</button>
+      <div class="range" id="range"></div>
+      <button class="btn icon" id="next" aria-label="Next month">›</button>
+      <button class="btn" id="today">Today</button>
+      <button class="btn primary add-campaign">+ New campaign</button>
+    </div>
+  </div>
+
+  <div class="viewbar">
+    <div class="filter dest-filter">
+      <span class="filter-label">Destination</span>
+    </div>
+    <div class="zoom" id="zoom" role="group" aria-label="Zoom">
+      <button data-months="3" aria-pressed="true">3 months</button>
+      <button data-months="6" aria-pressed="false">6 months</button>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="scroller" id="scroller">
+      <div class="tl" id="tl"></div>
+    </div>
+  </div>
+  <p class="hint">Drag across a row to add a campaign. Click a campaign to edit it.</p>
+
+  <section class="upcoming">
+    <h2>Coming up <span>· next 30 days</span></h2>
+    <ul class="up-list" id="upcoming"></ul>
+  </section>
+</section>
+</main>
+
+<dialog id="task-dlg">
+  <form id="task-form" novalidate>
+    <div class="td-top">
+      <input type="checkbox" class="t-check" id="td-done" aria-label="Done">
+      <input class="td-name" id="td-name" placeholder="Task name" autocomplete="off">
+      <button type="button" class="t-btn t-urgent" id="td-urgent" title="Mark as urgent">!</button>
+    </div>
+    <label class="field">Campaign <select id="td-campaign"></select></label>
+    <div class="field">Due
+      <div class="td-due">
+        <input type="date" id="td-due">
+        <div class="td-quick">
+          <button type="button" data-days="0">Today</button>
+          <button type="button" data-days="1">Tomorrow</button>
+          <button type="button" data-days="7">Next week</button>
+          <button type="button" data-days="">Clear</button>
+        </div>
+      </div>
+    </div>
+    <fieldset aria-label="Markets">
+      <div class="fs-head">
+        <span>Markets <span class="opt">optional</span></span>
+        <label class="switch" title="Show the markets on the task card">
+          <input type="checkbox" id="td-segs-show">
+          <span class="s-hide">Hide</span><span class="knob"></span><span class="s-show">Show</span>
+        </label>
+      </div>
+      <div class="chips" id="td-segs"></div>
+    </fieldset>
+    <div class="field">Description
+      <div class="td-desc-view" id="td-desc-view" title="Click to edit"></div>
+      <textarea id="td-desc" rows="3" placeholder="Notes, links…"></textarea>
+    </div>
+    <fieldset>
+      <legend>Subtasks <span class="opt" id="td-sub-count"></span></legend>
+      <ul class="subs" id="td-subs"></ul>
+      <input class="sub-add" id="td-sub-add" placeholder="+ Add subtask" autocomplete="off">
+    </fieldset>
+    <p class="td-meta" id="td-meta"></p>
+    <p class="err" id="td-err"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="td-del">Delete</button>
+      <button type="button" class="btn" id="td-archive">Archive</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="td-cancel">Cancel</button>
+      <button type="submit" class="btn primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="ask-dlg" class="ask">
+  <form method="dialog">
+    <h2 id="ask-title"></h2>
+    <p class="ask-text" id="ask-text"></p>
+    <div class="actions">
+      <span class="spacer"></span>
+      <button value="no" class="btn">Cancel</button>
+      <button value="yes" class="btn danger-solid" id="ask-ok">Delete</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="trash-dlg">
+  <div class="ar-wrap">
+    <div class="ar-top">
+      <h2>Trash</h2>
+      <div class="zoom" id="tr-tabs" role="group" aria-label="Trash contents">
+        <button data-tab="campaign" aria-pressed="true">Campaigns</button>
+        <button data-tab="task" aria-pressed="false">Tasks</button>
+      </div>
+    </div>
+    <p class="tr-note" id="tr-note"></p>
+    <div class="ar-list" id="tr-list"></div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="tr-empty">Empty trash</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="tr-close">Close</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="archive-dlg" class="archive">
+  <div class="ar-wrap">
+    <div class="ar-top">
+      <h2>Archived tasks</h2>
+      <label class="check" id="ar-all-wrap"><input type="checkbox" id="ar-all"> Select all</label>
+    </div>
+    <div class="ar-list" id="ar-list"></div>
+    <div class="actions">
+      <button type="button" class="btn danger" id="ar-del-all">Delete all</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="ar-close">Close</button>
+      <button type="button" class="btn primary" id="ar-del-sel" disabled>Delete selected</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlg">
+  <form id="form" novalidate>
+    <h2 id="dlg-title">New campaign</h2>
+    <label class="field">Campaign name
+      <input name="name" autocomplete="off" placeholder="e.g. Black Friday">
+    </label>
+    <fieldset>
+      <legend>Segments</legend>
+      <div class="chips" id="seg-chips"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Destination</legend>
+      <div class="chips" id="dest-chips"></div>
+    </fieldset>
+    <div class="two">
+      <label class="field">Starts <input type="date" name="start"></label>
+      <label class="field">Ends <input type="date" name="end"></label>
+    </div>
+    <div class="markets" id="markets" hidden>
+      <button type="button" class="link"></button>
+      <div class="mk-list" hidden></div>
+    </div>
+    <div class="lg-box" id="lg-box">
+      <label class="check"><input type="checkbox" id="lg-on"> Has lead gen</label>
+      <div class="lg-body" id="lg-body" hidden>
+        <fieldset>
+          <legend>Lead gen markets</legend>
+          <div class="chips" id="lg-chips"></div>
+        </fieldset>
+        <div class="two">
+          <label class="field">Lead gen starts <input type="date" id="lg-start"></label>
+          <label class="field">Lead gen ends <input type="date" id="lg-end"></label>
+        </div>
+        <div class="markets" id="lg-markets" hidden>
+          <button type="button" class="link"></button>
+          <div class="mk-list" hidden></div>
+        </div>
+        <p class="warn" id="lg-warn"></p>
+      </div>
+    </div>
+    <fieldset>
+      <legend>Color</legend>
+      <div class="swatches" id="swatches"></div>
+      <div class="cw" id="cw" hidden>
+        <div class="cw-wheel" id="cw-wheel"><canvas id="cw-canvas"></canvas><div class="cw-marker" id="cw-marker"></div></div>
+        <div class="cw-side">
+          <label class="field">Brightness <input type="range" id="cw-v" min="0" max="100"></label>
+          <label class="field">Hex <input class="cw-hex" id="cw-hex" maxlength="7" spellcheck="false" autocomplete="off"></label>
+          <div class="cw-preview" id="cw-preview">Campaign</div>
+          <div class="cw-actions">
+            <button type="button" class="btn" id="cw-cancel">Cancel</button>
+            <button type="button" class="btn primary" id="cw-ok">Add color</button>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+    <p class="err" id="err"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="del">Delete</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="cancel">Cancel</button>
+      <button type="submit" class="btn primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const SEGMENTS = [
+  { id: 'us',    code: 'US',    flag: '🇺🇸', name: 'United States' },
+  { id: 'ca-en', code: 'CA·EN', flag: '🇨🇦', name: 'Canada · English' },
+  { id: 'ca-fr', code: 'CA·FR', flag: '🇨🇦', name: 'Canada · French' },
+  { id: 'mx',    code: 'MX',    flag: '🇲🇽', name: 'Mexico' },
+  { id: 'br',    code: 'BR',    flag: '🇧🇷', name: 'Brazil' },
+];
+const DESTS = [
+  { id: 'dtc',     name: 'DTC' },
+  { id: 'sephora', name: 'Sephora' },
+];
+const COLORS = ['lavender', 'sky', 'mint', 'peach', 'rose', 'butter'];
+const LANE_H = 36, ROW_PAD = 10;
+const STORE = 'planner.timeline.v1';
+
+// ---------- dates (local, day precision, stored as YYYY-MM-DD) ----------
+const pad = n => String(n).padStart(2, '0');
+const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fromISO = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const diffDays = (a, b) => Math.round((b - a) / 864e5);
+const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const now = new Date();
+const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+const cssPx = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- colors: a preset name ('mint') or a custom hex ('#e4572e') ----------
+function customVars(hex) {
+  const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+  const mix = (to, t) => `rgb(${rgb.map(v => Math.round(v + (to - v) * t)).join(',')})`;
+  return `--c-bg:${mix(255, .82)};--c-edge:${hex};--c-ink:${mix(0, .6)}`;
+}
+const paint = color => color.startsWith('#') ? { cls: '', style: customVars(color) } : { cls: `c-${color}`, style: '' };
+const destNames = ids => DESTS.filter(d => ids.includes(d.id)).map(d => d.name).join(' + ');
+
+// ---------- data ----------
+// fills in fields added over time, so tasks saved by older versions keep working
+const normTask = t => ({
+  id: uid(), text: '', done: false, urgent: false, archived: false,
+  due: '', desc: '', segments: [], showSegs: true, subtasks: [], createdAt: Date.now(), ...t,
+});
+function seed() {
+  // lg: [startOffset, endOffset] of a lead gen across all the campaign's markets
+  const c = (name, segments, destinations, a, b, color, lg, tasks = []) => ({
+    id: uid(), name, segments, destinations, start: toISO(addDays(today, a)), end: toISO(addDays(today, b)), color,
+    leadgen: lg ? { segments, start: toISO(addDays(today, lg[0])), end: toISO(addDays(today, lg[1])), overrides: {} } : null,
+    tasks: tasks.map(t => normTask(typeof t === 'string' ? { text: t } : t)),
+  });
+  return [
+    c('Fall Refresh', ['us', 'ca-en'], ['dtc', 'sephora'], -12, 9, 'lavender'),
+    c('Influencer Push', ['us'], ['dtc'], 3, 17, 'butter'),
+    c('La Rentrée', ['ca-fr'], ['sephora'], -18, 4, 'sky'),
+    c('Brand Awareness Q4', ['br'], ['dtc'], -5, 40, 'mint'),
+    c('Día de Muertos', ['mx'], ['sephora'], 10, 33, 'peach'),
+    c('Holiday Gift Guide', ['us', 'ca-en', 'ca-fr'], ['dtc', 'sephora'], 28, 70, 'rose', [21, 27], [
+      { text: 'Brief the agency', due: toISO(addDays(today, 1)), desc: 'Brief template: https://example.com/brief' },
+      { text: 'Approve creatives', due: toISO(addDays(today, 10)), subtasks: [
+        { id: uid(), text: 'US banners', done: true }, { id: uid(), text: 'CA·FR banners', done: false },
+      ] },
+      { text: 'Set up lead gen form', segments: ['us'] },
+    ]),
+    c('Black Friday', ['br', 'mx'], ['dtc'], 52, 62, 'butter', [45, 51]),
+  ];
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(STORE);
+    // campaigns saved before Destination existed count as both, so no filter hides them
+    if (raw) {
+      return JSON.parse(raw).map(c => ({ destinations: DESTS.map(d => d.id), ...c, tasks: (c.tasks || []).map(normTask) }));
+    }
+  } catch (e) {}
+  return seed();
+}
+function save() {
+  try { localStorage.setItem(STORE, JSON.stringify(campaigns)); } catch (e) {}
+}
+
+let campaigns = load();
+// deleted campaigns: [{ c: the whole campaign incl. tasks, at: deletedAt, pos: its index in the board order }]
+const TRASH_STORE = 'planner.trash.v1';
+let trash = (() => { try { return JSON.parse(localStorage.getItem(TRASH_STORE)) || []; } catch (e) { return []; } })();
+function saveTrash() {
+  try { localStorage.setItem(TRASH_STORE, JSON.stringify(trash)); } catch (e) {}
+}
+// items without a type predate task trash and are campaigns
+const isTaskItem = x => x.type === 'task';
+// a deleted task remembers its campaign so Restore can put it back there
+const trashTask = (t, c) => trash.unshift({ type: 'task', t, cid: c.id, cname: c.name, color: c.color, at: Date.now() });
+
+// site-styled confirmation; resolves true only when the user picks the action button
+function ask({ title, text, ok = 'Delete' }) {
+  const d = document.getElementById('ask-dlg');
+  document.getElementById('ask-title').textContent = title;
+  document.getElementById('ask-text').textContent = text;
+  document.getElementById('ask-ok').textContent = ok;
+  d.returnValue = '';
+  d.showModal();
+  return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'yes'), { once: true }));
+}
+let viewStart = new Date(today.getFullYear(), today.getMonth(), 1);
+let monthsShown = 3;
+const destFilter = new Set(DESTS.map(d => d.id));
+const viewEnd = () => new Date(viewStart.getFullYear(), viewStart.getMonth() + monthsShown, 0);
+const isShown = c => c.destinations.some(d => destFilter.has(d));
+// a market's own dates if it was moved, otherwise the campaign's
+const datesIn = (c, seg) => c.overrides?.[seg] || c;
+// same for the lead gen; null if this market has no lead gen
+const lgIn = (c, seg) =>
+  c.leadgen?.segments.includes(seg) && c.segments.includes(seg) ? c.leadgen.overrides?.[seg] || c.leadgen : null;
+// earliest start to latest end across markets, for the "Coming up" list
+function spanOf(ds) {
+  if (!ds.length) return null;
+  return { start: ds.map(d => d.start).sort()[0], end: ds.map(d => d.end).sort().pop() };
+}
+// campaign span, lead gen span (or null) and the earliest of the two starts
+function timing(c) {
+  const sp = spanOf(c.segments.map(s => datesIn(c, s)));
+  const lg = spanOf(c.segments.map(s => lgIn(c, s)).filter(Boolean));
+  return { sp, lg, first: lg && lg.start < sp.start ? lg.start : sp.start };
+}
+// status pills shared by "Coming up" and the Campaigns board
+// one pill for a date range: green while live, yellow before it starts, red once it has ended.
+// kind: '' for the campaign alone, otherwise 'Lead gen' / 'Campaign' to tell the two apart
+function statusPill(span, kind = '') {
+  const t = toISO(today);
+  if (span.end < t) return `<span class="status ended">${kind ? `${kind} ended` : 'Ended'} ${fmt(fromISO(span.end))}</span>`;
+  const live = span.start <= t;
+  const n = diffDays(today, fromISO(live ? span.end : span.start));
+  return live
+    ? `<span class="status live">${kind ? `${kind} live` : 'Live'} · ${n === 0 ? 'ends today' : `ends in ${n}d`}</span>`
+    : `<span class="status soon">${kind ? `${kind} starts` : 'Starts'} ${n === 1 ? 'tomorrow' : `in ${n}d`}</span>`;
+}
+// status pills shared by "Coming up" and the Campaigns board. When markets are in different states
+// (moved dates), there's one line per group of markets that share the same pill.
+// The lead gen is only shown where asked (Timeline's "Coming up"); the Campaigns tab leaves it out.
+function statusHTML(c, withLeadgen = false) {
+  const t = toISO(today), { lg } = timing(c);
+  const showLg = withLeadgen && lg && lg.end >= t;
+  const kind = showLg ? 'Campaign' : '';
+  const groups = new Map(); // pill html -> market codes
+  for (const s of SEGMENTS.filter(x => c.segments.includes(x.id))) {
+    const pill = statusPill(datesIn(c, s.id), kind);
+    groups.set(pill, [...(groups.get(pill) || []), s.code]);
+  }
+  const lines = groups.size === 1
+    ? [...groups.keys()]
+    : [...groups].map(([pill, codes]) => `<span class="st-line">${pill}<span class="st-mk">${codes.join(' · ')}</span></span>`);
+  return `<span class="statuses">${showLg ? statusPill(lg, 'Lead gen') : ''}${lines.join('')}</span>`;
+}
+
+// ---------- render ----------
+const tl = document.getElementById('tl');
+const scroller = document.getElementById('scroller');
+
+// 3 months: fixed day width with horizontal scroll. 6 months: squeeze the whole range into the board.
+function dayW() {
+  // 3 months: at least the base width (scrolls on small screens), wider days fill a big monitor
+  if (monthsShown === 3) {
+    const fit = (scroller.clientWidth - cssPx('--label-w')) / (diffDays(viewStart, viewEnd()) + 1);
+    return Math.max(cssPx('--day-w'), Math.floor(fit * 100) / 100);
+  }
+  const days = diffDays(viewStart, viewEnd()) + 1;
+  return Math.max(4, Math.floor((scroller.clientWidth - cssPx('--label-w')) / days * 100) / 100);
+}
+
+function lanesFor(segId, vs, ve) {
+  const list = campaigns
+    .filter(c => isShown(c) && c.segments.includes(segId))
+    .map(c => {
+      const d = datesIn(c, segId), lg = lgIn(c, segId);
+      // the lead gen shares its campaign's lane, so lanes are assigned on the combined span
+      return { c, d, lg, start: spanOf([d, lg].filter(Boolean)).start, end: spanOf([d, lg].filter(Boolean)).end };
+    })
+    .filter(x => fromISO(x.end) >= vs && fromISO(x.start) <= ve)
+    .sort((a, b) => a.start.localeCompare(b.start) || b.end.localeCompare(a.end));
+  const laneEnds = [];
+  return list.map(x => {
+    let lane = laneEnds.findIndex(end => end < x.start);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = x.end;
+    return { ...x, lane };
+  });
+}
+
+function render() {
+  const vs = viewStart, ve = viewEnd();
+  const days = diffDays(vs, ve) + 1;
+  const w = dayW();
+  const compact = monthsShown === 6;
+  tl.style.setProperty('--days', days);
+  tl.style.setProperty('--day-w', `${w}px`);
+  tl.classList.toggle('compact', compact);
+
+  const a = vs.toLocaleDateString('en-US', { month: 'short' });
+  const b = ve.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  document.getElementById('range').textContent =
+    vs.getFullYear() === ve.getFullYear() ? `${a} – ${b}` : `${a} ${vs.getFullYear()} – ${b}`;
+
+  let months = '', dayCells = '', cols = '';
+  for (let m = 0; m < monthsShown; m++) {
+    const first = new Date(vs.getFullYear(), vs.getMonth() + m, 1);
+    const n = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    months += `<div class="month" style="width:${n * w}px">${first.toLocaleDateString('en-US', { month: compact ? 'short' : 'long' })} <span>${first.getFullYear()}</span></div>`;
+  }
+  for (let i = 0; i < days; i++) {
+    const d = addDays(vs, i);
+    const wk = d.getDay() === 0 || d.getDay() === 6;
+    const mon = d.getDay() === 1 ? ' mon' : '';
+    const isToday = diffDays(d, today) === 0;
+    dayCells += `<div class="day${wk ? ' weekend' : ''}${mon}${isToday ? ' today' : ''}"><small>${'SMTWTFS'[d.getDay()]}</small><b>${d.getDate()}</b></div>`;
+    cols += `<div class="col${wk ? ' weekend' : ''}${mon}${d.getDate() === 1 && i > 0 ? ' month-start' : ''}"></div>`;
+  }
+
+  const bar = (c, d, lane, isLg) => {
+    const s = diffDays(vs, fromISO(d.start)), e = diffDays(vs, fromISO(d.end));
+    if (e < 0 || s > days - 1) return '';
+    const from = Math.max(0, s), to = Math.min(days - 1, e);
+    const p = paint(c.color);
+    const moved = d !== (isLg ? c.leadgen : c);
+    const cls = `bar${isLg ? ' lg' : ''} ${p.cls}${moved ? ' moved' : ''}${s < 0 ? ' cut-left' : ''}${e > days - 1 ? ' cut-right' : ''}`;
+    const dates = `${fmt(fromISO(d.start))} – ${fmt(fromISO(d.end))}`;
+    const dest = destNames(c.destinations);
+    const title = `${isLg ? 'Lead gen · ' : ''}${esc(c.name)} · ${dest} · ${dates}${moved ? ' · moved for this market' : ''}`;
+    const text = isLg
+      ? `<span class="bar-name">Lead gen</span><span class="bar-dates">${dates}</span>`
+      : `<span class="bar-name">${esc(c.name)}</span><span class="bar-dest">${dest}</span><span class="bar-dates">${dates}</span>`;
+    return `<button class="${cls}" data-id="${c.id}"${isLg ? ' data-lg="1"' : ''} title="${title}"
+      style="${p.style};left:${from * w + 2}px;width:${Math.max(4, (to - from + 1) * w - 4)}px;top:${ROW_PAD / 2 + lane * LANE_H + 4}px">
+      <span class="bar-text">${text}</span></button>`;
+  };
+
+  let rows = '';
+  for (const seg of SEGMENTS) {
+    const placed = lanesFor(seg.id, vs, ve);
+    const lanes = Math.max(1, ...placed.map(p => p.lane + 1));
+    let bars = '';
+    for (const { c, d, lg, lane } of placed) {
+      if (lg) bars += bar(c, lg, lane, true);
+      bars += bar(c, d, lane, false);
+    }
+    rows += `<div class="row">
+      <div class="label" title="${seg.name}"><span class="code">${seg.code}</span><span class="flag">${seg.flag}</span></div>
+      <div class="track" data-seg="${seg.id}" style="height:${lanes * LANE_H + ROW_PAD}px">${bars}</div>
+    </div>`;
+  }
+
+  const ti = diffDays(vs, today);
+  const todayLine = ti >= 0 && ti < days
+    ? `<div class="today-line" style="left:calc(var(--label-w) + ${ti * w + w / 2}px)"></div>` : '';
+
+  tl.innerHTML = `
+    <div class="tl-head">
+      <div class="corner">Segments</div>
+      <div><div class="months">${months}</div><div class="days">${dayCells}</div></div>
+    </div>
+    <div class="tl-body"><div class="cols">${cols}</div>${todayLine}${rows}</div>`;
+
+  renderUpcoming();
+}
+
+function renderUpcoming() {
+  const horizon = toISO(addDays(today, 30)), t = toISO(today);
+  const list = campaigns
+    .filter(isShown)
+    .map(c => ({ c, ...timing(c) }))
+    .filter(x => x.sp.end >= t && x.first <= horizon)
+    .sort((a, b) => a.first.localeCompare(b.first));
+  const codes = ids => SEGMENTS.filter(s => ids.includes(s.id)).map(s => s.code).join(', ');
+  document.getElementById('upcoming').innerHTML = list.length ? list.map(({ c, sp }) => {
+    const varies = Object.keys(c.overrides || {}).length ? ' · dates vary by market' : '';
+    const status = statusHTML(c, true);
+    const p = paint(c.color);
+    return `<li><button class="up-item ${p.cls}" style="${p.style}" data-id="${c.id}">
+      <span class="dot"></span>
+      <span class="up-main"><div class="up-name">${esc(c.name)}</div>
+      <div class="up-meta">${codes(c.segments)} · ${destNames(c.destinations)} · ${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))}${varies}</div></span>
+      ${status}</button></li>`;
+  }).join('') : '<li class="empty">Nothing scheduled in the next 30 days.</li>';
+}
+
+function scrollToToday() {
+  const ti = diffDays(viewStart, today);
+  scroller.scrollLeft = Math.max(0, (ti - 4) * dayW());
+}
+
+// ---------- drag to create ----------
+let drag = null;
+const idxAt = (e, track) => {
+  const days = diffDays(viewStart, viewEnd()) + 1;
+  const i = Math.floor((e.clientX - track.getBoundingClientRect().left) / dayW());
+  return Math.min(days - 1, Math.max(0, i));
+};
+
+tl.addEventListener('pointerdown', e => {
+  const track = e.target.closest('.track');
+  if (!track || e.target.closest('.bar') || e.button !== 0) return;
+  e.preventDefault();
+  const i = idxAt(e, track);
+  const ghost = document.createElement('div');
+  ghost.className = 'ghost';
+  track.appendChild(ghost);
+  drag = { track, ghost, a: i, b: i };
+  paintGhost();
+});
+window.addEventListener('pointermove', e => {
+  if (!drag) return;
+  drag.b = idxAt(e, drag.track);
+  paintGhost();
+});
+window.addEventListener('pointerup', () => {
+  if (!drag) return;
+  const { track, a, b } = drag;
+  drag = null; // ghost stays visible until the dialog closes and render() rebuilds the rows
+  const from = addDays(viewStart, Math.min(a, b)), to = addDays(viewStart, Math.max(a, b));
+  openDialog(null, { segments: [track.dataset.seg], start: toISO(from), end: toISO(to) });
+});
+function paintGhost() {
+  const w = dayW(), lo = Math.min(drag.a, drag.b), hi = Math.max(drag.a, drag.b);
+  Object.assign(drag.ghost.style, { left: `${lo * w + 2}px`, width: `${(hi - lo + 1) * w - 4}px`, top: `${ROW_PAD / 2 + 4}px` });
+  drag.ghost.textContent = hi - lo + 1 > 2 ? `${hi - lo + 1} days` : '';
+}
+
+// ---------- dialog ----------
+const dlg = document.getElementById('dlg');
+const form = document.getElementById('form');
+const err = document.getElementById('err');
+let editingId = null;
+
+document.getElementById('seg-chips').innerHTML = SEGMENTS.map(s =>
+  `<label class="chip"><input type="checkbox" name="seg" value="${s.id}"><span>${s.name}</span></label>`).join('');
+document.getElementById('dest-chips').innerHTML = DESTS.map(d =>
+  `<label class="chip"><input type="checkbox" name="dest" value="${d.id}"><span>${d.name}</span></label>`).join('');
+
+// presets, then every custom color already used by a campaign, then "+" to pick a new one
+const swatches = document.getElementById('swatches');
+function renderSwatches(selected) {
+  const custom = [...new Set([...campaigns.map(c => c.color), selected])].filter(c => c.startsWith('#'));
+  swatches.innerHTML = [...COLORS, ...custom].map(c => {
+    const p = paint(c);
+    return `<label class="swatch ${p.cls}" style="${p.style}" title="${c}"><input type="radio" name="color" value="${c}"${c === selected ? ' checked' : ''}><span></span></label>`;
+  }).join('') +
+    `<button type="button" class="swatch add" title="Pick a custom color"><span>+</span></button>`;
+}
+swatches.addEventListener('click', e => {
+  if (!e.target.closest('.swatch.add')) return;
+  if (!cw.hidden) return cw.hidden = true;
+  const sel = form.querySelector('[name=color]:checked')?.value || '';
+  openWheel(sel.startsWith('#') ? sel : '#e4572e');
+});
+
+// ---------- color wheel: hue = angle, saturation = distance from center, brightness = slider ----------
+const cw = document.getElementById('cw');
+const cwWheel = document.getElementById('cw-wheel'), cwCanvas = document.getElementById('cw-canvas');
+const cwMarker = document.getElementById('cw-marker'), cwV = document.getElementById('cw-v');
+const cwHex = document.getElementById('cw-hex'), cwPreview = document.getElementById('cw-preview');
+const CW_SIZE = 168;
+let hsv = { h: 0, s: 1, v: 1 };
+
+function hsvToRgb(h, s, v) {
+  const f = n => { const k = (n + h / 60) % 6; return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1)))); };
+  return [f(5), f(3), f(1)];
+}
+const hsvToHex = (h, s, v) => '#' + hsvToRgb(h, s, v).map(x => x.toString(16).padStart(2, '0')).join('');
+function hexToHsv(hex) {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const v = Math.max(r, g, b), d = v - Math.min(r, g, b);
+  const h = d === 0 ? 0 : v === r ? 60 * (((g - b) / d) % 6) : v === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  return { h: (h + 360) % 360, s: v ? d / v : 0, v };
+}
+
+function drawWheel() {
+  const n = Math.round(CW_SIZE * (window.devicePixelRatio || 1)), R = n / 2;
+  cwCanvas.width = cwCanvas.height = n;
+  const ctx = cwCanvas.getContext('2d'), img = ctx.createImageData(n, n);
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const dx = x + .5 - R, dy = y + .5 - R, dist = Math.hypot(dx, dy);
+    const alpha = Math.min(1, R - dist); // 1px soft edge
+    if (alpha <= 0) continue;
+    const [r, g, b] = hsvToRgb((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360, dist / R, hsv.v);
+    const i = (y * n + x) * 4;
+    img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = alpha * 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function updateWheel(fromHexInput) {
+  const hex = hsvToHex(hsv.h, hsv.s, hsv.v), R = CW_SIZE / 2, a = hsv.h * Math.PI / 180;
+  Object.assign(cwMarker.style, { left: `${R + Math.cos(a) * hsv.s * R}px`, top: `${R + Math.sin(a) * hsv.s * R}px`, background: hex });
+  cwV.value = Math.round(hsv.v * 100);
+  cwV.style.background = `linear-gradient(to right, #000, ${hsvToHex(hsv.h, hsv.s, 1)})`;
+  if (!fromHexInput) cwHex.value = hex;
+  cwPreview.setAttribute('style', customVars(hex));
+}
+
+function openWheel(hex) {
+  hsv = hexToHsv(hex);
+  drawWheel();
+  updateWheel();
+  cw.hidden = false;
+}
+
+let picking = false;
+function pickAt(e) {
+  const r = cwWheel.getBoundingClientRect(), R = CW_SIZE / 2;
+  const dx = e.clientX - r.left - R, dy = e.clientY - r.top - R;
+  hsv.h = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+  hsv.s = Math.min(1, Math.hypot(dx, dy) / R);
+  updateWheel();
+}
+cwWheel.addEventListener('pointerdown', e => { picking = true; cwWheel.setPointerCapture(e.pointerId); pickAt(e); });
+cwWheel.addEventListener('pointermove', e => { if (picking) pickAt(e); });
+cwWheel.addEventListener('pointerup', () => picking = false);
+cwV.addEventListener('input', () => { hsv.v = cwV.value / 100; drawWheel(); updateWheel(); });
+cwHex.addEventListener('input', () => {
+  const v = cwHex.value.trim();
+  const hex = (v.startsWith('#') ? v : '#' + v).toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(hex)) return;
+  hsv = hexToHsv(hex);
+  drawWheel();
+  updateWheel(true);
+});
+cwHex.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('cw-ok').click(); } });
+document.getElementById('cw-ok').addEventListener('click', () => {
+  renderSwatches(hsvToHex(hsv.h, hsv.s, hsv.v));
+  cw.hidden = true;
+});
+document.getElementById('cw-cancel').addEventListener('click', () => cw.hidden = true);
+
+// ---------- per-market dates, used for the campaign and for its lead gen ----------
+// `draft` holds only markets whose dates differ from the main dates; the rest follow the main dates.
+function marketEditor(box, getSegs, getMain) {
+  const toggle = box.querySelector('.link'), list = box.querySelector('.mk-list');
+  const ed = { draft: {}, focus: null, list };
+  ed.render = () => {
+    const segs = getSegs(), main = getMain();
+    for (const s in ed.draft) {
+      if (ed.draft[s].start === main.start && ed.draft[s].end === main.end) delete ed.draft[s];
+    }
+    box.hidden = segs.length < 2;
+    const moved = segs.filter(s => ed.draft[s]).length;
+    toggle.textContent = (list.hidden ? 'Adjust dates per market ▸' : 'Dates per market ▾') + (moved ? ` · ${moved} moved` : '');
+    list.innerHTML = SEGMENTS.filter(s => segs.includes(s.id)).map(s => {
+      const d = ed.draft[s.id] || main;
+      return `<div class="mk-row${ed.draft[s.id] ? ' moved' : ''}${s.id === ed.focus ? ' focus' : ''}" data-seg="${s.id}" title="${s.name}">
+        <span class="code">${s.code}</span><span class="flag">${s.flag}</span>
+        <input type="date" value="${d.start}" aria-label="${s.name} start">
+        <input type="date" value="${d.end}" aria-label="${s.name} end">
+        <button type="button" class="mk-reset" title="Back to the main dates"${ed.draft[s.id] ? '' : ' style="visibility:hidden"'}>↺</button>
+      </div>`;
+    }).join('');
+  };
+  // only markets the user moved, limited to the markets still selected
+  ed.overrides = () => Object.fromEntries(getSegs().length > 1 ? getSegs().filter(s => ed.draft[s]).map(s => [s, ed.draft[s]]) : []);
+  toggle.addEventListener('click', () => { list.hidden = !list.hidden; ed.render(); });
+  list.addEventListener('change', e => {
+    const row = e.target.closest('.mk-row');
+    const [start, end] = [...row.querySelectorAll('input')].map(i => i.value);
+    ed.draft[row.dataset.seg] = { start, end };
+    box.dispatchEvent(new Event('markets-changed'));
+    ed.render();
+  });
+  list.addEventListener('click', e => {
+    if (!e.target.closest('.mk-reset')) return;
+    delete ed.draft[e.target.closest('.mk-row').dataset.seg];
+    box.dispatchEvent(new Event('markets-changed'));
+    ed.render();
+  });
+  return ed;
+}
+const checkedSegs = () => [...form.querySelectorAll('[name=seg]:checked')].map(i => i.value);
+const mainEd = marketEditor(document.getElementById('markets'), checkedSegs, () => ({ start: form.start.value, end: form.end.value }));
+
+// ---------- lead gen ----------
+const lgOn = document.getElementById('lg-on'), lgBody = document.getElementById('lg-body');
+const lgStart = document.getElementById('lg-start'), lgEnd = document.getElementById('lg-end');
+const lgChips = document.getElementById('lg-chips'), lgWarn = document.getElementById('lg-warn');
+let lgExcluded = new Set(); // campaign markets unticked for the lead gen; new campaign markets get it by default
+const lgSegs = () => checkedSegs().filter(s => !lgExcluded.has(s));
+const lgEd = marketEditor(document.getElementById('lg-markets'), lgSegs, () => ({ start: lgStart.value, end: lgEnd.value }));
+
+function renderLeadgen() {
+  lgBody.hidden = !lgOn.checked;
+  lgChips.innerHTML = SEGMENTS.filter(s => checkedSegs().includes(s.id)).map(s =>
+    `<label class="chip"><input type="checkbox" value="${s.id}"${lgExcluded.has(s.id) ? '' : ' checked'}><span>${s.name}</span></label>`).join('')
+    || '<span class="empty">Pick the campaign segments first.</span>';
+  lgEd.render();
+  // a lead gen normally ends before its campaign starts; overlapping is allowed but flagged
+  const overlap = lgOn.checked ? lgSegs().filter(s => {
+    const lg = lgEd.draft[s] || { start: lgStart.value, end: lgEnd.value };
+    const camp = mainEd.draft[s] || { start: form.start.value, end: form.end.value };
+    return lg.end && camp.start && lg.end >= camp.start;
+  }) : [];
+  lgWarn.textContent = overlap.length
+    ? `Lead gen overlaps the campaign in ${SEGMENTS.filter(s => overlap.includes(s.id)).map(s => s.code).join(', ')}.` : '';
+}
+const isoShift = (iso, n) => toISO(addDays(fromISO(iso), n));
+lgOn.addEventListener('change', () => {
+  // default: 7 days ending the day before the campaign starts (per market if the campaign moved there)
+  if (lgOn.checked && !lgStart.value && form.start.value) {
+    lgEnd.value = isoShift(form.start.value, -1);
+    lgStart.value = isoShift(form.start.value, -7);
+    for (const [s, d] of Object.entries(mainEd.draft)) lgEd.draft[s] = { start: isoShift(d.start, -7), end: isoShift(d.start, -1) };
+  }
+  renderLeadgen();
+});
+lgChips.addEventListener('change', e => {
+  if (e.target.checked) lgExcluded.delete(e.target.value); else lgExcluded.add(e.target.value);
+  renderLeadgen();
+});
+for (const el of [lgStart, lgEnd]) el.addEventListener('change', renderLeadgen);
+document.getElementById('lg-markets').addEventListener('markets-changed', renderLeadgen);
+document.getElementById('markets').addEventListener('markets-changed', renderLeadgen);
+
+// campaign dates or segments changed: markets that weren't moved follow, lead gen markets follow the segments
+for (const el of [form.start, form.end, document.getElementById('seg-chips')]) {
+  el.addEventListener('change', () => { mainEd.render(); renderLeadgen(); });
+}
+
+function openDialog(id, preset, seg = null, fromLg = false) {
+  editingId = id;
+  const c = id ? campaigns.find(x => x.id === id) : {
+    name: '', segments: [], destinations: [...destFilter], start: toISO(today), end: toISO(addDays(today, 6)),
+    color: COLORS[campaigns.length % COLORS.length], ...preset,
+  };
+  document.getElementById('dlg-title').textContent = id ? 'Edit campaign' : 'New campaign';
+  document.getElementById('del').hidden = !id;
+  form.name.value = c.name;
+  form.start.value = c.start;
+  form.end.value = c.end;
+  form.querySelectorAll('[name=seg]').forEach(i => i.checked = c.segments.includes(i.value));
+  form.querySelectorAll('[name=dest]').forEach(i => i.checked = c.destinations.includes(i.value));
+  renderSwatches(c.color);
+  cw.hidden = true;
+  const copy = o => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [k, { ...v }]));
+  // opened from a bar → show that market's dates (the campaign's or the lead gen's)
+  mainEd.draft = copy(c.overrides);
+  mainEd.focus = !fromLg && c.segments.length > 1 ? seg : null;
+  mainEd.list.hidden = !mainEd.focus && !Object.keys(mainEd.draft).length;
+  mainEd.render();
+
+  const lg = c.leadgen;
+  lgOn.checked = !!lg;
+  lgStart.value = lg?.start || '';
+  lgEnd.value = lg?.end || '';
+  lgExcluded = new Set(lg ? c.segments.filter(s => !lg.segments.includes(s)) : []);
+  lgEd.draft = copy(lg?.overrides);
+  lgEd.focus = fromLg ? seg : null;
+  lgEd.list.hidden = !lgEd.focus && !Object.keys(lgEd.draft).length;
+  renderLeadgen();
+
+  err.textContent = '';
+  dlg.showModal();
+  if (fromLg) document.getElementById('lg-box').scrollIntoView({ block: 'center' });
+  else if (!id) form.name.focus();
+}
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const data = {
+    name: form.name.value.trim(),
+    segments: [...form.querySelectorAll('[name=seg]:checked')].map(i => i.value),
+    destinations: [...form.querySelectorAll('[name=dest]:checked')].map(i => i.value),
+    start: form.start.value,
+    end: form.end.value,
+    color: form.querySelector('[name=color]:checked')?.value || COLORS[0],
+  };
+  if (!data.name) return err.textContent = 'Give the campaign a name.';
+  if (!data.segments.length) return err.textContent = 'Pick at least one segment.';
+  if (!data.destinations.length) return err.textContent = 'Pick DTC, Sephora, or both.';
+  if (!data.start || !data.end) return err.textContent = 'Set both dates.';
+  if (data.end < data.start) return err.textContent = 'The end date is before the start date.';
+  const badMarket = (overrides, what) => {
+    for (const [s, d] of Object.entries(overrides)) {
+      const name = SEGMENTS.find(x => x.id === s).name;
+      if (!d.start || !d.end) return `Set both ${what} dates for ${name}.`;
+      if (d.end < d.start) return `${name}: the ${what} end date is before the start date.`;
+    }
+  };
+  data.overrides = mainEd.overrides();
+  const bad = badMarket(data.overrides, 'campaign');
+  if (bad) return err.textContent = bad;
+  data.leadgen = null;
+  if (lgOn.checked) {
+    const lg = { segments: lgSegs(), start: lgStart.value, end: lgEnd.value, overrides: lgEd.overrides() };
+    if (!lg.segments.length) return err.textContent = 'Pick at least one lead gen market.';
+    if (!lg.start || !lg.end) return err.textContent = 'Set both lead gen dates.';
+    if (lg.end < lg.start) return err.textContent = 'The lead gen end date is before its start date.';
+    const badLg = badMarket(lg.overrides, 'lead gen');
+    if (badLg) return err.textContent = badLg;
+    data.leadgen = lg;
+  }
+  if (editingId) Object.assign(campaigns.find(x => x.id === editingId), data);
+  else {
+    const c = { id: uid(), tasks: [], ...data };
+    campaigns.push(c);
+    if (colOrder.length) placeColumn(c); // with a hand-made order, slot it in by date instead of at the end
+  }
+  save();
+  dlg.close();
+});
+document.getElementById('del').addEventListener('click', () => {
+  // goes to Trash with its tasks, remembering its slot on the board, so a slip is one click to undo
+  const c = campaigns.find(x => x.id === editingId);
+  trash.unshift({ c, at: Date.now(), pos: colOrder.indexOf(c.id) });
+  campaigns = campaigns.filter(x => x.id !== editingId);
+  colOrder = colOrder.filter(id => id !== editingId);
+  save();
+  saveOrder();
+  saveTrash();
+  dlg.close();
+});
+document.getElementById('cancel').addEventListener('click', () => dlg.close());
+dlg.addEventListener('close', () => renderAll());
+
+// ---------- campaigns board ----------
+const ORDER_STORE = 'planner.colorder.v1';
+let colOrder = (() => { try { return JSON.parse(localStorage.getItem(ORDER_STORE)) || []; } catch (e) { return []; } })();
+function saveOrder() {
+  try { localStorage.setItem(ORDER_STORE, JSON.stringify(colOrder)); } catch (e) {}
+}
+let showEnded = false;
+const DENSE_STORE = 'planner.dense.v1';
+let dense = (() => { try { return localStorage.getItem(DENSE_STORE) === '1'; } catch (e) { return false; } })();
+const cboard = document.getElementById('cboard');
+const isEnded = c => timing(c).sp.end < toISO(today);
+const park = document.getElementById('park');
+// park: arrow into the left wall; unpark: arrow back out of it
+const PARK_ICON = `<svg viewBox="0 0 14 12" width="13" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1v10M13 6H4.5M8 2.5L4.5 6 8 9.5"/></svg>`;
+const UNPARK_ICON = `<svg viewBox="0 0 14 12" width="13" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1v10M4.5 6H13M9.5 2.5L13 6 9.5 9.5"/></svg>`;
+const marketChips = c => SEGMENTS.filter(s => c.segments.includes(s.id))
+  .map(s => `<span class="mini" title="${s.name}"><span class="flag">${s.flag}</span>${s.code}</span>`).join('');
+const ARCHIVE_ICON = `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="3.5" rx="1"/><path d="M2.5 6v6.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V6M6.5 9h3"/></svg>`;
+
+// running/upcoming campaigns: the user's drag order if there is one; campaigns not in it go after, by date
+function activeOrder() {
+  const rank = id => { const i = colOrder.indexOf(id); return i === -1 ? Infinity : i; };
+  return campaigns
+    .filter(c => !isEnded(c))
+    .sort((a, b) => timing(a).first.localeCompare(timing(b).first))
+    .map((c, i) => ({ c, i, r: rank(c.id) }))
+    .sort((a, b) => (a.r === b.r ? a.i - b.i : a.r < b.r ? -1 : 1))
+    .map(x => x.c);
+}
+// put a campaign into the hand-made order before the first column that starts later than it
+function placeColumn(c) {
+  const first = timing(c).first;
+  const ids = activeOrder().map(x => x.id).filter(id => id !== c.id);
+  const at = ids.findIndex(id => timing(campaigns.find(x => x.id === id)).first > first);
+  ids.splice(at === -1 ? ids.length : at, 0, c.id);
+  colOrder = ids;
+  saveOrder();
+}
+// open tasks in the campaign's own order (see placeTask / drag); done ones at the bottom, last completed lowest
+function orderedTasks(c) {
+  const live = c.tasks.filter(t => !t.archived);
+  return { open: live.filter(t => !t.done), done: live.filter(t => t.done).sort((a, b) => a.doneAt - b.doneAt) };
+}
+// put a task where it belongs: urgent on top, otherwise by due date (no date = last). Dragging can override it later.
+function placeTask(c, t) {
+  const rest = c.tasks.filter(x => x !== t), open = rest.filter(x => !x.done && !x.archived);
+  const anchor = t.urgent ? open[0]
+    : t.due ? open.find(x => !x.urgent && (!x.due || x.due > t.due))
+    : null;
+  rest.splice(anchor ? rest.indexOf(anchor) : rest.length, 0, t);
+  c.tasks = rest;
+}
+
+const HANDLE_ICON = `<svg viewBox="0 0 14 10" width="14" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1 1h12M1 5h12M1 9h12"/></svg>`;
+const DESC_ICON = `<svg viewBox="0 0 14 12" width="13" height="11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 1.5h12M1 6h12M1 10.5h7"/></svg>`;
+
+function dueChip(t) {
+  if (!t.due) return '';
+  const n = diffDays(today, fromISO(t.due));
+  const label = n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : fmt(fromISO(t.due));
+  const cls = t.done ? '' : n < 0 ? ' overdue' : n <= 1 ? ' soon' : '';
+  return `<span class="t-chip due${cls}" title="Due ${fmt(fromISO(t.due))}">${label}</span>`;
+}
+
+function taskHTML(t) {
+  const btn = t.done
+    ? `<button class="t-btn t-archive" title="Archive">${ARCHIVE_ICON}</button>`
+    : `<button class="t-btn t-urgent${t.urgent ? ' on' : ''}" title="${t.urgent ? 'Urgent · click to unmark' : 'Mark as urgent'}">!</button>`;
+  const subsDone = t.subtasks.filter(s => s.done).length;
+  const chips = [
+    dueChip(t),
+    ...SEGMENTS.filter(s => t.showSegs && t.segments.includes(s.id)).map(s => `<span class="t-chip" title="${s.name}"><span class="flag">${s.flag}</span>${s.code}</span>`),
+    t.subtasks.length ? `<span class="t-chip" title="Subtasks">${subsDone}/${t.subtasks.length}</span>` : '',
+    t.desc ? `<span class="t-chip icon" title="Has a description">${DESC_ICON}</span>` : '',
+  ].join('');
+  return `<li class="task${t.done ? ' done' : ''}${t.urgent && !t.done ? ' urgent' : ''}" data-tid="${t.id}">
+    <input type="checkbox" class="t-check"${t.done ? ' checked' : ''} aria-label="Done">
+    <div class="t-main"><span class="t-text">${esc(t.text)}</span>${chips ? `<div class="t-chips">${chips}</div>` : ''}</div>
+    ${btn}
+    <span class="t-handle" title="Drag to move">${HANDLE_ICON}</span></li>`;
+}
+
+function columnHTML(c, ended) {
+  const p = paint(c.color), { sp } = timing(c), { open, done } = orderedTasks(c);
+  const range = x => `${fmt(fromISO(x.start))} – ${fmt(fromISO(x.end))}`;
+  // collapsed header (or the compact board): only the name and the status pills. No lead gen on this tab.
+  const details = c.compact || dense ? '' : `<div class="col-details"><div class="col-details-in"><div class="col-markets">${marketChips(c)}</div>
+      <div class="col-meta">${destNames(c.destinations)} · ${range(sp)}</div></div></div>`;
+  // view-transition-name lets the Detailed/Compact switch and parking morph each column into its new size and place
+  return `<div class="ccol${ended ? ' ended' : ''}${c.compact ? ' compact' : ''} ${p.cls}" style="${p.style};view-transition-name:col-${c.id}" data-id="${c.id}">
+    <div class="col-head" data-id="${c.id}" title="Click to edit${ended ? '' : ' · drag to reorder'}">
+      <div class="col-title"><span class="col-name">${esc(c.name)}</span>
+        ${ended ? '' : `<button class="col-btn col-park" title="Park · done for now">${PARK_ICON}</button>`}
+        <button class="col-btn col-toggle" title="${c.compact ? 'Show details' : 'Hide details'}"><svg viewBox="0 0 12 8" width="11" height="8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6.5l5-5 5 5"/></svg></button></div>
+      ${details}
+      ${statusHTML(c)}
+    </div>
+    <ul class="tasks">
+      ${open.map(taskHTML).join('')}
+      <li class="add-row"><button class="t-add-btn">+ Add task</button></li>
+      ${done.length ? `<li class="done-sep"></li>${done.map(taskHTML).join('')}` : ''}
+    </ul>
+  </div>`;
+}
+
+// parked campaign: a small tile in the rail left of the board, newest at the bottom
+function tileHTML(c) {
+  const p = paint(c.color), open = orderedTasks(c).open.length;
+  return `<div class="tile ${p.cls}" style="${p.style};view-transition-name:col-${c.id}" data-id="${c.id}" title="Click to edit">
+    <div class="tile-top"><span class="tile-name">${esc(c.name)}</span>
+      <button class="col-btn tile-unpark" title="Back to the board">${UNPARK_ICON}</button></div>
+    <div class="tile-meta">${destNames(c.destinations)}</div>
+    <div class="col-markets">${marketChips(c)}</div>
+    ${statusHTML(c)}
+    ${open ? `<div class="tile-tasks">${plural(open, 'task')} left</div>` : ''}
+  </div>`;
+}
+
+function renderBoard() {
+  const active = activeOrder().filter(c => isShown(c) && !c.parked);
+  const parked = campaigns.filter(c => c.parked && !isEnded(c) && isShown(c)).sort((a, b) => a.parked - b.parked);
+  const ended = campaigns.filter(c => isEnded(c) && isShown(c))
+    .sort((a, b) => timing(b).sp.end.localeCompare(timing(a).sp.end));
+  park.hidden = !parked.length;
+  park.innerHTML = parked.length ? `<div class="park-label">Parked</div>${parked.map(tileHTML).join('')}` : '';
+  const cols = [...active.map(c => columnHTML(c, false)), ...(showEnded ? ended.map(c => columnHTML(c, true)) : [])];
+  cboard.innerHTML = cols.join('') || `<p class="col-empty">${parked.length && !ended.length
+    ? 'Every running campaign is parked.'
+    : ended.length
+    ? 'No running or upcoming campaigns. Turn on “Show ended” to see past ones.'
+    : 'No campaigns yet. Create one with “+ New campaign”.'}</p>`;
+  document.getElementById('show-ended').textContent = `Show ended (${ended.length})`;
+  document.getElementById('reset-order').hidden = !colOrder.length;
+  const archived = campaigns.reduce((n, c) => n + c.tasks.filter(t => t.archived).length, 0);
+  document.getElementById('open-archive').textContent = archived ? `Archive (${archived})` : 'Archive';
+  document.getElementById('open-trash').textContent = trash.length ? `Trash (${trash.length})` : 'Trash';
+  cboard.classList.toggle('dense', dense);
+  syncScrollbar();
+}
+const renderAll = () => { render(); renderBoard(); };
+
+// ---------- tasks ----------
+const taskById = (cid, tid) => campaigns.find(c => c.id === cid).tasks.find(t => t.id === tid);
+const taskOf = el => taskById(el.closest('.ccol').dataset.id, el.closest('.task').dataset.tid);
+const campaignOfTask = t => campaigns.find(c => c.tasks.includes(t));
+
+// ---------- motion: tasks glide to their new place; going down they fall and bounce, going up they spring ----------
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SPRING = 'cubic-bezier(.34, 1.4, .6, 1)';
+function settle(el, dx, dy) {
+  if (dy < -2) {
+    el.animate([
+      { transform: `translate(${dx}px, ${dy}px)`, easing: 'cubic-bezier(.55, 0, .9, .5)' },
+      { transform: 'translate(0, 5px)', offset: .72, easing: 'ease-out' },
+      { transform: 'translate(0, -2px)', offset: .87, easing: 'ease-in-out' },
+      { transform: 'none' },
+    ], { duration: 560 });
+  } else {
+    el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 480, easing: SPRING });
+  }
+}
+// FLIP: remember where every task is, change the DOM, then animate each task from its old spot
+function withFlip(update, quick = false) {
+  if (reduceMotion) return update();
+  const before = new Map([...cboard.querySelectorAll('.task[data-tid]')].map(el => [el.dataset.tid, el.getBoundingClientRect()]));
+  update();
+  cboard.querySelectorAll('.task[data-tid]').forEach(el => {
+    if (el.classList.contains('placeholder')) return;
+    const b = before.get(el.dataset.tid), a = el.getBoundingClientRect();
+    if (!b) {
+      if (!quick) el.animate([{ opacity: 0, transform: 'translateY(-16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 460, easing: SPRING });
+      return;
+    }
+    const dx = b.left - a.left, dy = b.top - a.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    if (quick) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
+    else settle(el, dx, dy);
+  });
+}
+const commit = () => { save(); renderBoard(); };
+
+cboard.addEventListener('change', e => {
+  if (!e.target.matches('.t-check')) return;
+  const t = taskOf(e.target), c = campaignOfTask(t);
+  t.done = e.target.checked;
+  t.doneAt = Date.now();
+  if (!t.done) placeTask(c, t);
+  withFlip(commit);
+});
+cboard.addEventListener('click', e => {
+  const add = e.target.closest('.t-add-btn');
+  if (add) return openTask(add.closest('.ccol').dataset.id, null);
+  const btn = e.target.closest('.t-urgent, .t-archive');
+  if (btn) {
+    const t = taskOf(btn), row = btn.closest('.task');
+    if (btn.matches('.t-urgent')) {
+      t.urgent = !t.urgent;
+      placeTask(campaignOfTask(t), t);
+      return withFlip(commit);
+    }
+    t.archived = true;
+    if (reduceMotion) return commit();
+    row.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateX(28px) scale(.96)' }], { duration: 220, easing: 'ease-in' })
+      .finished.then(() => withFlip(commit));
+    return;
+  }
+  const row = e.target.closest('.task');
+  if (row && !e.target.closest('.t-check, .t-handle, a')) openTask(row.closest('.ccol').dataset.id, row.dataset.tid);
+});
+
+// ---------- drag a task by its handle: within a column or into another campaign ----------
+let tdrag = null;
+cboard.addEventListener('pointerdown', e => {
+  const handle = e.target.closest('.t-handle');
+  if (!handle || e.button !== 0) return;
+  e.preventDefault();
+  const row = handle.closest('.task'), r = row.getBoundingClientRect();
+  const ghost = row.cloneNode(true);
+  ghost.classList.add('t-ghost');
+  Object.assign(ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
+  document.body.appendChild(ghost);
+  requestAnimationFrame(() => ghost.classList.add('lifted'));
+  row.classList.add('placeholder');
+  handle.setPointerCapture(e.pointerId);
+  tdrag = { handle, row, ghost, t: taskOf(row), dx: e.clientX - r.left, dy: e.clientY - r.top };
+});
+window.addEventListener('pointermove', e => {
+  if (!tdrag) return;
+  const { ghost, row, t } = tdrag;
+  ghost.style.left = `${e.clientX - tdrag.dx}px`;
+  ghost.style.top = `${e.clientY - tdrag.dy}px`;
+  // nudge the board sideways when dragging near its edges, to reach off-screen campaigns
+  const b = cboard.getBoundingClientRect();
+  if (e.clientX > b.right - 60) cboard.scrollLeft += 14;
+  else if (e.clientX < b.left + 60) cboard.scrollLeft -= 14;
+  const col = document.elementFromPoint(e.clientX, e.clientY)?.closest('.ccol');
+  if (!col) return;
+  const list = col.querySelector('.tasks');
+  let before = null; // done tasks always go to the bottom of the target list
+  if (!t.done) {
+    before = [...list.querySelectorAll('.task:not(.done):not(.placeholder)')]
+      .find(el => { const r = el.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; })
+      || list.querySelector('.add-row');
+  }
+  if (row.parentNode !== list || row.nextElementSibling !== before) withFlip(() => list.insertBefore(row, before), true);
+});
+function endTaskDrag() {
+  if (!tdrag) return;
+  const { row, ghost, t } = tdrag;
+  tdrag = null;
+  dragEndedAt = performance.now();
+  const finish = () => {
+    ghost.remove();
+    const src = campaignOfTask(t), dst = campaigns.find(c => c.id === row.closest('.ccol').dataset.id);
+    src.tasks = src.tasks.filter(x => x !== t);
+    if (src !== dst) t.segments = t.segments.filter(s => dst.segments.includes(s));
+    if (t.done) dst.tasks.push(t);
+    else {
+      // the new open order is exactly what's on screen now
+      const ids = [...row.parentNode.querySelectorAll('.task:not(.done)')].map(el => el.dataset.tid);
+      const pool = [...dst.tasks, t];
+      dst.tasks = [...ids.map(id => pool.find(x => x.id === id)), ...dst.tasks.filter(x => !ids.includes(x.id))];
+    }
+    commit();
+  };
+  if (reduceMotion) return finish();
+  // drop: the lifted card settles into its slot
+  const to = row.getBoundingClientRect();
+  ghost.classList.remove('lifted');
+  ghost.classList.add('dropping');
+  Object.assign(ghost.style, { left: `${to.left}px`, top: `${to.top}px` });
+  setTimeout(finish, 260);
+}
+window.addEventListener('pointerup', endTaskDrag);
+window.addEventListener('pointercancel', endTaskDrag);
+
+// ---------- task dialog: edits go into a draft and only land on Save ----------
+const tdDlg = document.getElementById('task-dlg'), tdForm = document.getElementById('task-form');
+const $td = id => document.getElementById(`td-${id}`);
+let tdTask = null, tdDraft = null;
+// escape first, then turn http(s) links into anchors
+const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+
+function openTask(cid, tid) {
+  const c = campaigns.find(x => x.id === cid);
+  tdTask = tid ? c.tasks.find(t => t.id === tid) : null;
+  tdDraft = tdTask
+    ? { ...tdTask, segments: [...tdTask.segments], subtasks: tdTask.subtasks.map(s => ({ ...s })) }
+    : normTask({});
+  tdDraft.cid = cid;
+
+  $td('done').checked = tdDraft.done;
+  $td('name').value = tdDraft.text;
+  $td('urgent').classList.toggle('on', tdDraft.urgent);
+  const ended = campaigns.filter(isEnded);
+  $td('campaign').innerHTML = [...activeOrder(), ...ended]
+    .map(x => `<option value="${x.id}"${x.id === cid ? ' selected' : ''}>${esc(x.name)}${isEnded(x) ? ' (ended)' : ''}</option>`).join('');
+  $td('due').value = tdDraft.due;
+  $td('segs-show').checked = tdDraft.showSegs;
+  $td('desc').value = tdDraft.desc;
+  showDescView(!!tdDraft.desc);
+  renderTdSegs();
+  renderSubs();
+  const when = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  $td('meta').textContent = tdTask
+    ? `Created ${when(tdTask.createdAt)}${tdTask.done && tdTask.doneAt ? ` · Done ${when(tdTask.doneAt)}` : ''}` : '';
+  $td('err').textContent = '';
+  $td('del').hidden = !tdTask;
+  syncTdArchive();
+  tdDlg.showModal();
+  if (!tdTask) $td('name').focus();
+}
+function syncTdArchive() { $td('archive').hidden = !tdTask || !$td('done').checked; }
+function showDescView(view) {
+  $td('desc-view').hidden = !view;
+  $td('desc').hidden = view;
+  if (view) $td('desc-view').innerHTML = linkify($td('desc').value);
+}
+function renderTdSegs() {
+  const c = campaigns.find(x => x.id === tdDraft.cid);
+  tdDraft.segments = tdDraft.segments.filter(s => c.segments.includes(s));
+  $td('segs').innerHTML = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s =>
+    `<label class="chip"><input type="checkbox" value="${s.id}"${tdDraft.segments.includes(s.id) ? ' checked' : ''}><span>${s.flag ? `<span class="flag">${s.flag}</span> ` : ''}${s.code}</span></label>`).join('');
+}
+function renderSubs() {
+  const subs = tdDraft.subtasks;
+  $td('sub-count').textContent = subs.length ? `${subs.filter(s => s.done).length}/${subs.length}` : '';
+  $td('subs').innerHTML = subs.map(s => `<li class="subtask${s.done ? ' done' : ''}" data-sid="${s.id}">
+    <input type="checkbox" class="t-check"${s.done ? ' checked' : ''} aria-label="Done">
+    <input class="sub-text" value="${esc(s.text)}" aria-label="Subtask">
+    <button type="button" class="sub-del" title="Remove">×</button></li>`).join('');
+}
+
+$td('done').addEventListener('change', syncTdArchive);
+$td('urgent').addEventListener('click', () => {
+  tdDraft.urgent = !tdDraft.urgent;
+  $td('urgent').classList.toggle('on', tdDraft.urgent);
+});
+$td('campaign').addEventListener('change', e => { tdDraft.cid = e.target.value; renderTdSegs(); });
+document.querySelector('.td-quick').addEventListener('click', e => {
+  const b = e.target.closest('[data-days]');
+  if (b) $td('due').value = b.dataset.days === '' ? '' : toISO(addDays(today, Number(b.dataset.days)));
+});
+$td('segs').addEventListener('change', () => {
+  tdDraft.segments = [...$td('segs').querySelectorAll('input:checked')].map(i => i.value);
+});
+$td('desc-view').addEventListener('click', e => {
+  if (e.target.closest('a')) return; // links open; anywhere else switches to editing
+  showDescView(false);
+  $td('desc').focus();
+});
+const subOf = el => tdDraft.subtasks.find(s => s.id === el.closest('.subtask').dataset.sid);
+$td('subs').addEventListener('change', e => {
+  if (!e.target.matches('.t-check')) return;
+  subOf(e.target).done = e.target.checked;
+  renderSubs();
+});
+$td('subs').addEventListener('input', e => { if (e.target.matches('.sub-text')) subOf(e.target).text = e.target.value; });
+$td('subs').addEventListener('click', e => {
+  if (!e.target.closest('.sub-del')) return;
+  tdDraft.subtasks = tdDraft.subtasks.filter(s => s !== subOf(e.target));
+  renderSubs();
+});
+$td('subs').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('.sub-text')) { e.preventDefault(); $td('sub-add').focus(); }
+});
+$td('sub-add').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault(); // Enter here adds a subtask instead of saving the task
+  const text = e.target.value.trim();
+  if (!text) return;
+  tdDraft.subtasks.push({ id: uid(), text, done: false });
+  e.target.value = '';
+  renderSubs();
+});
+
+tdForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $td('name').value.trim();
+  if (!text) return $td('err').textContent = 'Give the task a name.';
+  const { cid, ...fields } = tdDraft;
+  Object.assign(fields, {
+    text, done: $td('done').checked, due: $td('due').value, desc: $td('desc').value.trim(), showSegs: $td('segs-show').checked,
+    subtasks: fields.subtasks.filter(s => s.text.trim()),
+  });
+  const t = tdTask || {};
+  const prev = { due: t.due, urgent: t.urgent, done: t.done };
+  if (fields.done && !t.done) fields.doneAt = Date.now();
+  const src = tdTask ? campaignOfTask(tdTask) : null, dst = campaigns.find(c => c.id === cid);
+  tdDlg.close();
+  withFlip(() => {
+    Object.assign(t, fields);
+    if (src && src !== dst) src.tasks = src.tasks.filter(x => x !== t);
+    // re-place only when something that decides the position changed, so a dragged order survives edits
+    if (!tdTask || src !== dst || prev.due !== t.due || prev.urgent !== t.urgent || (prev.done && !t.done)) placeTask(dst, t);
+    commit();
+  });
+});
+$td('cancel').addEventListener('click', () => tdDlg.close());
+$td('del').addEventListener('click', () => {
+  // no question asked: it goes to Trash and can be restored from there
+  const c = campaignOfTask(tdTask), t = tdTask;
+  trashTask(t, c);
+  saveTrash();
+  tdDlg.close();
+  withFlip(() => { c.tasks = c.tasks.filter(x => x !== t); commit(); });
+});
+$td('archive').addEventListener('click', () => {
+  tdDlg.close();
+  withFlip(() => { Object.assign(tdTask, { done: true, archived: true }); commit(); });
+});
+
+// ---------- drag columns by their header to reorder (same lift / slide / settle feel as tasks) ----------
+let cdrag = null;
+// slide columns from where they were to where they are now
+function flipCols(update) {
+  if (reduceMotion) return update();
+  const before = new Map([...cboard.querySelectorAll('.ccol')].map(el => [el.dataset.id, el.getBoundingClientRect().left]));
+  update();
+  cboard.querySelectorAll('.ccol:not(.col-placeholder)').forEach(el => {
+    const dx = before.get(el.dataset.id) - el.getBoundingClientRect().left;
+    if (Math.abs(dx) > 1) el.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 380, easing: SPRING });
+  });
+}
+cboard.addEventListener('pointerdown', e => {
+  const head = e.target.closest('.col-head');
+  if (!head || e.button !== 0 || e.target.closest('.col-btn') || head.closest('.ccol.ended')) return;
+  cdrag = { head, col: head.closest('.ccol'), x0: e.clientX, y0: e.clientY, started: false };
+});
+window.addEventListener('pointermove', e => {
+  if (!cdrag) return;
+  const { col, head } = cdrag;
+  if (!cdrag.started) {
+    // a few pixels of movement before it counts as a drag, so a plain click still opens the campaign
+    if (Math.hypot(e.clientX - cdrag.x0, e.clientY - cdrag.y0) < 6) return;
+    const r = col.getBoundingClientRect();
+    const ghost = col.cloneNode(true);
+    ghost.classList.add('col-ghost');
+    ghost.style.viewTransitionName = 'none'; // names must stay unique
+    Object.assign(ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
+    document.body.appendChild(ghost);
+    requestAnimationFrame(() => ghost.classList.add('lifted'));
+    col.style.height = `${r.height}px`;
+    col.classList.add('col-placeholder');
+    head.setPointerCapture(e.pointerId);
+    Object.assign(cdrag, { started: true, ghost, dx: e.clientX - r.left, dy: e.clientY - r.top });
+  }
+  cdrag.ghost.style.left = `${e.clientX - cdrag.dx}px`;
+  cdrag.ghost.style.top = `${e.clientY - cdrag.dy}px`;
+  const b = cboard.getBoundingClientRect();
+  if (e.clientX > b.right - 60) cboard.scrollLeft += 14;
+  else if (e.clientX < b.left + 60) cboard.scrollLeft -= 14;
+  const cols = [...cboard.querySelectorAll('.ccol:not(.ended):not(.col-placeholder)')];
+  const before = cols.find(el => { const r = el.getBoundingClientRect(); return e.clientX < r.left + r.width / 2; })
+    || cboard.querySelector('.ccol.ended');
+  if (col.nextElementSibling !== before) flipCols(() => cboard.insertBefore(col, before));
+});
+function endColDrag() {
+  if (!cdrag) return;
+  const { col, ghost, started } = cdrag;
+  cdrag = null;
+  if (!started) return; // it was a click
+  dragEndedAt = performance.now();
+  const finish = () => {
+    ghost.remove();
+    // visible columns take their on-screen order; campaigns hidden by the filter keep their slots
+    const shown = [...cboard.querySelectorAll('.ccol:not(.ended)')].map(el => el.dataset.id);
+    let i = 0;
+    colOrder = activeOrder().map(c => (shown.includes(c.id) ? shown[i++] : c.id));
+    saveOrder();
+    renderBoard();
+  };
+  if (reduceMotion) return finish();
+  const to = col.getBoundingClientRect();
+  ghost.classList.remove('lifted');
+  ghost.classList.add('dropping');
+  Object.assign(ghost.style, { left: `${to.left}px`, top: `${to.top}px` });
+  setTimeout(finish, 300);
+}
+window.addEventListener('pointerup', endColDrag);
+window.addEventListener('pointercancel', endColDrag);
+
+// collapse / expand a campaign's header details
+cboard.addEventListener('click', e => {
+  const btn = e.target.closest('.col-toggle');
+  if (!btn) return;
+  e.stopPropagation(); // don't open the campaign
+  const col = btn.closest('.ccol'), c = campaigns.find(x => x.id === col.dataset.id);
+  c.compact = !c.compact;
+  if (reduceMotion) return commit();
+  // the details block changes height smoothly and the tasks below simply ride along with it
+  // only the height moves (exact, unrounded), so the motion starts and stops without a jump
+  const FOLD = { duration: 340, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' };
+  const open = d => ({ height: `${d.getBoundingClientRect().height}px`, opacity: 1 });
+  const shut = { height: '0px', opacity: 0 };
+  if (c.compact) {
+    const d = col.querySelector('.col-details');
+    col.classList.add('compact'); // turns the chevron with the same timing
+    d.animate([open(d), shut], FOLD).finished.then(commit);
+  } else {
+    commit();
+    const fresh = cboard.querySelector(`.ccol[data-id="${c.id}"]`), d = fresh.querySelector('.col-details');
+    d.animate([shut, open(d)], { ...FOLD, fill: 'none' });
+    // the column was re-rendered, so turn the chevron back by hand
+    fresh.querySelector('.col-toggle svg').animate([{ transform: 'rotate(180deg)' }, { transform: 'none' }], { ...FOLD, fill: 'none' });
+  }
+});
+
+// park a campaign (header button) or bring it back (tile button); its column and tile share a
+// view-transition-name, so the header morphs into the tile and back
+function setParked(c, on) {
+  if (on) c.parked = Date.now(); else delete c.parked;
+  save();
+  if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard);
+  else renderBoard();
+}
+cboard.addEventListener('click', e => {
+  const btn = e.target.closest('.col-park');
+  if (!btn) return;
+  e.stopPropagation(); // don't open the campaign
+  setParked(campaigns.find(x => x.id === btn.closest('.ccol').dataset.id), true);
+});
+park.addEventListener('click', e => {
+  const btn = e.target.closest('.tile-unpark');
+  if (!btn) return;
+  e.stopPropagation(); // the tile itself opens the campaign; only this button unparks
+  setParked(campaigns.find(x => x.id === btn.closest('.tile').dataset.id), false);
+});
+
+// Detailed / Compact board; columns morph to their new size with a view transition where the browser has it
+document.getElementById('density').addEventListener('click', e => {
+  const btn = e.target.closest('[data-dense]');
+  if (!btn || (btn.dataset.dense === '1') === dense) return;
+  dense = btn.dataset.dense === '1';
+  try { localStorage.setItem(DENSE_STORE, dense ? '1' : '0'); } catch (err) {}
+  document.querySelectorAll('#density button').forEach(b => b.setAttribute('aria-pressed', b === btn));
+  if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard);
+  else renderBoard();
+});
+document.querySelectorAll('#density button').forEach(b => b.setAttribute('aria-pressed', (b.dataset.dense === '1') === dense));
+
+// ---------- bottom scrollbar for the board: pinned to the screen, short and thick so it's easy to grab ----------
+const hs = document.getElementById('hscroll'), hsThumb = document.getElementById('hscroll-thumb');
+const hsGeom = () => {
+  const max = cboard.scrollWidth - cboard.clientWidth, track = hs.clientWidth - 4;
+  const w = Math.max(36, track * cboard.clientWidth / cboard.scrollWidth);
+  return { max, track, w };
+};
+function syncScrollbar() {
+  hs.hidden = cboard.scrollWidth - cboard.clientWidth <= 1;
+  if (hs.hidden) return;
+  const { max, track, w } = hsGeom();
+  hsThumb.style.width = `${w}px`;
+  hsThumb.style.left = `${2 + (track - w) * cboard.scrollLeft / max}px`;
+}
+cboard.addEventListener('scroll', syncScrollbar);
+window.addEventListener('resize', syncScrollbar);
+let hsDrag = null;
+hs.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const { max, track, w } = hsGeom();
+  if (e.target !== hsThumb) {
+    // click on the track: jump so the thumb centres under the pointer
+    const x = e.clientX - hs.getBoundingClientRect().left - 2 - w / 2;
+    cboard.scrollLeft = Math.max(0, Math.min(1, x / (track - w))) * max;
+  }
+  hs.setPointerCapture(e.pointerId);
+  hs.classList.add('dragging');
+  hsDrag = { x: e.clientX, left: cboard.scrollLeft, ratio: max / (track - w) };
+});
+hs.addEventListener('pointermove', e => {
+  if (hsDrag) cboard.scrollLeft = hsDrag.left + (e.clientX - hsDrag.x) * hsDrag.ratio;
+});
+const hsEnd = () => { hsDrag = null; hs.classList.remove('dragging'); };
+hs.addEventListener('pointerup', hsEnd);
+hs.addEventListener('pointercancel', hsEnd);
+hs.addEventListener('wheel', e => { e.preventDefault(); cboard.scrollLeft += e.deltaY || e.deltaX; }, { passive: false });
+
+// after a drag, Firefox fires a click on the row / header under the pointer; swallow it
+let dragEndedAt = -1e9;
+cboard.addEventListener('click', e => {
+  if (performance.now() - dragEndedAt < 400) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+
+document.getElementById('show-ended').addEventListener('click', e => {
+  showEnded = !showEnded;
+  e.currentTarget.setAttribute('aria-pressed', showEnded);
+  renderBoard();
+});
+document.getElementById('reset-order').addEventListener('click', () => { colOrder = []; saveOrder(); renderBoard(); });
+
+// ---------- archive ----------
+const arDlg = document.getElementById('archive-dlg'), arList = document.getElementById('ar-list');
+const arAll = document.getElementById('ar-all'), arDelSel = document.getElementById('ar-del-sel');
+const archivedOf = c => c.tasks.filter(t => t.archived);
+
+function renderArchive() {
+  arList.innerHTML = campaigns.filter(c => archivedOf(c).length).map(c => {
+    const p = paint(c.color);
+    return `<div class="ar-group ${p.cls}" style="${p.style}">
+      <div class="ar-head"><span class="dot"></span>${esc(c.name)}</div>
+      ${archivedOf(c).map(t => `<div class="ar-row">
+        <input type="checkbox" id="ar-${t.id}" data-cid="${c.id}" data-tid="${t.id}">
+        <label for="ar-${t.id}">${esc(t.text)}</label>
+        <button type="button" class="link ar-restore" data-cid="${c.id}" data-tid="${t.id}">Restore</button>
+      </div>`).join('')}
+    </div>`;
+  }).join('') || '<p class="empty">No archived tasks.</p>';
+  syncArchive();
+}
+function syncArchive() {
+  const boxes = [...arList.querySelectorAll('input[type=checkbox]')], n = boxes.filter(b => b.checked).length;
+  arDelSel.disabled = !n;
+  arDelSel.textContent = n ? `Delete selected (${n})` : 'Delete selected';
+  arAll.checked = boxes.length > 0 && n === boxes.length;
+  arAll.indeterminate = n > 0 && n < boxes.length;
+  document.getElementById('ar-all-wrap').style.visibility = boxes.length ? '' : 'hidden';
+  document.getElementById('ar-del-all').disabled = !boxes.length;
+}
+function removeTasks(pairs) {
+  for (const [cid, tid] of pairs) {
+    const c = campaigns.find(x => x.id === cid);
+    trashTask(c.tasks.find(t => t.id === tid), c);
+    c.tasks = c.tasks.filter(t => t.id !== tid);
+  }
+  save();
+  saveTrash();
+  renderArchive();
+  renderBoard();
+}
+arList.addEventListener('change', syncArchive);
+arAll.addEventListener('change', () => {
+  arList.querySelectorAll('input[type=checkbox]').forEach(b => b.checked = arAll.checked);
+  syncArchive();
+});
+arList.addEventListener('click', e => {
+  const b = e.target.closest('.ar-restore');
+  if (!b) return;
+  taskById(b.dataset.cid, b.dataset.tid).archived = false;
+  save();
+  renderArchive();
+  renderBoard();
+});
+arDelSel.addEventListener('click', () =>
+  removeTasks([...arList.querySelectorAll('input:checked')].map(b => [b.dataset.cid, b.dataset.tid])));
+document.getElementById('ar-del-all').addEventListener('click', () => {
+  // they go to Trash, so this is undoable
+  removeTasks(campaigns.flatMap(c => archivedOf(c).map(t => [c.id, t.id])));
+});
+document.getElementById('ar-close').addEventListener('click', () => arDlg.close());
+document.getElementById('open-archive').addEventListener('click', () => { renderArchive(); arDlg.showModal(); });
+
+// ---------- trash ----------
+const trDlg = document.getElementById('trash-dlg'), trList = document.getElementById('tr-list');
+let trTab = 'campaign';
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const trashedCampaignIdx = cid => trash.findIndex(x => !isTaskItem(x) && x.c.id === cid);
+
+function renderTrash() {
+  const nC = trash.filter(x => !isTaskItem(x)).length, nT = trash.length - nC;
+  document.querySelectorAll('#tr-tabs button').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.tab === trTab);
+    b.textContent = `${b.dataset.tab === 'task' ? 'Tasks' : 'Campaigns'}${(b.dataset.tab === 'task' ? nT : nC) ? ` (${b.dataset.tab === 'task' ? nT : nC})` : ''}`;
+  });
+  document.getElementById('tr-note').textContent = trTab === 'task'
+    ? 'Deleted tasks. Restore puts a task back into its campaign.'
+    : 'Deleted campaigns, together with their tasks. Restore puts one back where it was.';
+  const rows = trash.map((x, i) => ({ x, i })).filter(({ x }) => isTaskItem(x) === (trTab === 'task'));
+  trList.innerHTML = rows.map(({ x, i }) => {
+    if (isTaskItem(x)) {
+      const p = paint(x.color), home = campaigns.some(c => c.id === x.cid), inTrash = trashedCampaignIdx(x.cid) !== -1;
+      const btn = home ? `<button type="button" class="btn tr-restore" data-i="${i}">Restore</button>`
+        : inTrash ? `<button type="button" class="btn tr-restore" data-i="${i}" title="Its campaign is in Trash too">Restore with campaign</button>`
+        : `<button type="button" class="btn" disabled title="Its campaign was deleted forever">Restore</button>`;
+      return `<div class="tr-row ${p.cls}" style="${p.style}">
+        <span class="dot"></span>
+        <div><div class="tr-name">${esc(x.t.text)}</div>
+          <div class="up-meta">in ${esc(x.cname)} · deleted ${fmt(new Date(x.at))}</div></div>
+        ${btn}<button type="button" class="t-btn tr-del" data-i="${i}" title="Delete forever">×</button>
+      </div>`;
+    }
+    const { c, at } = x, p = paint(c.color), { sp } = timing(c);
+    const codes = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s => s.code).join(', ');
+    return `<div class="tr-row ${p.cls}" style="${p.style}">
+      <span class="dot"></span>
+      <div><div class="tr-name">${esc(c.name)}</div>
+        <div class="up-meta">${codes} · ${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))} · ${plural(c.tasks.length, 'task')} · deleted ${fmt(new Date(at))}</div></div>
+      <button type="button" class="btn tr-restore" data-i="${i}">Restore</button>
+      <button type="button" class="t-btn tr-del" data-i="${i}" title="Delete forever">×</button>
+    </div>`;
+  }).join('') || `<p class="empty">No deleted ${trTab === 'task' ? 'tasks' : 'campaigns'}.</p>`;
+  document.getElementById('tr-empty').disabled = !trash.length;
+}
+
+function restoreCampaign(i) {
+  const { c, pos } = trash.splice(i, 1)[0];
+  campaigns.push(c);
+  if (colOrder.length) {
+    if (pos >= 0) colOrder.splice(Math.min(pos, colOrder.length), 0, c.id);
+    else placeColumn(c);
+  }
+  save();
+  saveOrder();
+}
+function restoreTask(i) {
+  const item = trash[i];
+  if (!campaigns.some(c => c.id === item.cid)) restoreCampaign(trashedCampaignIdx(item.cid));
+  trash.splice(trash.indexOf(item), 1);
+  placeTask(campaigns.find(c => c.id === item.cid), item.t);
+  save();
+}
+
+document.getElementById('tr-tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]');
+  if (b) { trTab = b.dataset.tab; renderTrash(); }
+});
+trList.addEventListener('click', async e => {
+  const restore = e.target.closest('.tr-restore'), del = e.target.closest('.tr-del');
+  if (restore) {
+    const i = Number(restore.dataset.i);
+    if (isTaskItem(trash[i])) restoreTask(i); else restoreCampaign(i);
+  } else if (del) {
+    const x = trash[Number(del.dataset.i)];
+    const ok = await ask(isTaskItem(x)
+      ? { title: 'Delete task forever?', text: `“${x.t.text}” will be gone for good. This can't be undone.` }
+      : { title: 'Delete campaign forever?', text: `“${x.c.name}” and its ${plural(x.c.tasks.length, 'task')} will be gone for good. This can't be undone.` });
+    if (!ok) return;
+    trash.splice(trash.indexOf(x), 1);
+  } else return;
+  saveTrash();
+  renderTrash();
+  renderAll();
+});
+document.getElementById('tr-empty').addEventListener('click', async () => {
+  const nC = trash.filter(x => !isTaskItem(x)).length, nT = trash.length - nC;
+  const what = [nC && plural(nC, 'campaign'), nT && plural(nT, 'task')].filter(Boolean).join(' and ');
+  if (!await ask({ title: 'Empty Trash?', text: `${what} will be deleted forever. This can't be undone.`, ok: 'Empty Trash' })) return;
+  trash = [];
+  saveTrash();
+  renderTrash();
+  renderAll();
+});
+document.getElementById('tr-close').addEventListener('click', () => trDlg.close());
+document.getElementById('open-trash').addEventListener('click', () => {
+  // open on whichever kind there is, campaigns first
+  trTab = trash.some(x => !isTaskItem(x)) || !trash.length ? 'campaign' : 'task';
+  renderTrash();
+  trDlg.showModal();
+});
+
+// ---------- tabs: the open tab lives in the URL hash so a refresh keeps it ----------
+function showView(view) {
+  try { history.replaceState(null, '', `#${view}`); } catch (e) {} // not allowed on data: URLs (preview pane)
+  document.querySelectorAll('.view').forEach(v => v.hidden = v.id !== `view-${view}`);
+  document.querySelectorAll('.tab[data-view]').forEach(t =>
+    t.dataset.view === view ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
+  renderAll();
+  if (view === 'timeline') scrollToToday();
+}
+document.querySelector('.tabs').addEventListener('click', e => {
+  const t = e.target.closest('[data-view]');
+  if (t) showView(t.dataset.view);
+});
+
+// ---------- wiring ----------
+document.addEventListener('click', e => {
+  const el = e.target.closest('.bar, .up-item, .col-head, .tile');
+  if (el) openDialog(el.dataset.id, null, el.closest('.track')?.dataset.seg, !!el.dataset.lg);
+});
+document.querySelectorAll('.add-campaign').forEach(b => b.addEventListener('click', () => openDialog(null)));
+document.getElementById('prev').addEventListener('click', () => {
+  viewStart = new Date(viewStart.getFullYear(), viewStart.getMonth() - 1, 1); render(); scroller.scrollLeft = 0;
+});
+document.getElementById('next').addEventListener('click', () => {
+  viewStart = new Date(viewStart.getFullYear(), viewStart.getMonth() + 1, 1); render(); scroller.scrollLeft = 0;
+});
+document.getElementById('today').addEventListener('click', () => {
+  viewStart = new Date(today.getFullYear(), today.getMonth(), 1); render(); scrollToToday();
+});
+// one filter shared by both tabs
+document.querySelectorAll('.dest-filter').forEach(el => {
+  el.insertAdjacentHTML('beforeend', DESTS.map(d =>
+    `<button class="toggle" data-dest="${d.id}" aria-pressed="true">${d.name}</button>`).join(''));
+  el.addEventListener('click', e => {
+    const btn = e.target.closest('[data-dest]');
+    if (!btn) return;
+    const id = btn.dataset.dest;
+    if (destFilter.has(id)) {
+      if (destFilter.size === 1) return; // keep at least one on, otherwise the board is just empty
+      destFilter.delete(id);
+    } else destFilter.add(id);
+    document.querySelectorAll(`[data-dest="${id}"]`).forEach(b => b.setAttribute('aria-pressed', destFilter.has(id)));
+    renderAll();
+  });
+});
+document.getElementById('zoom').addEventListener('click', e => {
+  const btn = e.target.closest('[data-months]');
+  if (!btn) return;
+  monthsShown = Number(btn.dataset.months);
+  document.querySelectorAll('#zoom button').forEach(b => b.setAttribute('aria-pressed', b === btn));
+  render();
+  scrollToToday();
+});
+window.addEventListener('resize', render);
+
+showView(location.hash === '#campaigns' ? 'campaigns' : 'timeline');
+</script>
+</body>
+</html>
