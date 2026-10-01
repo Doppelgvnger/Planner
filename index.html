@@ -228,6 +228,10 @@
   .up-main { flex: 1; min-width: 0; }
   .up-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .up-meta { color: var(--ink-2); font-size: 12px; }
+  .up-meta.chunks { display: flex; flex-wrap: wrap; }
+  .up-meta.chunks span { white-space: nowrap; }
+  .up-meta.chunks span:first-child { white-space: normal; } /* market codes may break, but only after a comma */
+  .up-meta.chunks span:not(:last-child)::after { content: "·"; margin: 0 5px; }
   .statuses { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
   .status { font-size: 12px; font-weight: 500; white-space: nowrap; color: var(--ink-2); padding: 2px 8px; border-radius: 999px; }
   .status.live { color: var(--mint-ink); background: var(--mint-bg); }
@@ -1157,7 +1161,10 @@ function renderUpcoming() {
     .sort((a, b) => a.first.localeCompare(b.first));
   const codes = ids => SEGMENTS.filter(s => ids.includes(s.id)).map(s => s.code).join(', ');
   document.getElementById('upcoming').innerHTML = list.length ? list.map(({ c, sp }) => {
-    const varies = Object.keys(c.overrides || {}).length ? ' · dates vary by market' : '';
+    const varies = Object.keys(c.overrides || {}).length ? 'dates vary by market' : '';
+    // meta as separate chunks that wrap only between each other, never inside "DTC + Sephora" or a date range
+    const meta = [codes(c.segments), destNames(c.destinations), `${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))}`, varies]
+      .filter(Boolean).map(s => `<span>${s}</span>`).join('');
     const status = statusHTML(c, true);
     const p = paint(c.color);
     // more than one status pill (markets in different states, or lead gen + campaign) goes under the text,
@@ -1166,7 +1173,7 @@ function renderUpcoming() {
     return `<li><button class="up-item${stacked} ${p.cls}" style="${p.style}" data-id="${c.id}">
       <span class="dot"></span>
       <span class="up-main"><div class="up-name">${esc(c.name)}</div>
-      <div class="up-meta">${codes(c.segments)} · ${destNames(c.destinations)} · ${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))}${varies}</div></span>
+      <div class="up-meta chunks">${meta}</div></span>
       ${status}</button></li>`;
   }).join('') : '<li class="empty">Nothing scheduled in the next 30 days.</li>';
 }
