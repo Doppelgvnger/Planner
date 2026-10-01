@@ -245,14 +245,17 @@
   }
   .bar.lg:hover { box-shadow: 0 6px 16px rgba(var(--sh), .12); }
   .bar.lg .bar-name { font-size: 12px; }
-  /* sub-campaign: a thinner, denser bar right under its campaign, same colour family */
+  /* sub-campaign: a band along the bottom edge of its campaign's bar (which grows taller to hold it),
+     continuing on its own where the campaign has already ended */
+  .bar.has-subs { align-items: flex-start; padding-top: 5px; }
   .bar.sub {
-    height: 20px; padding: 0 8px 0 10px; z-index: 2;
-    background: color-mix(in srgb, var(--c-edge) 42%, var(--c-bg));
-    box-shadow: inset 3px 0 0 var(--c-edge);
+    height: 15px; padding: 0 7px; z-index: 3; border-radius: 5px; gap: 6px;
+    background: color-mix(in srgb, var(--c-edge) 60%, var(--c-bg));
+    box-shadow: none;
   }
-  .bar.sub .bar-name { font-size: 11.5px; }
-  .bar.sub .bar-dates { font-size: 11px; }
+  .bar.sub:hover { transform: none; box-shadow: 0 2px 8px rgba(var(--sh), .18); }
+  .bar.sub .bar-name { font-size: 10.5px; }
+  .bar.sub .bar-dates { font-size: 10px; }
 
   .bar-dest { font-size: 10px; font-weight: 600; letter-spacing: .02em; padding: 1px 6px; border-radius: 999px; background: rgba(var(--hi), .65); }
 
@@ -1042,7 +1045,7 @@ const DESTS = [
   { id: 'sephora', name: 'Sephora' },
 ];
 const COLORS = ['lavender', 'sky', 'mint', 'peach', 'rose', 'butter'];
-const LANE_H = 36, SUB_H = 24, ROW_PAD = 10;
+const LANE_H = 36, SUB_H = 17, ROW_PAD = 10;
 const STORE = 'planner.timeline.v1';
 
 // ---------- dates (local, day precision, stored as YYYY-MM-DD) ----------
@@ -1251,13 +1254,13 @@ function render() {
   }
 
   // kind: 'main' campaign bar, 'lg' lead gen (hatched, same line), 'sub' sub-campaign (thinner, under the campaign)
-  const bar = (c, d, top, kind, sub) => {
+  const bar = (c, d, top, kind, sub, nSubs = 0) => {
     const s = diffDays(vs, fromISO(d.start)), e = diffDays(vs, fromISO(d.end));
     if (e < 0 || s > days - 1) return '';
     const from = Math.max(0, s), to = Math.min(days - 1, e);
     const p = paint(c.color);
     const moved = d !== (kind === 'lg' ? c.leadgen : kind === 'sub' ? sub : c);
-    const cls = `bar${kind === 'main' ? '' : ` ${kind}`} ${p.cls}${moved ? ' moved' : ''}${s < 0 ? ' cut-left' : ''}${e > days - 1 ? ' cut-right' : ''}`;
+    const cls = `bar${kind === 'main' ? (nSubs ? ' has-subs' : '') : ` ${kind}`} ${p.cls}${moved ? ' moved' : ''}${s < 0 ? ' cut-left' : ''}${e > days - 1 ? ' cut-right' : ''}`;
     const dates = `${fmt(fromISO(d.start))} – ${fmt(fromISO(d.end))}`;
     const dest = destNames(c.destinations);
     const name = kind === 'lg' ? `Lead gen · ${esc(c.name)}` : kind === 'sub' ? `${esc(c.name)} › ${esc(sub.name)}` : esc(c.name);
@@ -1267,7 +1270,7 @@ function render() {
       : `<span class="bar-name">${esc(c.name)}</span><span class="bar-dest">${dest}</span><span class="bar-dates">${dates}</span>`;
     const data = kind === 'lg' ? ' data-lg="1"' : kind === 'sub' ? ` data-sub="${sub.id}"` : '';
     return `<button class="${cls}" data-id="${c.id}"${data} title="${title}"
-      style="${p.style};left:${from * w + 2}px;width:${Math.max(4, (to - from + 1) * w - 4)}px;top:${top}px">
+      style="${p.style};left:${from * w + 2}px;width:${Math.max(4, (to - from + 1) * w - 4)}px;top:${top}px${nSubs ? `;height:${28 + nSubs * SUB_H}px` : ""}">
       <span class="bar-text">${text}</span></button>`;
   };
 
@@ -1283,8 +1286,8 @@ function render() {
     for (const { c, d, lg, subs, lane } of placed) {
       const top = ROW_PAD / 2 + laneTop[lane] + 4;
       if (lg) bars += bar(c, lg, top, 'lg');
-      bars += bar(c, d, top, 'main');
-      subs.forEach((x, k) => { bars += bar(c, x.d, top + 32 + k * SUB_H, 'sub', x.sub); });
+      bars += bar(c, d, top, 'main', null, subs.length);
+      subs.forEach((x, k) => { bars += bar(c, x.d, top + 24 + k * SUB_H, 'sub', x.sub); });
     }
     const height = Math.max(LANE_H, laneH.reduce((a, h) => a + h, 0)) + ROW_PAD;
     rows += `<div class="row">
