@@ -981,7 +981,9 @@ function ask({ title, text, ok = 'Delete' }) {
   d.showModal();
   return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'yes'), { once: true }));
 }
-let viewStart = new Date(today.getFullYear(), today.getMonth(), 1);
+// early in a month, open on the previous month so campaigns already running are visible from their start
+const homeStart = () => new Date(today.getFullYear(), today.getMonth() - (today.getDate() <= 10 ? 1 : 0), 1);
+let viewStart = homeStart();
 let monthsShown = 3;
 const destFilter = new Set(DESTS.map(d => d.id));
 const viewEnd = () => new Date(viewStart.getFullYear(), viewStart.getMonth() + monthsShown, 0);
@@ -2278,7 +2280,7 @@ document.getElementById('next').addEventListener('click', () => {
   viewStart = new Date(viewStart.getFullYear(), viewStart.getMonth() + 1, 1); render(); scroller.scrollLeft = 0;
 });
 document.getElementById('today').addEventListener('click', () => {
-  viewStart = new Date(today.getFullYear(), today.getMonth(), 1); render(); scrollToToday();
+  viewStart = homeStart(); render(); scrollToToday();
 });
 // one filter shared by both tabs
 document.querySelectorAll('.dest-filter').forEach(el => {
