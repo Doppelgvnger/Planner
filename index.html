@@ -615,6 +615,15 @@
     .corner { font-size: 0; }
     .range { min-width: 0; }
   }
+  /* phones: date pairs are too wide side by side, so stack them (per-market rows: market + reset on top, dates below) */
+  @media (max-width: 480px) {
+    .two { grid-template-columns: 1fr; }
+    .mk-row { grid-template-columns: auto 1fr 24px; row-gap: 6px; }
+    .mk-row .code { grid-column: 1; grid-row: 1; }
+    .mk-row .flag { grid-column: 2; grid-row: 1; justify-self: start; }
+    .mk-row .mk-reset { grid-column: 3; grid-row: 1; }
+    .mk-row input { grid-column: 1 / -1; }
+  }
 </style>
 </head>
 <body>
