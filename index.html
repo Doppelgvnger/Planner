@@ -947,29 +947,6 @@ const normTask = t => ({
   id: uid(), text: '', done: false, urgent: false, archived: false,
   due: '', desc: '', segments: [], showSegs: true, subtasks: [], createdAt: Date.now(), ...t,
 });
-function seed() {
-  // lg: [startOffset, endOffset] of a lead gen across all the campaign's markets
-  const c = (name, segments, destinations, a, b, color, lg, tasks = []) => ({
-    id: uid(), name, segments, destinations, start: toISO(addDays(today, a)), end: toISO(addDays(today, b)), color,
-    leadgen: lg ? { segments, start: toISO(addDays(today, lg[0])), end: toISO(addDays(today, lg[1])), overrides: {} } : null,
-    tasks: tasks.map(t => normTask(typeof t === 'string' ? { text: t } : t)),
-  });
-  return [
-    c('Fall Refresh', ['us', 'ca-en'], ['dtc', 'sephora'], -12, 9, 'lavender'),
-    c('Influencer Push', ['us'], ['dtc'], 3, 17, 'butter'),
-    c('La Rentrée', ['ca-fr'], ['sephora'], -18, 4, 'sky'),
-    c('Brand Awareness Q4', ['br'], ['dtc'], -5, 40, 'mint'),
-    c('Día de Muertos', ['mx'], ['sephora'], 10, 33, 'peach'),
-    c('Holiday Gift Guide', ['us', 'ca-en', 'ca-fr'], ['dtc', 'sephora'], 28, 70, 'rose', [21, 27], [
-      { text: 'Brief the agency', due: toISO(addDays(today, 1)), desc: 'Brief template: https://example.com/brief' },
-      { text: 'Approve creatives', due: toISO(addDays(today, 10)), subtasks: [
-        { id: uid(), text: 'US banners', done: true }, { id: uid(), text: 'CA·FR banners', done: false },
-      ] },
-      { text: 'Set up lead gen form', segments: ['us'] },
-    ]),
-    c('Black Friday', ['br', 'mx'], ['dtc'], 52, 62, 'butter', [45, 51]),
-  ];
-}
 // campaigns saved by older versions: no destinations means both (so no filter hides them); tasks get filled in
 const normCampaign = c => ({ destinations: DESTS.map(d => d.id), ...c, tasks: (c.tasks || []).map(normTask) });
 function load() {
@@ -979,7 +956,7 @@ function load() {
       return JSON.parse(raw).map(normCampaign);
     }
   } catch (e) {}
-  return seed();
+  return []; // first visit starts empty
 }
 function save() {
   try { localStorage.setItem(STORE, JSON.stringify(campaigns)); } catch (e) {}
