@@ -1191,12 +1191,13 @@ function statusPill(span, kind = '') {
 }
 // status pills shared by "Coming up" and the Campaigns board. When markets are in different states
 // (moved dates), there's one line per group of markets that share the same pill.
-// The lead gen is only shown where asked (Timeline's "Coming up"); the Campaigns tab leaves it out.
-function statusHTML(c, withLeadgen = false) {
+// leadgen: only Timeline's "Coming up" shows it. subs: sub-campaign pills, left out of a column header,
+// where each sub-campaign has its own sub-header with its status.
+function statusHTML(c, { leadgen = false, subs: withSubs = true } = {}) {
   const t = toISO(today), { lg, subs } = timing(c);
-  const showLg = withLeadgen && lg && lg.end >= t;
-  // finished sub-campaigns drop off; parked ones too on the Campaigns tab (Coming up, which passes withLeadgen, keeps them)
-  const liveSubs = subs.filter(x => x.sp.end >= t && (withLeadgen || !x.sub.parked));
+  const showLg = leadgen && lg && lg.end >= t;
+  // finished sub-campaigns drop off; parked ones too on the Campaigns tab (Coming up keeps them)
+  const liveSubs = withSubs ? subs.filter(x => x.sp.end >= t && (leadgen || !x.sub.parked)) : [];
   const kind = showLg || liveSubs.length ? 'Campaign' : '';
   const groups = new Map(); // pill html -> market codes
   for (const s of SEGMENTS.filter(x => c.segments.includes(x.id))) {
@@ -1346,7 +1347,7 @@ function renderUpcoming() {
     // meta as separate chunks that wrap only between each other, never inside "DTC + Sephora" or a date range
     const meta = [codes(c.segments), destNames(c.destinations), `${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))}`, varies]
       .filter(Boolean).map(s => `<span>${s}</span>`).join('');
-    const status = statusHTML(c, true);
+    const status = statusHTML(c, { leadgen: true });
     const p = paint(c.color);
     // more than one status pill (markets in different states, or lead gen + campaign) goes under the text,
     // so the name and dates keep the full width
@@ -1948,7 +1949,7 @@ function columnHTML(c, ended) {
         ${ended ? '' : `<button class="col-btn col-park" title="Park · done for now">${PARK_ICON}</button>`}
         <button class="col-btn col-toggle" title="${c.compact ? 'Show details' : 'Hide details'}">${CHEVRON}</button></div>
       ${details}
-      ${statusHTML(c)}
+      ${statusHTML(c, { subs: false })}
     </div>
     ${taskListHTML(c, '')}
     ${c.subs.filter(s => !s.parked).map(s => subSectionHTML(c, s)).join('')}
