@@ -521,7 +521,8 @@
   .park[hidden] { display: none; }
   .park-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
   .tile {
-    position: relative; display: grid; gap: 6px; padding: 9px 10px 10px 14px; overflow: hidden; cursor: pointer;
+    /* minmax(0, 1fr): a long status pill must not widen the tile and push the unpark button out of sight */
+    position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; padding: 9px 10px 10px 14px; overflow: hidden; cursor: pointer;
     background: linear-gradient(90deg, var(--c-bg), var(--surface) 70%); border: 1px solid var(--line); border-radius: 10px;
     box-shadow: 0 1px 2px rgba(var(--sh), .05);
   }
@@ -534,7 +535,7 @@
   .tile .mini { font-size: 10px; padding: 1px 5px; }
   .tile .mini .flag { font-size: 11px; }
   .tile .statuses { align-items: flex-start; }
-  .tile .status { font-size: 11px; padding: 1px 7px; }
+  .tile .status { font-size: 11px; padding: 1px 7px; white-space: normal; } /* long ones wrap inside the tile */
   .tile .st-mk { font-size: 10px; }
   .tile-tasks { font-size: 11px; font-weight: 600; color: var(--accent); }
   @media (max-width: 720px) {
@@ -546,7 +547,7 @@
   .col-toggle svg { transition: transform .34s cubic-bezier(.4, 0, .2, 1); }
   .ccol.compact .col-toggle svg { transform: rotate(180deg); }
   .col-head {
-    display: grid; padding: 14px 16px 14px; cursor: pointer; user-select: none;
+    display: grid; grid-template-columns: minmax(0, 1fr); padding: 14px 16px 14px; cursor: pointer; user-select: none;
     border-top: 4px solid var(--c-edge); background: linear-gradient(var(--c-bg), var(--surface));
   }
   .ccol:not(.ended) .col-head { cursor: grab; }

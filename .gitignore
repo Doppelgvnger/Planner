@@ -5,3 +5,5 @@ PROPOSALS.md
 .claude/
 # runtime lock left by scheduled loops
 scheduled_tasks.lock
+# exported user data (Backup) - never publish
+planner-backup-*.json
