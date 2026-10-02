@@ -1971,8 +1971,9 @@ function tileHTML(c) {
 
 function renderBoard() {
   const active = activeOrder().filter(c => isShown(c) && !c.parked);
-  const parked = campaigns.filter(c => c.parked && !isEnded(c) && isShown(c)).sort((a, b) => a.parked - b.parked);
-  const ended = campaigns.filter(c => isEnded(c) && isShown(c))
+  // a parked campaign stays in the rail even after it ends (its tile shows "Ended"), so it can always be unparked
+  const parked = campaigns.filter(c => c.parked && isShown(c)).sort((a, b) => a.parked - b.parked);
+  const ended = campaigns.filter(c => isEnded(c) && isShown(c) && !c.parked)
     .sort((a, b) => timing(b).last.localeCompare(timing(a).last));
   // the rail holds parked campaigns and parked sub-campaigns of the campaigns on the board, oldest first
   const onBoard = [...active, ...(showEnded ? ended : [])];
