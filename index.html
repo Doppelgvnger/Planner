@@ -563,6 +563,23 @@
   .col-empty { color: var(--ink-3); padding: 24px 4px; }
 
   .tasks { list-style: none; margin: 0; padding: 8px; border-top: 1px solid var(--line); }
+  /* a sub-campaign's own section inside its campaign's column: a sub-header, then its tasks */
+  .sub-sec { border-top: 1px dashed var(--line-strong); }
+  .sub-sec-head {
+    display: flex; align-items: center; gap: 6px; padding: 9px 10px 4px 14px; cursor: pointer;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c-edge) 16%, transparent), transparent 75%);
+  }
+  .sub-sec-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub-sec-head .status { font-size: 11px; padding: 1px 7px; }
+  .sub-sec-head .col-btn { width: 22px; height: 22px; background: transparent; }
+  .sub-sec-head .col-btn:hover { background: var(--surface); }
+  .sub-sec-head .sub-toggle svg { transition: transform .34s cubic-bezier(.4, 0, .2, 1); }
+  .sub-sec.compact .sub-sec-head { padding: 6px 10px 6px 14px; }
+  .sub-sec.compact .sub-toggle svg { transform: rotate(180deg); }
+  .sub-sec-meta { padding: 0 14px 2px 29px; font-size: 11.5px; color: var(--ink-3); }
+  .sub-sec .tasks { border-top: 0; padding-top: 2px; }
+  .sub-count { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+  .ar-sub { color: var(--ink-3); font-size: 12px; }
   .task { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: start; padding: 7px 6px 7px 8px; border-radius: 8px; }
   .t-check {
     appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin: 1px 0 0; cursor: pointer;
@@ -1110,7 +1127,10 @@ function saveTrash() {
 // items without a type predate task trash and are campaigns
 const isTaskItem = x => x.type === 'task';
 // a deleted task remembers its campaign so Restore can put it back there
-const trashTask = (t, c) => trash.unshift({ type: 'task', t, cid: c.id, cname: c.name, color: c.color, at: Date.now() });
+const trashTask = (t, c) => {
+  const sub = c.subs.find(s => s.id === t.sub);
+  trash.unshift({ type: 'task', t, cid: c.id, cname: sub ? `${c.name} › ${sub.name}` : c.name, color: c.color, at: Date.now() });
+};
 
 // site-styled confirmation; resolves true only when the user picks the action button
 // With `alt`, the dialog shows two choices instead of Cancel + action (Esc still backs out):
@@ -1175,7 +1195,8 @@ function statusPill(span, kind = '') {
 function statusHTML(c, withLeadgen = false) {
   const t = toISO(today), { lg, subs } = timing(c);
   const showLg = withLeadgen && lg && lg.end >= t;
-  const liveSubs = subs.filter(x => x.sp.end >= t); // finished sub-campaigns drop off
+  // finished sub-campaigns drop off; parked ones too on the Campaigns tab (Coming up, which passes withLeadgen, keeps them)
+  const liveSubs = subs.filter(x => x.sp.end >= t && (withLeadgen || !x.sub.parked));
   const kind = showLg || liveSubs.length ? 'Campaign' : '';
   const groups = new Map(); // pill html -> market codes
   for (const s of SEGMENTS.filter(x => c.segments.includes(x.id))) {
@@ -1745,7 +1766,9 @@ form.addEventListener('submit', e => {
   }
   data.subs = [];
   for (const s of subDrafts) {
-    const sub = { id: s.id, name: s.name.trim(), segments: data.segments.filter(x => !s.excluded.has(x)), start: s.start, end: s.end, overrides: s.ed.overrides() };
+    // keep what the board remembers about it (parked, collapsed)
+    const kept = campaigns.find(x => x.id === editingId)?.subs.find(x => x.id === s.id) || {};
+    const sub = { ...kept, id: s.id, name: s.name.trim(), segments: data.segments.filter(x => !s.excluded.has(x)), start: s.start, end: s.end, overrides: s.ed.overrides() };
     if (!sub.name) return err.textContent = 'Give every sub-campaign a name.';
     if (!sub.segments.length) return err.textContent = `Pick at least one market for “${sub.name}”.`;
     if (!sub.start || !sub.end) return err.textContent = `Set both dates for “${sub.name}”.`;
@@ -1758,6 +1781,8 @@ form.addEventListener('submit', e => {
     const c = Object.assign(campaigns.find(x => x.id === editingId), data);
     // a market dropped from the campaign can't stay on its tasks
     for (const t of c.tasks) t.segments = t.segments.filter(s => c.segments.includes(s));
+    // tasks of a removed sub-campaign stay, under the campaign itself
+    for (const t of c.tasks) if (t.sub && !c.subs.some(s => s.id === t.sub)) delete t.sub;
   }
   else {
     const c = { id: uid(), tasks: [], ...data };
@@ -1820,13 +1845,19 @@ function placeColumn(c) {
   saveOrder();
 }
 // open tasks in the campaign's own order (see placeTask / drag); done ones at the bottom, last completed lowest
-function orderedTasks(c) {
-  const live = c.tasks.filter(t => !t.archived);
+// a task belongs to one of the campaign's sub-campaigns (t.sub) or to the campaign itself (''); a sub that no
+// longer exists falls back to the campaign
+const secOf = (c, t) => (t.sub && c.subs.some(s => s.id === t.sub) ? t.sub : '');
+// sec: '' = the campaign's own tasks, a sub id = that sub-campaign's, null = all of them
+function orderedTasks(c, sec = null) {
+  const live = c.tasks.filter(t => !t.archived && (sec === null || secOf(c, t) === sec));
   return { open: live.filter(t => !t.done), done: live.filter(t => t.done).sort((a, b) => a.doneAt - b.doneAt) };
 }
 // put a task where it belongs: urgent on top, otherwise by due date (no date = last). Dragging can override it later.
 function placeTask(c, t) {
-  const rest = c.tasks.filter(x => x !== t), open = rest.filter(x => !x.done && !x.archived);
+  // only tasks of the same section (campaign or one sub-campaign) decide where it goes
+  const sec = secOf(c, t);
+  const rest = c.tasks.filter(x => x !== t), open = rest.filter(x => !x.done && !x.archived && secOf(c, x) === sec);
   const anchor = t.urgent ? open[0]
     : t.due ? open.find(x => !x.urgent && (!x.due || x.due > t.due))
     : null;
@@ -1863,8 +1894,49 @@ function taskHTML(t) {
     <span class="t-handle" title="Drag to move">${HANDLE_ICON}</span></li>`;
 }
 
+const CHEVRON = `<svg viewBox="0 0 12 8" width="11" height="8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6.5l5-5 5 5"/></svg>`;
+const subChips = sub => SEGMENTS.filter(s => sub.segments.includes(s.id))
+  .map(s => `<span class="mini" title="${s.name}"><span class="flag">${s.flag}</span>${s.code}</span>`).join('');
+const subSpan = (c, sub) => timing(c).subs.find(x => x.sub === sub)?.sp;
+
+// one section's task list: the campaign's own (sec '') or a sub-campaign's
+function taskListHTML(c, sec) {
+  const { open, done } = orderedTasks(c, sec);
+  return `<ul class="tasks"${sec ? ` data-sub="${sec}"` : ''}>
+      ${open.map(taskHTML).join('')}
+      <li class="add-row"><button class="t-add-btn">+ Add task</button></li>
+      ${done.length ? `<li class="done-sep"></li>${done.map(taskHTML).join('')}` : ''}
+    </ul>`;
+}
+// a sub-campaign's own header and tasks inside its campaign's column; collapsed it's one thin line
+function subSectionHTML(c, sub) {
+  const sp = subSpan(c, sub), n = orderedTasks(c, sub.id).open.length;
+  return `<div class="sub-sec${sub.compact ? ' compact' : ''}" style="view-transition-name:sub-${sub.id}" data-sub="${sub.id}">
+    <div class="sub-sec-head" data-id="${c.id}" data-sub="${sub.id}" title="Click to edit">
+      <span class="sub-sec-name">↳ ${esc(sub.name)}</span>
+      ${sp ? statusPill(sp) : ''}
+      ${sub.compact && n ? `<span class="sub-count">${plural(n, 'task')}</span>` : ''}
+      <button class="col-btn sub-park" title="Park · done for now">${PARK_ICON}</button>
+      <button class="col-btn sub-toggle" title="${sub.compact ? 'Show tasks' : 'Collapse'}">${CHEVRON}</button>
+    </div>
+    ${sub.compact ? '' : `${sp ? `<div class="sub-sec-meta">${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))}</div>` : ''}${taskListHTML(c, sub.id)}`}
+  </div>`;
+}
+// a parked sub-campaign's tile in the left rail
+function subTileHTML(c, sub) {
+  const p = paint(c.color), sp = subSpan(c, sub), open = orderedTasks(c, sub.id).open.length;
+  return `<div class="tile ${p.cls}" style="${p.style};view-transition-name:sub-${sub.id}" data-id="${c.id}" data-sub="${sub.id}" title="Click to edit">
+    <div class="tile-top"><span class="tile-name">↳ ${esc(sub.name)}</span>
+      <button class="col-btn tile-unpark" title="Back to ${esc(c.name)}">${UNPARK_ICON}</button></div>
+    <div class="tile-meta">${esc(c.name)}</div>
+    <div class="col-markets">${subChips(sub)}</div>
+    ${sp ? `<span class="statuses">${statusPill(sp)}</span>` : ''}
+    ${open ? `<div class="tile-tasks">${plural(open, 'task')} left</div>` : ''}
+  </div>`;
+}
+
 function columnHTML(c, ended) {
-  const p = paint(c.color), { sp } = timing(c), { open, done } = orderedTasks(c);
+  const p = paint(c.color), { sp } = timing(c);
   const range = x => `${fmt(fromISO(x.start))} – ${fmt(fromISO(x.end))}`;
   // collapsed header (or the compact board): only the name and the status pills. No lead gen on this tab.
   const details = c.compact || dense ? '' : `<div class="col-details"><div class="col-details-in"><div class="col-markets">${marketChips(c)}</div>
@@ -1874,15 +1946,12 @@ function columnHTML(c, ended) {
     <div class="col-head" data-id="${c.id}" title="Click to edit${ended ? '' : ' · drag to reorder'}">
       <div class="col-title"><span class="col-name">${esc(c.name)}</span>
         ${ended ? '' : `<button class="col-btn col-park" title="Park · done for now">${PARK_ICON}</button>`}
-        <button class="col-btn col-toggle" title="${c.compact ? 'Show details' : 'Hide details'}"><svg viewBox="0 0 12 8" width="11" height="8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6.5l5-5 5 5"/></svg></button></div>
+        <button class="col-btn col-toggle" title="${c.compact ? 'Show details' : 'Hide details'}">${CHEVRON}</button></div>
       ${details}
       ${statusHTML(c)}
     </div>
-    <ul class="tasks">
-      ${open.map(taskHTML).join('')}
-      <li class="add-row"><button class="t-add-btn">+ Add task</button></li>
-      ${done.length ? `<li class="done-sep"></li>${done.map(taskHTML).join('')}` : ''}
-    </ul>
+    ${taskListHTML(c, '')}
+    ${c.subs.filter(s => !s.parked).map(s => subSectionHTML(c, s)).join('')}
   </div>`;
 }
 
@@ -1904,8 +1973,14 @@ function renderBoard() {
   const parked = campaigns.filter(c => c.parked && !isEnded(c) && isShown(c)).sort((a, b) => a.parked - b.parked);
   const ended = campaigns.filter(c => isEnded(c) && isShown(c))
     .sort((a, b) => timing(b).last.localeCompare(timing(a).last));
-  park.hidden = !parked.length;
-  park.innerHTML = parked.length ? `<div class="park-label">Parked</div>${parked.map(tileHTML).join('')}` : '';
+  // the rail holds parked campaigns and parked sub-campaigns of the campaigns on the board, oldest first
+  const onBoard = [...active, ...(showEnded ? ended : [])];
+  const tiles = [
+    ...parked.map(c => ({ at: c.parked, html: tileHTML(c) })),
+    ...onBoard.flatMap(c => c.subs.filter(s => s.parked).map(s => ({ at: s.parked, html: subTileHTML(c, s) }))),
+  ].sort((a, b) => a.at - b.at);
+  park.hidden = !tiles.length;
+  park.innerHTML = tiles.length ? `<div class="park-label">Parked</div>${tiles.map(x => x.html).join('')}` : '';
   const cols = [...active.map(c => columnHTML(c, false)), ...(showEnded ? ended.map(c => columnHTML(c, true)) : [])];
   cboard.innerHTML = cols.join('') || `<p class="col-empty">${parked.length && !ended.length
     ? 'Every running campaign is parked.'
@@ -1972,7 +2047,7 @@ cboard.addEventListener('change', e => {
 });
 cboard.addEventListener('click', e => {
   const add = e.target.closest('.t-add-btn');
-  if (add) return openTask(add.closest('.ccol').dataset.id, null);
+  if (add) return openTask(add.closest('.ccol').dataset.id, null, add.closest('.tasks').dataset.sub || '');
   const btn = e.target.closest('.t-urgent, .t-archive');
   if (btn) {
     const t = taskOf(btn), row = btn.closest('.task');
@@ -2016,9 +2091,10 @@ window.addEventListener('pointermove', e => {
   const b = cboard.getBoundingClientRect();
   if (e.clientX > b.right - 60) cboard.scrollLeft += 14;
   else if (e.clientX < b.left + 60) cboard.scrollLeft -= 14;
-  const col = document.elementFromPoint(e.clientX, e.clientY)?.closest('.ccol');
+  const hit = document.elementFromPoint(e.clientX, e.clientY), col = hit?.closest('.ccol');
   if (!col) return;
-  const list = col.querySelector('.tasks');
+  // the list under the pointer: the campaign's own or an expanded sub-campaign's; elsewhere in the column, its own
+  const list = hit.closest('.tasks') || hit.closest('.sub-sec')?.querySelector('.tasks') || col.querySelector('.tasks');
   let before = null; // done tasks always go to the bottom of the target list
   if (!t.done) {
     before = [...list.querySelectorAll('.task:not(.done):not(.placeholder)')]
@@ -2037,6 +2113,7 @@ function endTaskDrag() {
     const src = campaignOfTask(t), dst = campaigns.find(c => c.id === row.closest('.ccol').dataset.id);
     src.tasks = src.tasks.filter(x => x !== t);
     if (src !== dst) t.segments = t.segments.filter(s => dst.segments.includes(s));
+    if (row.parentNode.dataset.sub) t.sub = row.parentNode.dataset.sub; else delete t.sub;
     if (t.done) dst.tasks.push(t);
     else {
       // the new open order is exactly what's on screen now
@@ -2064,20 +2141,23 @@ let tdTask = null, tdDraft = null;
 // escape first, then turn http(s) links into anchors
 const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 
-function openTask(cid, tid) {
+function openTask(cid, tid, sub = '') {
   const c = campaigns.find(x => x.id === cid);
   tdTask = tid ? c.tasks.find(t => t.id === tid) : null;
   tdDraft = tdTask
     ? { ...tdTask, segments: [...tdTask.segments], subtasks: tdTask.subtasks.map(s => ({ ...s })) }
     : normTask({});
   tdDraft.cid = cid;
+  tdDraft.sub = tdTask ? secOf(c, tdTask) : sub; // '' = the campaign itself, else one of its sub-campaigns
 
   $td('done').checked = tdDraft.done;
   $td('name').value = tdDraft.text;
   $td('urgent').classList.toggle('on', tdDraft.urgent);
   const ended = campaigns.filter(isEnded);
   $td('campaign').innerHTML = [...activeOrder(), ...ended]
-    .map(x => `<option value="${x.id}"${x.id === cid ? ' selected' : ''}>${esc(x.name)}${isEnded(x) ? ' (ended)' : ''}</option>`).join('');
+    // each campaign, then its sub-campaigns as "Campaign › Sub"; values are "campaignId|subId"
+    .flatMap(x => [['', esc(x.name) + (isEnded(x) ? ' (ended)' : '')], ...x.subs.map(s => [s.id, `${esc(x.name)} › ${esc(s.name)}`])]
+      .map(([sid, label]) => `<option value="${x.id}|${sid}"${x.id === cid && sid === tdDraft.sub ? ' selected' : ''}>${label}</option>`)).join('');
   $td('due').value = tdDraft.due;
   $td('segs-show').checked = tdDraft.showSegs;
   $td('desc').value = tdDraft.desc;
@@ -2120,7 +2200,7 @@ $td('urgent').addEventListener('click', () => {
   tdDraft.urgent = !tdDraft.urgent;
   $td('urgent').classList.toggle('on', tdDraft.urgent);
 });
-$td('campaign').addEventListener('change', e => { tdDraft.cid = e.target.value; renderTdSegs(); });
+$td('campaign').addEventListener('change', e => { [tdDraft.cid, tdDraft.sub] = e.target.value.split('|'); renderTdSegs(); });
 document.querySelector('.td-quick').addEventListener('click', e => {
   const b = e.target.closest('[data-days]');
   if (b) $td('due').value = b.dataset.days === '' ? '' : toISO(addDays(today, Number(b.dataset.days)));
@@ -2168,15 +2248,16 @@ tdForm.addEventListener('submit', e => {
     subtasks: fields.subtasks.filter(s => s.text.trim()),
   });
   const t = tdTask || {};
-  const prev = { due: t.due, urgent: t.urgent, done: t.done };
+  const prev = { due: t.due, urgent: t.urgent, done: t.done, sub: t.sub || '' };
   if (fields.done && !t.done) fields.doneAt = Date.now();
   const src = tdTask ? campaignOfTask(tdTask) : null, dst = campaigns.find(c => c.id === cid);
   tdDlg.close();
   withFlip(() => {
     Object.assign(t, fields);
+    if (!t.sub) delete t.sub;
     if (src && src !== dst) src.tasks = src.tasks.filter(x => x !== t);
     // re-place only when something that decides the position changed, so a dragged order survives edits
-    if (!tdTask || src !== dst || prev.due !== t.due || prev.urgent !== t.urgent || (prev.done && !t.done)) placeTask(dst, t);
+    if (!tdTask || src !== dst || prev.sub !== (t.sub || '') || prev.due !== t.due || prev.urgent !== t.urgent || (prev.done && !t.done)) placeTask(dst, t);
     commit();
   });
 });
@@ -2295,20 +2376,31 @@ cboard.addEventListener('click', e => {
 function setParked(c, on) {
   if (on) c.parked = Date.now(); else delete c.parked;
   save();
-  if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard);
+  // a transition the browser skips (hidden tab, interrupted) only rejects its promise: the board still updates
+  if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard).ready.catch(() => {});
   else renderBoard();
 }
+// the sub-campaign object a sub header / tile / list belongs to
+const subOfNode = el => {
+  const c = campaigns.find(x => x.id === el.closest('[data-id]').dataset.id);
+  return c.subs.find(s => s.id === el.closest('[data-sub]').dataset.sub);
+};
 cboard.addEventListener('click', e => {
-  const btn = e.target.closest('.col-park');
+  const btn = e.target.closest('.col-park, .sub-park, .sub-toggle');
   if (!btn) return;
   e.stopPropagation(); // don't open the campaign
-  setParked(campaigns.find(x => x.id === btn.closest('.ccol').dataset.id), true);
+  if (btn.matches('.col-park')) return setParked(campaigns.find(x => x.id === btn.closest('.ccol').dataset.id), true);
+  const sub = subOfNode(btn.closest('.sub-sec-head'));
+  if (btn.matches('.sub-park')) return setParked(sub, true);
+  sub.compact = !sub.compact; // collapse to one line / show its tasks again
+  withFlip(commit);
 });
 park.addEventListener('click', e => {
   const btn = e.target.closest('.tile-unpark');
   if (!btn) return;
   e.stopPropagation(); // the tile itself opens the campaign; only this button unparks
-  setParked(campaigns.find(x => x.id === btn.closest('.tile').dataset.id), false);
+  const tile = btn.closest('.tile');
+  setParked(tile.dataset.sub ? subOfNode(tile) : campaigns.find(x => x.id === tile.dataset.id), false);
 });
 
 // Detailed / Compact board; columns morph to their new size with a view transition where the browser has it
@@ -2318,7 +2410,8 @@ document.getElementById('density').addEventListener('click', e => {
   dense = btn.dataset.dense === '1';
   try { localStorage.setItem(DENSE_STORE, dense ? '1' : '0'); } catch (err) {}
   document.querySelectorAll('#density button').forEach(b => b.setAttribute('aria-pressed', b === btn));
-  if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard);
+  // a transition the browser skips (hidden tab, interrupted) only rejects its promise: the board still updates
+  if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard).ready.catch(() => {});
   else renderBoard();
 });
 document.querySelectorAll('#density button').forEach(b => b.setAttribute('aria-pressed', (b.dataset.dense === '1') === dense));
@@ -2391,7 +2484,7 @@ function renderArchive() {
       <div class="ar-head"><span class="dot"></span>${esc(c.name)}</div>
       ${archivedOf(c).map(t => `<div class="ar-row">
         <input type="checkbox" id="ar-${t.id}" data-cid="${c.id}" data-tid="${t.id}">
-        <label for="ar-${t.id}">${esc(t.text)}</label>
+        <label for="ar-${t.id}">${esc(t.text)}${c.subs.some(s => s.id === t.sub) ? `<span class="ar-sub"> · ${esc(c.subs.find(s => s.id === t.sub).name)}</span>` : ""}</label>
         <button type="button" class="link ar-restore" data-cid="${c.id}" data-tid="${t.id}">Restore</button>
       </div>`).join('')}
     </div>`;
@@ -2660,7 +2753,7 @@ document.querySelector('.tabs').addEventListener('click', e => {
 
 // ---------- wiring ----------
 document.addEventListener('click', e => {
-  const el = e.target.closest('.bar, .up-item, .col-head, .tile');
+  const el = e.target.closest('.bar, .up-item, .col-head, .tile, .sub-sec-head');
   if (el) openDialog(el.dataset.id, null, el.closest('.track')?.dataset.seg, !!el.dataset.lg, el.dataset.sub || null);
 });
 document.querySelectorAll('.add-campaign').forEach(b => b.addEventListener('click', () => openDialog(null)));
