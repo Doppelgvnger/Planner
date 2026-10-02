@@ -249,7 +249,8 @@
      continuing on its own where the campaign has already ended */
   .bar.has-subs { align-items: flex-start; padding-top: 5px; }
   .bar.sub {
-    height: 15px; padding: 0 7px; z-index: 3; border-radius: 5px; gap: 6px;
+    /* z-index as bars: drawn after its campaign (so on top of it) but under the sticky market labels */
+    height: 15px; padding: 0 7px; z-index: 2; border-radius: 5px; gap: 6px;
     background: color-mix(in srgb, var(--c-edge) 60%, var(--c-bg));
     box-shadow: none;
   }
@@ -968,8 +969,8 @@
     <label class="field">Campaign name
       <input name="name" autocomplete="off" placeholder="e.g. Black Friday">
     </label>
-    <fieldset>
-      <legend>Segments</legend>
+    <fieldset aria-label="Segments">
+      <div class="fs-head"><span>Segments</span><button type="button" class="link sel-all" data-sel="seg">Select all</button></div>
       <div class="chips" id="seg-chips"></div>
     </fieldset>
     <fieldset>
@@ -987,8 +988,8 @@
     <div class="lg-box" id="lg-box">
       <label class="check"><input type="checkbox" id="lg-on"> Has lead gen</label>
       <div class="lg-body" id="lg-body" hidden>
-        <fieldset>
-          <legend>Lead gen markets</legend>
+        <fieldset aria-label="Lead gen markets">
+          <div class="fs-head"><span>Lead gen markets</span><button type="button" class="link sel-all" data-sel="lg">Select all</button></div>
           <div class="chips" id="lg-chips"></div>
         </fieldset>
         <div class="two">
@@ -1551,6 +1552,7 @@ function renderLeadgen() {
   }) : [];
   lgWarn.textContent = overlap.length
     ? `Lead gen overlaps the campaign in ${SEGMENTS.filter(s => overlap.includes(s.id)).map(s => s.code).join(', ')}.` : '';
+  syncSelAll();
 }
 const isoShift = (iso, n) => toISO(addDays(fromISO(iso), n));
 lgOn.addEventListener('change', () => {
@@ -1580,6 +1582,7 @@ function renderSubCampaigns() {
   subList.innerHTML = subDrafts.map((s, i) => `<div class="sub-card${s.id === focusSubId ? ' focus' : ''}" data-i="${i}">
     <div class="sub-head"><input class="sub-name" value="${esc(s.name)}" placeholder="Sub-campaign name" autocomplete="off">
       <button type="button" class="t-btn sub-remove" title="Remove this sub-campaign">×</button></div>
+    <div class="fs-head"><span>Markets</span><button type="button" class="link sel-all" data-sel="sub">Select all</button></div>
     <div class="chips">${SEGMENTS.filter(x => segs.includes(x.id)).map(x =>
       `<label class="chip"><input type="checkbox" class="sub-seg" value="${x.id}"${s.excluded.has(x.id) ? '' : ' checked'}><span>${x.name}</span></label>`).join('')
       || '<span class="empty">Pick the campaign segments first.</span>'}</div>
@@ -1598,6 +1601,7 @@ function renderSubCampaigns() {
     s.ed.list.hidden = !Object.keys(draft).length && s.id !== focusSubId;
     s.ed.render();
   });
+  syncSelAll();
 }
 const subOfEl = el => subDrafts[Number(el.closest('.sub-card').dataset.i)];
 subList.addEventListener('input', e => {
@@ -1621,6 +1625,34 @@ document.getElementById('sub-add').addEventListener('click', () => {
   subDrafts.push({ id: uid(), name: '', start: form.start.value, end: form.end.value, excluded: new Set(), ed: null });
   renderSubCampaigns();
   subList.lastElementChild.querySelector('.sub-name').focus();
+});
+
+// ---------- "Select all" for the campaign's segments, the lead gen's and each sub-campaign's markets ----------
+const chipsOf = btn => btn.closest('fieldset, .sub-card').querySelector('.chips');
+function syncSelAll() {
+  form.querySelectorAll('.sel-all').forEach(b => {
+    const boxes = [...chipsOf(b).querySelectorAll('input[type=checkbox]')];
+    b.hidden = !boxes.length;
+    b.textContent = boxes.length && boxes.every(i => i.checked) ? 'Clear all' : 'Select all';
+  });
+}
+form.addEventListener('change', syncSelAll);
+form.addEventListener('click', e => {
+  const b = e.target.closest('.sel-all');
+  if (!b) return;
+  const on = !b.textContent.startsWith('Clear'); // tick everything, or untick everything
+  if (b.dataset.sel === 'seg') {
+    document.querySelectorAll('#seg-chips input').forEach(i => { i.checked = on; });
+    document.getElementById('seg-chips').dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (b.dataset.sel === 'lg') {
+    lgExcluded = new Set(on ? [] : checkedSegs());
+    renderLeadgen();
+  } else {
+    const s = subOfEl(b);
+    s.excluded = new Set(on ? [] : checkedSegs());
+    renderSubCampaigns();
+  }
+  syncSelAll();
 });
 
 // campaign dates or segments changed: markets that weren't moved follow, lead gen and sub-campaign markets follow the segments
@@ -1672,6 +1704,7 @@ function openDialog(id, preset, seg = null, fromLg = false, subId = null) {
   if (fromLg) document.getElementById('lg-box').scrollIntoView({ block: 'center' });
   else if (subId) subList.querySelector('.sub-card.focus')?.scrollIntoView({ block: 'center' });
   else if (!id) form.name.focus();
+  syncSelAll();
   dlgSnap = campaignSnap(); // what "unchanged" looks like, for closing by clicking outside
 }
 
