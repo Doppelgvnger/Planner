@@ -915,6 +915,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 40px rgba(var(--sh), .2);
   }
   .tk-bulk[hidden] { display: none; }
+  .tk-bulk.leaving { pointer-events: none; }
   .tk-bulk .btn { padding: 6px 12px; font-size: 13px; }
   .tk-bulk select, .tk-bulk input { border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; background: var(--surface); font-size: 13px; }
   .tk-bulk-n { margin-right: 4px; font-size: 13px; font-weight: 600; }
@@ -3470,6 +3471,7 @@ function renderTasks() {
   if (!tkv.merged) tkGen.style.left = tkGen.style.top = ''; // the spot it faded out at only matters while it's gone
   tkSide.innerHTML = sideHTML();
   $tk('tk-title').textContent = { all: 'All tasks', urgent: 'Urgent', week: 'This week' }[tkv.sel] || listById(tkv.sel).name;
+  const sortWasHidden = $tk('tk-sort').hidden, addToWasHidden = tkAddTo.hidden;
   $tk('tk-sort').hidden = !isMulti();
   document.querySelectorAll('#tk-sort button').forEach(b => b.setAttribute('aria-pressed', b.dataset.sort === tkv.sort));
   // quick add: into the campaign being looked at; from a mixed view into General when merged, else into the picked campaign
@@ -3479,6 +3481,11 @@ function renderTasks() {
   if (pickTarget) {
     if (!targets.some(c => c.id === tkv.addTo)) tkv.addTo = targets[0]?.id || '';
     tkAddTo.innerHTML = targets.map(c => `<option value="${c.id}"${c.id === tkv.addTo ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  }
+  // controls that just appeared fade in
+  if (!reduceMotion) {
+    if (sortWasHidden && !$tk('tk-sort').hidden) $tk('tk-sort').animate([{ opacity: 0, offset: 0 }], MOTION.enter);
+    if (addToWasHidden && !tkAddTo.hidden) tkAddTo.animate([{ opacity: 0, offset: 0 }], MOTION.enter);
   }
   tkAdd.disabled = pickTarget && !targets.length;
   tkAdd.placeholder = tkAdd.disabled ? 'Create a campaign first' : tkv.sel === 'urgent' ? '+ Add an urgent task' : tkv.sel === 'week' ? '+ Add a task due today' : '+ Add a task';
@@ -3637,7 +3644,7 @@ function setDone(t, on) {
 tkWrap.addEventListener('change', e => {
   if (e.target.matches('.tk-row .t-check')) setDone(taskByTid(e.target.closest('.tk-row').dataset.tid), e.target.checked);
 });
-$tk('tk-search').addEventListener('input', e => { tkQuery = e.target.value.trim().toLowerCase(); renderTasks(); });
+$tk('tk-search').addEventListener('input', e => { tkQuery = e.target.value.trim().toLowerCase(); tkFlip(renderTasks); });
 
 // quick add: type and press Enter; the field stays ready for the next one
 function quickAdd(input, dst) {
@@ -3676,6 +3683,9 @@ function flashSaved() {
 }
 function openEditor(t) {
   const was = !tkEd.hidden;
+  if (was && edTask && edTask !== t && !reduceMotion) {
+    for (const el of tkEd.children) el.animate([{ opacity: .25, offset: 0 }], { duration: 200, easing: 'ease-out' });
+  }
   edTask = t;
   tkEd.hidden = false;
   fillEditor();
@@ -3844,12 +3854,32 @@ function trashTasks(ts) {
 const tkBulk = $tk('tk-bulk');
 const pickedTasks = () => [...picked].map(taskByTid).filter(Boolean);
 function renderBulk() {
-  tkBulk.hidden = picked.size < 2;
-  if (tkBulk.hidden) return;
-  const ts = pickedTasks();
-  $tk('tb-n').textContent = `${ts.length} selected`;
-  $tk('tb-urgent').textContent = ts.every(t => t.urgent) ? 'Not urgent' : 'Urgent';
-  $tk('tb-move').innerHTML = `<option value="">Move to…</option>${campaignOptions(null)}`;
+  const show = picked.size >= 2;
+  if (show) {
+    const ts = pickedTasks();
+    $tk('tb-n').textContent = `${ts.length} selected`;
+    $tk('tb-urgent').textContent = ts.every(t => t.urgent) ? 'Not urgent' : 'Urgent';
+    $tk('tb-move').innerHTML = `<option value="">Move to…</option>${campaignOptions(null)}`;
+  }
+  // the bar rises in from the bottom edge and sinks back out (it's centred with translateX(-50%))
+  const shown = !tkBulk.hidden && !tkBulk.classList.contains('leaving');
+  if (show === shown) return;
+  tkBulk.getAnimations().forEach(a => a.cancel());
+  tkBulk.classList.remove('leaving');
+  if (reduceMotion) { tkBulk.hidden = !show; return; }
+  const low = { opacity: 0, transform: 'translate(-50%, 16px)' };
+  if (show) {
+    tkBulk.hidden = false;
+    tkBulk.animate([{ ...low, offset: 0 }], MOTION.enter);
+  } else {
+    tkBulk.classList.add('leaving');
+    tkBulk.animate([low], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => {
+      if (!tkBulk.classList.contains('leaving')) return;
+      tkBulk.classList.remove('leaving');
+      tkBulk.hidden = true;
+      tkBulk.getAnimations().forEach(a => a.cancel());
+    }, () => {});
+  }
 }
 const bulk = (change, keep = true) => tkFlip(() => {
   change(pickedTasks());
