@@ -52,6 +52,8 @@
     --ease-fold: cubic-bezier(.4, 0, .2, 1);      /* height folding in and out */
     --dur-fold: .34s;
     --dur-move: .52s;
+    --dur-enter: .24s; /* something appearing in place */
+    --dur-leave: .2s;  /* something going away */
 
     --label-w: 208px;
     --day-w: 32px;
@@ -342,6 +344,18 @@
     box-shadow: 0 24px 64px rgba(var(--sh), .22); color: var(--ink); background: var(--surface);
   }
   dialog::backdrop { background: rgba(var(--sh), .28); backdrop-filter: blur(2px); }
+  /* every dialog rises in and sinks out with its backdrop (openDlg / shut) */
+  dialog[open] { animation: dlg-in var(--dur-enter) ease-out; }
+  dialog[open]::backdrop { animation: dlg-fade-in var(--dur-enter) ease-out; }
+  dialog.closing { animation: dlg-out var(--dur-leave) ease-in forwards; }
+  dialog.closing::backdrop { animation: dlg-fade-out var(--dur-leave) ease-in forwards; }
+  @keyframes dlg-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+  @keyframes dlg-out { to { opacity: 0; transform: translateY(6px) scale(.97); } }
+  @keyframes dlg-fade-in { from { opacity: 0; } }
+  @keyframes dlg-fade-out { to { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    dialog[open], dialog[open]::backdrop, dialog.closing, dialog.closing::backdrop { animation: none; }
+  }
   form { padding: 24px; display: grid; gap: 16px; }
   dialog h2 { margin: 0; font-size: 18px; font-weight: 600; }
   /* close button: pinned top-right while the dialog scrolls; negative bottom margin keeps it out of the layout */
@@ -1411,6 +1425,29 @@ const trashTask = (t, c) => {
   trash.unshift({ type: 'task', t, cid: c.id, cname: sub ? `${c.name} › ${sub.name}` : c.name, color: c.color, at: Date.now() });
 };
 
+// ---------- dialogs: open with openDlg, close with shut, so they animate in and out (see dialog CSS) ----------
+// shut plays the sink-out, then really closes (so 'close' listeners and returnValue work as usual)
+function shut(d, value) {
+  if (!d.open || d.finishClosing) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return d.close(value);
+  const onEnd = e => { if (e.target === d && e.animationName === 'dlg-out') done(); };
+  const done = () => {
+    if (d.finishClosing !== done) return;
+    d.finishClosing = null;
+    d.removeEventListener('animationend', onEnd);
+    d.classList.remove('closing');
+    d.close(value);
+  };
+  d.finishClosing = done;
+  d.classList.add('closing');
+  d.addEventListener('animationend', onEnd);
+  setTimeout(done, 400); // in case the animation never runs (hidden tab)
+}
+// reopening one that is still sinking out: finish that close first
+function openDlg(d) {
+  d.finishClosing?.();
+  d.showModal();
+}
 // site-styled confirmation; resolves true only when the user picks the action button
 // With `alt`, the dialog shows two choices instead of Cancel + action (Esc still backs out):
 // resolves true for `ok`, 'alt' for the second button, false otherwise.
@@ -1424,7 +1461,7 @@ function ask({ title, text, ok = 'Delete', alt = '', danger = true }) {
   altBtn.hidden = !alt;
   document.getElementById('ask-no').hidden = !!alt;
   d.returnValue = '';
-  d.showModal();
+  openDlg(d);
   return new Promise(res => d.addEventListener('close', () => res(d.returnValue === 'yes' || (d.returnValue === 'alt' && 'alt')), { once: true }));
 }
 // early in a month, open on the previous month so campaigns already running are visible from their start
@@ -2025,7 +2062,7 @@ function openDialog(id, preset, seg = null, fromLg = false, subId = null) {
   renderSubCampaigns();
 
   err.textContent = '';
-  dlg.showModal();
+  openDlg(dlg);
   if (fromLg) document.getElementById('lg-box').scrollIntoView({ block: 'center' });
   else if (subId) subList.querySelector('.sub-card.focus')?.scrollIntoView({ block: 'center' });
   else if (!id) form.name.focus();
@@ -2094,7 +2131,7 @@ form.addEventListener('submit', e => {
     if (colOrder.length) placeColumn(c); // with a hand-made order, slot it in by date instead of at the end
   }
   save();
-  dlg.close();
+  shut(dlg);
 });
 document.getElementById('del').addEventListener('click', () => {
   // goes to Trash with its tasks, remembering its slot on the board, so a slip is one click to undo
@@ -2105,9 +2142,9 @@ document.getElementById('del').addEventListener('click', () => {
   save();
   saveOrder();
   saveTrash();
-  dlg.close();
+  shut(dlg);
 });
-document.getElementById('cancel').addEventListener('click', () => dlg.close());
+document.getElementById('cancel').addEventListener('click', () => shut(dlg));
 dlg.addEventListener('close', () => renderAll());
 
 // ---------- campaigns board ----------
@@ -2348,8 +2385,8 @@ const MOTION = {
   glide: cssVar('--ease-glide'),
   fold: { duration: parseFloat(cssVar('--dur-fold')) * 1000, easing: cssVar('--ease-fold') }, // height in / out
   move: { duration: parseFloat(cssVar('--dur-move')) * 1000, easing: cssVar('--ease-glide') }, // FLIP moves, morphs
-  enter: { duration: 240, easing: 'ease-out' }, // something appearing in place
-  leave: { duration: 200, easing: 'ease-in' },  // something going away from where it was
+  enter: { duration: parseFloat(cssVar('--dur-enter')) * 1000, easing: 'ease-out' }, // something appearing in place
+  leave: { duration: parseFloat(cssVar('--dur-leave')) * 1000, easing: 'ease-in' },  // something going away from where it was
 };
 const SPRING = MOTION.spring;
 function settle(el, dx, dy) {
@@ -2555,7 +2592,7 @@ function openTask(cid, tid, sub = '') {
   $td('err').textContent = '';
   $td('del').hidden = !tdTask;
   syncTdArchive();
-  tdDlg.showModal();
+  openDlg(tdDlg);
   if (!tdTask) $td('name').focus();
   tdSnap = taskSnap(); // what "unchanged" looks like, for closing by clicking outside
 }
@@ -2636,7 +2673,7 @@ tdForm.addEventListener('submit', e => {
   const prev = { due: t.due, urgent: t.urgent, done: t.done, sub: t.sub || '' };
   if (fields.done && !t.done) fields.doneAt = Date.now();
   const src = tdTask ? campaignOfTask(tdTask) : null, dst = listById(cid);
-  tdDlg.close();
+  shut(tdDlg);
   withFlip(() => {
     Object.assign(t, fields);
     if (!t.sub) delete t.sub;
@@ -2646,17 +2683,17 @@ tdForm.addEventListener('submit', e => {
     commit();
   });
 });
-$td('cancel').addEventListener('click', () => tdDlg.close());
+$td('cancel').addEventListener('click', () => shut(tdDlg));
 $td('del').addEventListener('click', () => {
   // no question asked: it goes to Trash and can be restored from there
   const c = campaignOfTask(tdTask), t = tdTask;
   trashTask(t, c);
   saveTrash();
-  tdDlg.close();
+  shut(tdDlg);
   withFlip(() => { c.tasks = c.tasks.filter(x => x !== t); commit(); });
 });
 $td('archive').addEventListener('click', () => {
-  tdDlg.close();
+  shut(tdDlg);
   withFlip(() => { Object.assign(tdTask, { done: true, archived: true }); commit(); });
 });
 
@@ -2983,8 +3020,8 @@ document.getElementById('ar-del-all').addEventListener('click', () => {
   // they go to Trash, so this is undoable
   removeTasks(lists().flatMap(c => archivedOf(c).map(t => [c.id, t.id])));
 });
-document.getElementById('ar-close').addEventListener('click', () => arDlg.close());
-document.getElementById('open-archive').addEventListener('click', () => { renderArchive(); arDlg.showModal(); });
+document.getElementById('ar-close').addEventListener('click', () => shut(arDlg));
+document.getElementById('open-archive').addEventListener('click', () => { renderArchive(); openDlg(arDlg); });
 
 // ---------- trash ----------
 const trDlg = document.getElementById('trash-dlg'), trList = document.getElementById('tr-list');
@@ -3076,12 +3113,12 @@ document.getElementById('tr-empty').addEventListener('click', async () => {
   renderTrash();
   renderAll();
 });
-document.getElementById('tr-close').addEventListener('click', () => trDlg.close());
+document.getElementById('tr-close').addEventListener('click', () => shut(trDlg));
 document.getElementById('open-trash').addEventListener('click', () => {
   // open on whichever kind there is, campaigns first
   trTab = trash.some(x => !isTaskItem(x)) || !trash.length ? 'campaign' : 'task';
   renderTrash();
-  trDlg.showModal();
+  openDlg(trDlg);
 });
 
 // ---------- backup: everything in one JSON file, built from what's in memory ----------
@@ -3128,8 +3165,8 @@ bkFile.addEventListener('change', async () => {
   renderAll();
   showBkMsg(`Imported ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(lists()), 'task')}.`);
 });
-document.getElementById('open-backup').addEventListener('click', () => { showBkMsg(''); bkDlg.showModal(); });
-document.getElementById('bk-close').addEventListener('click', () => bkDlg.close());
+document.getElementById('open-backup').addEventListener('click', () => { showBkMsg(''); openDlg(bkDlg); });
+document.getElementById('bk-close').addEventListener('click', () => shut(bkDlg));
 
 // ---------- settings: theme (applied early in <head>; this keeps the switch and custom colours in step) ----------
 const THEME_STORE = 'planner.theme.v1';
@@ -3145,8 +3182,8 @@ document.querySelector('#settings-dlg .zoom').addEventListener('click', e => {
   renderAll(); // custom campaign colours are computed per theme
 });
 syncThemePick();
-document.getElementById('open-settings').addEventListener('click', () => document.getElementById('settings-dlg').showModal());
-document.getElementById('set-close').addEventListener('click', () => document.getElementById('settings-dlg').close());
+document.getElementById('open-settings').addEventListener('click', () => openDlg(document.getElementById('settings-dlg')));
+document.getElementById('set-close').addEventListener('click', () => shut(document.getElementById('settings-dlg')));
 
 // ---------- closing dialogs: click outside, the ×, or Esc ----------
 // The campaign and task forms remember how they looked when opened; closing an edited one asks Save / Discard.
@@ -3160,20 +3197,20 @@ const campaignSnap = () => formSnap(form, [mainEd.draft, [...lgExcluded], lgEd.d
 const taskSnap = () => formSnap(tdForm, [tdDraft.urgent, tdDraft.cid, tdDraft.segments, tdDraft.subtasks]);
 
 async function closeGuarded(d, snapNow, snapThen, f) {
-  if (snapNow() === snapThen()) return d.close();
+  if (snapNow() === snapThen()) return shut(d);
   const r = await ask({
     title: 'Save your changes?', text: 'You changed something here and haven’t saved it yet.',
     ok: 'Save changes', alt: 'Discard changes', danger: false,
   });
   if (r === true) f.requestSubmit(); // a failed check keeps the form open with its message
-  else if (r === 'alt') d.close();
+  else if (r === 'alt') shut(d);
 }
 const settingsDlg = document.getElementById('settings-dlg');
 const closers = new Map([
   [dlg, () => closeGuarded(dlg, campaignSnap, () => dlgSnap, form)],
   [tdDlg, () => closeGuarded(tdDlg, taskSnap, () => tdSnap, tdForm)],
 ]);
-const closeDialog = d => (closers.get(d) || (() => d.close()))();
+const closeDialog = d => (closers.get(d) || (() => shut(d)))();
 
 for (const d of [dlg, tdDlg, arDlg, trDlg, bkDlg, settingsDlg]) {
   // a click counts as "outside" only if it both started and ended on the backdrop (not a text-select drag, not the scrollbar)
@@ -3185,7 +3222,12 @@ for (const d of [dlg, tdDlg, arDlg, trDlg, bkDlg, settingsDlg]) {
   d.addEventListener('pointerdown', e => { downOutside = outside(e); });
   d.addEventListener('click', e => { if (downOutside && outside(e)) closeDialog(d); downOutside = false; });
 }
-for (const d of [dlg, tdDlg]) d.addEventListener('cancel', e => { e.preventDefault(); closeDialog(d); }); // Esc
+// Esc: same animated close as everything else (the two forms still ask about unsaved changes)
+for (const d of [dlg, tdDlg, arDlg, trDlg, bkDlg, settingsDlg]) d.addEventListener('cancel', e => { e.preventDefault(); closeDialog(d); });
+// the confirmation: its buttons and Esc answer through the animated close too
+const askDlg = document.getElementById('ask-dlg');
+askDlg.querySelector('form').addEventListener('submit', e => { e.preventDefault(); shut(askDlg, e.submitter?.value || 'no'); });
+askDlg.addEventListener('cancel', e => { e.preventDefault(); shut(askDlg, 'no'); });
 document.addEventListener('click', e => {
   const x = e.target.closest('.dlg-x');
   if (x) closeDialog(x.closest('dialog'));
