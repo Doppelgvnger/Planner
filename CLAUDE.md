@@ -25,6 +25,7 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 ## Key helpers
 - `timing(c)` → spans `sp`, `lg`, `subs`, `first`, `last` (`last` incl. subs decides "ended"). `statusHTML(c, {leadgen, subs})` / `statusPill`: live green, soon yellow, ended red, grouped by market.
 - `marketEditor()` = per-market dates UI (campaign, lead gen, each sub). `placeTask`/`orderedTasks(c, sec)` order tasks per section. `ask()` = in-page confirm (never `confirm()`); `closeGuarded` asks Save/Discard on edited forms.
+- Motion standard: CSS vars `--ease-spring/glide/fold`, `--dur-fold/move` → JS `MOTION` {fold, move, enter, leave}; use these, not literals.
 - Motion: `withFlip` (board tasks), `tkFlip` (Tasks tab; `merge` = liquid version), `flipCols` (columns), View Transitions for park/density (`view-transition-name` col-<id> / sub-<id>).
 
 ## Gotchas
