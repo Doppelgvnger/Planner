@@ -133,7 +133,7 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
   .brand-mark { width: 26px; height: 26px; display: block; flex: none; }
-  .tabs { display: flex; gap: 4px; background: var(--line-soft); padding: 4px; border-radius: 999px; }
+  .tabs { position: relative; display: flex; gap: 4px; background: var(--line-soft); padding: 4px; border-radius: 999px; }
   .tab {
     border: 0; background: none; padding: 6px 16px; border-radius: 999px;
     color: var(--ink-2); font-weight: 500; cursor: pointer;
@@ -290,7 +290,11 @@
     border-color: var(--accent);
     background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 4l3 3 5-6' fill='none' stroke='white' stroke-width='1.8'/%3E%3C/svg%3E") center / 9px no-repeat;
   }
-  .zoom { display: flex; gap: 2px; background: var(--well); padding: 3px; border-radius: 10px; }
+  .zoom { position: relative; display: flex; gap: 2px; background: var(--well); padding: 3px; border-radius: 10px; }
+  /* switching tab or segment: the white pill glides from the old choice to the new one (glidePill) */
+  .tabs > button, .zoom > button { position: relative; z-index: 1; }
+  .pill-ghost { position: absolute; z-index: 0; pointer-events: none; }
+  .tabs > .pill-moving, .zoom > .pill-moving { background: transparent !important; box-shadow: none !important; }
   .zoom button { border: 0; background: none; padding: 5px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
   .zoom button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(var(--sh), .1); }
 
@@ -3793,15 +3797,48 @@ document.addEventListener('keydown', e => {
 });
 
 // ---------- tabs: the open tab lives in the URL hash so a refresh keeps it ----------
+let currentView = null;
 function showView(view) {
   try { history.replaceState(null, '', `#${view}`); } catch (e) {} // not allowed on data: URLs (preview pane)
+  const changed = currentView && currentView !== view;
+  currentView = view;
   document.querySelectorAll('.view').forEach(v => v.hidden = v.id !== `view-${view}`);
+  // the new tab's page rises in (not on first load)
+  if (changed && !reduceMotion) {
+    document.getElementById(`view-${view}`).animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], MOTION.enter);
+  }
   document.querySelectorAll('.tab[data-view]').forEach(t =>
     t.dataset.view === view ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
   renderAll();
   if (view === 'timeline') scrollToToday();
   if (view === 'tasks') syncTkBg(false);
 }
+// tabs and segmented controls (.zoom): when the chosen one changes, a copy of the white pill glides from the old
+// choice to the new one. The old choice is noted before the click is handled; the move starts right before the
+// next paint, once the handlers have updated aria-current / aria-pressed.
+const pickedIn = g => g.querySelector(g.matches('.tabs') ? ':scope > [aria-current="page"]' : ':scope > [aria-pressed="true"]');
+addEventListener('click', e => {
+  const group = e.target.closest('.tabs, .zoom');
+  if (!group || reduceMotion) return;
+  const from = pickedIn(group);
+  if (!from) return;
+  const fr = from.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    const to = pickedIn(group);
+    if (!to || to === from || !group.isConnected) return;
+    const g = group.getBoundingClientRect(), tr = to.getBoundingClientRect(), cs = getComputedStyle(to);
+    const pill = document.createElement('span');
+    pill.className = 'pill-ghost';
+    Object.assign(pill.style, { background: cs.backgroundColor, boxShadow: cs.boxShadow, borderRadius: cs.borderRadius });
+    group.prepend(pill);
+    to.classList.add('pill-moving');
+    const at = r => ({ left: `${r.left - g.left}px`, top: `${r.top - g.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+    pill.animate([at(fr), at(tr)], { duration: 300, easing: MOTION.spring, fill: 'forwards' }).finished.then(() => {
+      to.classList.remove('pill-moving');
+      pill.remove();
+    });
+  });
+}, true);
 document.querySelector('.tabs').addEventListener('click', e => {
   const t = e.target.closest('[data-view]');
   if (t) showView(t.dataset.view);
