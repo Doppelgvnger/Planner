@@ -29,6 +29,7 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - Motion: `withFlip` (board tasks), `tkFlip` (Tasks tab; `merge` = liquid version), `flipCols` (columns), View Transitions for park/density (`view-transition-name` col-<id> / sub-<id>).
 
 ## Gotchas
+- `today` is a `let` that `checkNewDay()` moves on past midnight; never cache dates derived from it across renders.
 - `crypto.randomUUID` is missing on `file://` → `uid()`. Every campaign needs `tasks: []` and `subs: []`.
 - Name clash: `renderSubs` = task subtasks; sub-campaigns use `renderSubCampaigns`.
 - Never hardcode colours in rules: CSS vars with a `[data-theme="dark"]` block. Accent `--accent` #0c8a80 (light) / #18c2b4 (dark).
