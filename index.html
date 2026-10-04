@@ -236,6 +236,9 @@
   .c-peach    { --c-bg: var(--peach-bg);    --c-edge: var(--peach-edge);    --c-ink: var(--peach-ink); }
   .c-rose     { --c-bg: var(--rose-bg);     --c-edge: var(--rose-edge);     --c-ink: var(--rose-ink); }
   .c-butter   { --c-bg: var(--butter-bg);   --c-edge: var(--butter-edge);   --c-ink: var(--butter-ink); }
+  /* General (tasks without a campaign): neutral grey, its dot drawn dashed */
+  .c-general  { --c-bg: var(--line-soft);   --c-edge: var(--ctl-strong);    --c-ink: var(--ink-2); }
+  .c-general .dot, .dot.c-general { background: none; border: 1.5px dashed var(--ctl-strong); }
 
   /* lead gen bar: same color as its campaign, but hatched and outlined so it reads as "pre-campaign" */
   .bar.lg {
@@ -1111,10 +1114,23 @@ function load() {
   return []; // first visit starts empty
 }
 function save() {
-  try { localStorage.setItem(STORE, JSON.stringify(campaigns)); } catch (e) {}
+  try {
+    localStorage.setItem(STORE, JSON.stringify(campaigns));
+    localStorage.setItem(GENERAL_STORE, JSON.stringify(general.tasks));
+  } catch (e) {}
 }
 
 let campaigns = load();
+// General: tasks that belong to no campaign. Shaped like a campaign (every market, no subs) so the task helpers work on it,
+// but it never appears among the campaigns themselves.
+const GENERAL_STORE = 'planner.general.v1';
+const general = {
+  id: 'general', name: 'General', color: 'general', segments: SEGMENTS.map(s => s.id), destinations: DESTS.map(d => d.id), subs: [],
+  tasks: (() => { try { return (JSON.parse(localStorage.getItem(GENERAL_STORE)) || []).map(normTask); } catch (e) { return []; } })(),
+};
+// every task list: the campaigns, then General
+const lists = () => [...campaigns, general];
+const listById = id => lists().find(c => c.id === id);
 // deleted campaigns: [{ c: the whole campaign incl. tasks, at: deletedAt, pos: its index in the board order }]
 const TRASH_STORE = 'planner.trash.v1';
 // trashed campaigns may come from older versions too, so fill them in like live ones
@@ -1992,7 +2008,7 @@ function renderBoard() {
     : 'No campaigns yet. Create one with “+ New campaign”.'}</p>`;
   document.getElementById('show-ended').textContent = `Show ended (${ended.length})`;
   document.getElementById('reset-order').hidden = !colOrder.length;
-  const archived = campaigns.reduce((n, c) => n + c.tasks.filter(t => t.archived).length, 0);
+  const archived = lists().reduce((n, c) => n + c.tasks.filter(t => t.archived).length, 0);
   document.getElementById('open-archive').textContent = archived ? `Archive (${archived})` : 'Archive';
   document.getElementById('open-trash').textContent = trash.length ? `Trash (${trash.length})` : 'Trash';
   cboard.classList.toggle('dense', dense);
@@ -2001,9 +2017,13 @@ function renderBoard() {
 const renderAll = () => { render(); renderBoard(); };
 
 // ---------- tasks ----------
-const taskById = (cid, tid) => campaigns.find(c => c.id === cid).tasks.find(t => t.id === tid);
+const taskById = (cid, tid) => listById(cid).tasks.find(t => t.id === tid);
 const taskOf = el => taskById(el.closest('.ccol').dataset.id, el.closest('.task').dataset.tid);
-const campaignOfTask = t => campaigns.find(c => c.tasks.includes(t));
+const campaignOfTask = t => lists().find(c => c.tasks.includes(t));
+// "Move to" choices: General, each campaign, then its sub-campaigns as "Campaign › Sub"; values are "listId|subId"
+const campaignOptions = (cid, sub = '') => [general, ...activeOrder(), ...campaigns.filter(isEnded)]
+  .flatMap(x => [['', esc(x.name) + (x !== general && isEnded(x) ? ' (ended)' : '')], ...x.subs.map(s => [s.id, `${esc(x.name)} › ${esc(s.name)}`])]
+    .map(([sid, label]) => `<option value="${x.id}|${sid}"${x.id === cid && sid === sub ? ' selected' : ''}>${label}</option>`)).join('');
 
 // ---------- motion: tasks glide to their new place; going down they fall and bounce, going up they spring ----------
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2145,7 +2165,7 @@ let tdTask = null, tdDraft = null;
 const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 
 function openTask(cid, tid, sub = '') {
-  const c = campaigns.find(x => x.id === cid);
+  const c = listById(cid);
   tdTask = tid ? c.tasks.find(t => t.id === tid) : null;
   tdDraft = tdTask
     ? { ...tdTask, segments: [...tdTask.segments], subtasks: tdTask.subtasks.map(s => ({ ...s })) }
@@ -2156,11 +2176,7 @@ function openTask(cid, tid, sub = '') {
   $td('done').checked = tdDraft.done;
   $td('name').value = tdDraft.text;
   $td('urgent').classList.toggle('on', tdDraft.urgent);
-  const ended = campaigns.filter(isEnded);
-  $td('campaign').innerHTML = [...activeOrder(), ...ended]
-    // each campaign, then its sub-campaigns as "Campaign › Sub"; values are "campaignId|subId"
-    .flatMap(x => [['', esc(x.name) + (isEnded(x) ? ' (ended)' : '')], ...x.subs.map(s => [s.id, `${esc(x.name)} › ${esc(s.name)}`])]
-      .map(([sid, label]) => `<option value="${x.id}|${sid}"${x.id === cid && sid === tdDraft.sub ? ' selected' : ''}>${label}</option>`)).join('');
+  $td('campaign').innerHTML = campaignOptions(cid, tdDraft.sub);
   $td('due').value = tdDraft.due;
   $td('segs-show').checked = tdDraft.showSegs;
   $td('desc').value = tdDraft.desc;
@@ -2184,8 +2200,8 @@ function showDescView(view) {
   if (view) $td('desc-view').innerHTML = linkify($td('desc').value);
 }
 function renderTdSegs() {
-  const c = campaigns.find(x => x.id === tdDraft.cid);
-  tdDraft.segments = tdDraft.segments.filter(s => c.segments.includes(s));
+  const c = listById(tdDraft.cid);
+  tdDraft.segments =tdDraft.segments.filter(s => c.segments.includes(s));
   $td('segs').innerHTML = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s =>
     `<label class="chip"><input type="checkbox" value="${s.id}"${tdDraft.segments.includes(s.id) ? ' checked' : ''}><span>${s.flag ? `<span class="flag">${s.flag}</span> ` : ''}${s.code}</span></label>`).join('');
 }
@@ -2204,7 +2220,7 @@ $td('urgent').addEventListener('click', () => {
   $td('urgent').classList.toggle('on', tdDraft.urgent);
 });
 $td('campaign').addEventListener('change', e => { [tdDraft.cid, tdDraft.sub] = e.target.value.split('|'); renderTdSegs(); });
-document.querySelector('.td-quick').addEventListener('click', e => {
+tdForm.querySelector('.td-quick').addEventListener('click', e => {
   const b = e.target.closest('[data-days]');
   if (b) $td('due').value = b.dataset.days === '' ? '' : toISO(addDays(today, Number(b.dataset.days)));
 });
@@ -2253,7 +2269,7 @@ tdForm.addEventListener('submit', e => {
   const t = tdTask || {};
   const prev = { due: t.due, urgent: t.urgent, done: t.done, sub: t.sub || '' };
   if (fields.done && !t.done) fields.doneAt = Date.now();
-  const src = tdTask ? campaignOfTask(tdTask) : null, dst = campaigns.find(c => c.id === cid);
+  const src = tdTask ? campaignOfTask(tdTask) : null, dst = listById(cid);
   tdDlg.close();
   withFlip(() => {
     Object.assign(t, fields);
@@ -2481,7 +2497,7 @@ const arAll = document.getElementById('ar-all'), arDelSel = document.getElementB
 const archivedOf = c => c.tasks.filter(t => t.archived);
 
 function renderArchive() {
-  arList.innerHTML = campaigns.filter(c => archivedOf(c).length).map(c => {
+  arList.innerHTML = lists().filter(c => archivedOf(c).length).map(c => {
     const p = paint(c.color);
     return `<div class="ar-group ${p.cls}" style="${p.style}">
       <div class="ar-head"><span class="dot"></span>${esc(c.name)}</div>
@@ -2505,7 +2521,7 @@ function syncArchive() {
 }
 function removeTasks(pairs) {
   for (const [cid, tid] of pairs) {
-    const c = campaigns.find(x => x.id === cid);
+    const c = listById(cid);
     trashTask(c.tasks.find(t => t.id === tid), c);
     c.tasks = c.tasks.filter(t => t.id !== tid);
   }
@@ -2531,7 +2547,7 @@ arDelSel.addEventListener('click', () =>
   removeTasks([...arList.querySelectorAll('input:checked')].map(b => [b.dataset.cid, b.dataset.tid])));
 document.getElementById('ar-del-all').addEventListener('click', () => {
   // they go to Trash, so this is undoable
-  removeTasks(campaigns.flatMap(c => archivedOf(c).map(t => [c.id, t.id])));
+  removeTasks(lists().flatMap(c => archivedOf(c).map(t => [c.id, t.id])));
 });
 document.getElementById('ar-close').addEventListener('click', () => arDlg.close());
 document.getElementById('open-archive').addEventListener('click', () => { renderArchive(); arDlg.showModal(); });
@@ -2554,7 +2570,7 @@ function renderTrash() {
   const rows = trash.map((x, i) => ({ x, i })).filter(({ x }) => isTaskItem(x) === (trTab === 'task'));
   trList.innerHTML = rows.map(({ x, i }) => {
     if (isTaskItem(x)) {
-      const p = paint(x.color), home = campaigns.some(c => c.id === x.cid), inTrash = trashedCampaignIdx(x.cid) !== -1;
+      const p = paint(x.color), home = lists().some(c => c.id === x.cid), inTrash = trashedCampaignIdx(x.cid) !== -1;
       const btn = home ? `<button type="button" class="btn tr-restore" data-i="${i}">Restore</button>`
         : inTrash ? `<button type="button" class="btn tr-restore" data-i="${i}" title="Its campaign is in Trash too">Restore with campaign</button>`
         : `<button type="button" class="btn" disabled title="Its campaign was deleted forever">Restore</button>`;
@@ -2590,9 +2606,9 @@ function restoreCampaign(i) {
 }
 function restoreTask(i) {
   const item = trash[i];
-  if (!campaigns.some(c => c.id === item.cid)) restoreCampaign(trashedCampaignIdx(item.cid));
+  if (!lists().some(c => c.id === item.cid)) restoreCampaign(trashedCampaignIdx(item.cid));
   trash.splice(trash.indexOf(item), 1);
-  placeTask(campaigns.find(c => c.id === item.cid), item.t);
+  placeTask(listById(item.cid), item.t);
   save();
 }
 
@@ -2640,7 +2656,7 @@ const showBkMsg = (text, bad = false) => { bkMsg.textContent = text; bkMsg.class
 const countTasks = list => list.reduce((n, c) => n + c.tasks.length, 0);
 
 document.getElementById('bk-export').addEventListener('click', () => {
-  const backup = { app: 'planner', version: 1, exportedAt: new Date().toISOString(), campaigns, trash, colOrder, dense };
+  const backup = { app: 'planner', version: 1, exportedAt: new Date().toISOString(), campaigns, general: general.tasks, trash, colOrder, dense };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
   a.download = `planner-backup-${toISO(new Date())}.json`;
@@ -2648,7 +2664,7 @@ document.getElementById('bk-export').addEventListener('click', () => {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  showBkMsg(`Saved ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(campaigns), 'task')}.`);
+  showBkMsg(`Saved ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(lists()), 'task')}.`);
 });
 
 document.getElementById('bk-import').addEventListener('click', () => bkFile.click());
@@ -2661,11 +2677,12 @@ bkFile.addEventListener('change', async () => {
   if (!b || b.app !== 'planner' || !Array.isArray(b.campaigns)) return showBkMsg('That file isn’t a Planner backup.', true);
   const ok = await ask({
     title: 'Replace everything with this backup?',
-    text: `The backup from ${fmt(new Date(b.exportedAt))} has ${plural(b.campaigns.length, 'campaign')} and ${plural(countTasks(b.campaigns.map(normCampaign)), 'task')}. What's here now will be replaced.`,
+    text: `The backup from ${fmt(new Date(b.exportedAt))} has ${plural(b.campaigns.length, 'campaign')} and ${plural(countTasks(b.campaigns.map(normCampaign)) + (b.general || []).length, 'task')}. What's here now will be replaced.`,
     ok: 'Replace',
   });
   if (!ok) return;
   campaigns = b.campaigns.map(normCampaign);
+  general.tasks = (b.general || []).map(normTask); // backups from before General have none
   trash = (b.trash || []).map(normTrashItem);
   colOrder = Array.isArray(b.colOrder) ? b.colOrder : [];
   dense = !!b.dense;
@@ -2675,7 +2692,7 @@ bkFile.addEventListener('change', async () => {
   try { localStorage.setItem(DENSE_STORE, dense ? '1' : '0'); } catch (e) {}
   document.querySelectorAll('#density button').forEach(x => x.setAttribute('aria-pressed', (x.dataset.dense === '1') === dense));
   renderAll();
-  showBkMsg(`Imported ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(campaigns), 'task')}.`);
+  showBkMsg(`Imported ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(lists()), 'task')}.`);
 });
 document.getElementById('open-backup').addEventListener('click', () => { showBkMsg(''); bkDlg.showModal(); });
 document.getElementById('bk-close').addEventListener('click', () => bkDlg.close());
