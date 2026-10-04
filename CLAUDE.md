@@ -36,4 +36,6 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - Don't animate negative margins on grid items (track clamps at 0, motion jumps). Sticky labels (z 3) must stay above bars (z 2).
 - After a pointer drag Firefox clicks the element under the pointer; clicks within 400ms of `dragEndedAt` are swallowed. Drag listeners live on `window`.
 - The in-app preview pane is a hidden `data:` page: no localStorage/hash, and dialog close events and view transitions are delayed there — test real behaviour in Firefox. To check motion, freeze frames: on load trigger the change, then `document.getAnimations().forEach(a => { a.pause(); a.currentTime = T })` and screenshot.
+- `.chip`, `.toggle`, `.zoom > button` act on pointerdown (quick clicks while the mouse moves were lost); the trusted click after is swallowed. Layout changes on blur go through `afterPointer` so the click lands first.
+- FLIP with nested elements: measure every "after" rect before starting any animation, then subtract the moved parent's delta (`setSubParked`).
 - `timing()` / `isEnded()` crash on `general` (no dates): guard with `c !== general`.
