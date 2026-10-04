@@ -31,7 +31,7 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - `crypto.randomUUID` is missing on `file://` → `uid()`. Every campaign needs `tasks: []` and `subs: []`.
 - Name clash: `renderSubs` = task subtasks; sub-campaigns use `renderSubCampaigns`.
 - Never hardcode colours in rules: CSS vars with a `[data-theme="dark"]` block. Accent `--accent` #0c8a80 (light) / #18c2b4 (dark).
-- Flags are emoji via the Noto Color Emoji webfont (Windows has none). Custom colours use the in-page wheel, not `<input type=color>`.
+- Flags only on the Timeline row labels (emoji via the Noto Color Emoji webfont; Windows has none); everywhere else markets are codes. Custom colours use the in-page wheel, not `<input type=color>`.
 - Grid tracks need `minmax(0, 1fr)` where a long pill could widen them (it once pushed the unpark button out of a tile).
 - Don't animate negative margins on grid items (track clamps at 0, motion jumps). Sticky labels (z 3) must stay above bars (z 2).
 - After a pointer drag Firefox clicks the element under the pointer; clicks within 400ms of `dragEndedAt` are swallowed. Drag listeners live on `window`.
