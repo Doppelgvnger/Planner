@@ -46,6 +46,13 @@
     --track: rgba(29, 35, 64, .08); /* scrollbar track */
     color-scheme: light;
 
+    /* motion standard: every animation uses these (JS reads them into MOTION) */
+    --ease-spring: cubic-bezier(.34, 1.4, .6, 1); /* settling into place, with a little overshoot */
+    --ease-glide: cubic-bezier(.2, .8, .2, 1);    /* moving / morphing to a new place */
+    --ease-fold: cubic-bezier(.4, 0, .2, 1);      /* height folding in and out */
+    --dur-fold: .34s;
+    --dur-move: .52s;
+
     --label-w: 208px;
     --day-w: 32px;
     --radius: 14px;
@@ -215,7 +222,7 @@
     border: 0; cursor: pointer; z-index: 2;
     background: var(--c-bg); color: var(--c-ink);
     box-shadow: inset 3px 0 0 var(--c-edge), 0 1px 2px rgba(var(--sh), .06);
-    transition: transform .22s cubic-bezier(.34, 1.4, .6, 1), box-shadow .22s;
+    transition: transform .22s var(--ease-spring), box-shadow .22s;
   }
   /* hover lifts the whole campaign in that row: its bar and its sub-campaign bands together (.lift is set from JS) */
   .bar.lift { transform: translateY(-3px); box-shadow: inset 3px 0 0 var(--c-edge), 0 10px 24px rgba(var(--sh), .2); }
@@ -509,7 +516,7 @@
     transition: transform .2s ease-out, box-shadow .2s ease-out;
   }
   .col-ghost.lifted { transform: rotate(-1.5deg) scale(1.02); box-shadow: 0 24px 56px rgba(var(--sh), .25); }
-  .col-ghost.dropping { transition: left .3s cubic-bezier(.34, 1.4, .6, 1), top .3s cubic-bezier(.34, 1.4, .6, 1), transform .22s, box-shadow .22s; }
+  .col-ghost.dropping { transition: left .3s var(--ease-spring), top .3s var(--ease-spring), transform .22s, box-shadow .22s; }
   .col-btn {
     flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: rgba(var(--hi), .6);
     display: grid; place-items: center; color: var(--ink-2); cursor: pointer;
@@ -548,7 +555,7 @@
     .park-label { width: 100%; }
     .tile { width: 180px; }
   }
-  .col-toggle svg { transition: transform .34s cubic-bezier(.4, 0, .2, 1); }
+  .col-toggle svg { transition: transform var(--dur-fold) var(--ease-fold); }
   .ccol.compact .col-toggle svg { transform: rotate(180deg); }
   .col-head {
     display: grid; grid-template-columns: minmax(0, 1fr); padding: 14px 16px 14px; cursor: pointer; user-select: none;
@@ -577,7 +584,7 @@
   .sub-sec-head .status { font-size: 11px; padding: 1px 7px; }
   .sub-sec-head .col-btn { width: 22px; height: 22px; background: transparent; }
   .sub-sec-head .col-btn:hover { background: var(--surface); }
-  .sub-sec-head .sub-toggle svg { transition: transform .34s cubic-bezier(.4, 0, .2, 1); }
+  .sub-sec-head .sub-toggle svg { transition: transform var(--dur-fold) var(--ease-fold); }
   .sub-sec.compact .sub-sec-head { padding: 6px 10px 6px 14px; }
   .sub-sec.compact .sub-toggle svg { transform: rotate(180deg); }
   .sub-body { overflow: hidden; } /* folds smoothly (height animated from JS) */
@@ -629,7 +636,7 @@
     box-shadow: 0 2px 6px rgba(var(--sh), .08); transition: transform .18s ease-out, box-shadow .18s ease-out;
   }
   .t-ghost.lifted { transform: rotate(1.5deg) scale(1.03); box-shadow: 0 18px 40px rgba(var(--sh), .22); cursor: grabbing; }
-  .t-ghost.dropping { transition: left .26s cubic-bezier(.34, 1.4, .6, 1), top .26s cubic-bezier(.34, 1.4, .6, 1), transform .2s, box-shadow .2s; }
+  .t-ghost.dropping { transition: left .26s var(--ease-spring), top .26s var(--ease-spring), transform .2s, box-shadow .2s; }
   .t-add-btn { width: 100%; border: 0; border-radius: 8px; padding: 8px; background: none; text-align: left; font-size: 14px; color: var(--ink-3); cursor: pointer; }
   .t-add-btn:hover { background: var(--bg); color: var(--accent); }
 
@@ -662,7 +669,7 @@
   .switch .knob { position: relative; width: 32px; height: 18px; border-radius: 999px; background: var(--ctl-soft); transition: background .2s; }
   .switch .knob::after {
     content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
-    background: #fff; box-shadow: 0 1px 2px rgba(var(--sh), .25); transition: transform .3s cubic-bezier(.34, 1.4, .6, 1);
+    background: #fff; box-shadow: 0 1px 2px rgba(var(--sh), .25); transition: transform .3s var(--ease-spring);
   }
   .switch input:checked ~ .knob { background: var(--accent); }
   .switch input:checked ~ .knob::after { transform: translateX(14px); }
@@ -778,7 +785,7 @@
   }
   .tk-bg div {
     position: absolute; background: var(--surface); border-radius: var(--radius);
-    transition: left .3s, top .3s, width .3s, height .3s; transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+    transition: left .3s, top .3s, width .3s, height .3s; transition-timing-function: var(--ease-glide);
   }
   .tk-wrap.merging .tk-bg div { transition-duration: .7s; transition-timing-function: cubic-bezier(.5, 0, .3, 1); }
   .tk-bg.still div, .tk-bg .tk-bridge { transition: none; }
@@ -2334,7 +2341,17 @@ function afterPointer(fn) {
   addEventListener('pointerup', done, true);
   addEventListener('pointercancel', done, true);
 }
-const SPRING = 'cubic-bezier(.34, 1.4, .6, 1)';
+// the motion standard (curves come from the CSS variables, so CSS transitions and JS animations stay in step)
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const MOTION = {
+  spring: cssVar('--ease-spring'),
+  glide: cssVar('--ease-glide'),
+  fold: { duration: parseFloat(cssVar('--dur-fold')) * 1000, easing: cssVar('--ease-fold') }, // height in / out
+  move: { duration: parseFloat(cssVar('--dur-move')) * 1000, easing: cssVar('--ease-glide') }, // FLIP moves, morphs
+  enter: { duration: 240, easing: 'ease-out' }, // something appearing in place
+  leave: { duration: 200, easing: 'ease-in' },  // something going away from where it was
+};
+const SPRING = MOTION.spring;
 function settle(el, dx, dy) {
   if (dy < -2) {
     el.animate([
@@ -2388,7 +2405,7 @@ cboard.addEventListener('click', e => {
     }
     t.archived = true;
     if (reduceMotion) return commit();
-    row.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateX(28px) scale(.96)' }], { duration: 220, easing: 'ease-in' })
+    row.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateX(28px) scale(.96)' }], MOTION.leave)
       .finished.then(() => withFlip(commit));
     return;
   }
@@ -2714,7 +2731,7 @@ window.addEventListener('pointerup', endColDrag);
 window.addEventListener('pointercancel', endColDrag);
 
 // folding: only the height moves (exact, unrounded), so the motion starts and stops without a jump
-const FOLD = { duration: 340, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' };
+const FOLD = { ...MOTION.fold, fill: 'forwards' };
 const foldOpen = d => ({ height: `${d.getBoundingClientRect().height}px`, opacity: 1 });
 const foldShut = { height: '0px', opacity: 0 };
 // collapse / expand a campaign's header details
@@ -2802,7 +2819,7 @@ function setSubParked(sub, on) {
   document.body.appendChild(ghost);
   apply();
   const to = on ? park.querySelector(`.tile[data-sub="${sub.id}"]`) : cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`);
-  const MOVE = { duration: 520, easing: 'cubic-bezier(.2, .8, .2, 1)' };
+  const MOVE = MOTION.move;
   // FLIP; each element only animates its own move, not the part its moved parent already covers
   // (measure everything first: once a parent animates, its children's rects include its offset)
   const after = [...document.querySelectorAll(SEL)].map(el => [el, el.getBoundingClientRect()]);
@@ -3334,7 +3351,7 @@ function tkFlip(update, merge = false) {
   const genFrom = tkSide.querySelector('[data-sel="general"]')?.getBoundingClientRect();
   update();
   const genTo = tkSide.querySelector('[data-sel="general"]')?.getBoundingClientRect();
-  const EASE = 'cubic-bezier(.2, .8, .2, 1)', seen = new Set();
+  const EASE = MOTION.glide, seen = new Set();
   let k = 0;
   const lagOf = el => (merge && el.matches('.gen') ? 120 + 45 * Math.min(k++, 8) : 0);
   for (const el of shown()) {
@@ -3362,7 +3379,7 @@ function tkFlip(update, merge = false) {
     el.animate(to
       ? [{ transform: 'none' }, { transform: `translate(${to.left - r.left}px, ${to.top - r.top}px) scale(.5)`, opacity: 0 }]
       : [{ opacity: 1 }, { opacity: 0, transform: 'scale(.97)' }],
-      { duration: to ? 600 : 200, delay: to ? 45 * Math.min(k++, 8) : 0, easing: to ? EASE : 'ease-in', fill: 'forwards' })
+      { ...(to ? { duration: 600, easing: EASE } : MOTION.leave), delay: to ? 45 * Math.min(k++, 8) : 0, fill: 'forwards' })
       .finished.then(() => el.remove());
   }
 }
@@ -3494,13 +3511,13 @@ function openEditor(t) {
   edTask = t;
   tkEd.hidden = false;
   fillEditor();
-  if (!was && !reduceMotion) tkEd.animate([{ opacity: 0, transform: 'translateX(14px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'ease-out' });
+  if (!was && !reduceMotion) tkEd.animate([{ opacity: 0, transform: 'translateX(14px)' }, { opacity: 1, transform: 'none' }], MOTION.enter);
 }
 function closeEditor() {
   if (!edTask) return;
   edTask = null;
   if (reduceMotion) { tkEd.hidden = true; return; }
-  tkEd.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateX(14px)' }], { duration: 160, easing: 'ease-in' })
+  tkEd.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateX(14px)' }], MOTION.leave)
     .finished.then(() => { if (!edTask) tkEd.hidden = true; });
 }
 function fillEditor() {
