@@ -460,7 +460,7 @@
   /* lead gen */
   .lg-box { display: grid; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; }
   .sub-list { display: grid; gap: 10px; }
-  .sub-list:empty { display: none; }
+  .sub-list:empty, .sub-list[hidden], .sub-card[hidden] { display: none; }
   .sub-card { display: grid; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); }
   .sub-card.focus { border-color: var(--accent); }
   .sub-head { display: flex; align-items: center; gap: 8px; }
@@ -1798,7 +1798,7 @@ function renderSwatches(selected) {
 }
 swatches.addEventListener('click', e => {
   if (!e.target.closest('.swatch.add')) return;
-  if (!cw.hidden) return cw.hidden = true;
+  if (!cw.hidden) return foldTo(cw, false);
   const sel = form.querySelector('[name=color]:checked')?.value || '';
   openWheel(sel.startsWith('#') ? sel : '#e4572e');
 });
@@ -1851,7 +1851,7 @@ function openWheel(hex) {
   hsv = hexToHsv(hex);
   drawWheel();
   updateWheel();
-  cw.hidden = false;
+  foldTo(cw, true);
 }
 
 let picking = false;
@@ -1877,21 +1877,23 @@ cwHex.addEventListener('input', () => {
 cwHex.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('cw-ok').click(); } });
 document.getElementById('cw-ok').addEventListener('click', () => {
   renderSwatches(hsvToHex(hsv.h, hsv.s, hsv.v));
-  cw.hidden = true;
+  foldTo(cw, false);
 });
-document.getElementById('cw-cancel').addEventListener('click', () => cw.hidden = true);
+document.getElementById('cw-cancel').addEventListener('click', () => foldTo(cw, false));
 
 // ---------- per-market dates, used for the campaign and for its lead gen ----------
 // `draft` holds only markets whose dates differ from the main dates; the rest follow the main dates.
 function marketEditor(box, getSegs, getMain) {
   const toggle = box.querySelector('.link'), list = box.querySelector('.mk-list');
   const ed = { draft: {}, focus: null, list };
+  let first = true;
   ed.render = () => {
     const segs = getSegs(), main = getMain();
     for (const s in ed.draft) {
       if (ed.draft[s].start === main.start && ed.draft[s].end === main.end) delete ed.draft[s];
     }
-    box.hidden = segs.length < 2;
+    if (first) box.hidden = segs.length < 2; else foldTo(box, segs.length >= 2);
+    first = false;
     const moved = segs.filter(s => ed.draft[s]).length;
     toggle.textContent = (list.hidden ? 'Adjust dates per market ▸' : 'Dates per market ▾') + (moved ? ` · ${moved} moved` : '');
     list.innerHTML = SEGMENTS.filter(s => segs.includes(s.id)).map(s => {
@@ -1906,7 +1908,7 @@ function marketEditor(box, getSegs, getMain) {
   };
   // only markets the user moved, limited to the markets still selected
   ed.overrides = () => Object.fromEntries(getSegs().length > 1 ? getSegs().filter(s => ed.draft[s]).map(s => [s, ed.draft[s]]) : []);
-  toggle.addEventListener('click', () => { list.hidden = !list.hidden; ed.render(); });
+  toggle.addEventListener('click', () => { foldTo(list, list.hidden); ed.render(); });
   list.addEventListener('change', e => {
     const row = e.target.closest('.mk-row');
     const [start, end] = [...row.querySelectorAll('input')].map(i => i.value);
@@ -1934,7 +1936,7 @@ const lgSegs = () => checkedSegs().filter(s => !lgExcluded.has(s));
 const lgEd = marketEditor(document.getElementById('lg-markets'), lgSegs, () => ({ start: lgStart.value, end: lgEnd.value }));
 
 function renderLeadgen() {
-  lgBody.hidden = !lgOn.checked;
+  foldTo(lgBody, lgOn.checked);
   lgChips.innerHTML = SEGMENTS.filter(s => checkedSegs().includes(s.id)).map(s =>
     `<label class="chip"><input type="checkbox" value="${s.id}"${lgExcluded.has(s.id) ? '' : ' checked'}><span>${s.name}</span></label>`).join('')
     || '<span class="empty">Pick the campaign segments first.</span>';
@@ -1974,6 +1976,7 @@ let subDrafts = [], focusSubId = null;
 
 function renderSubCampaigns() {
   const segs = checkedSegs();
+  subList.hidden = false; // (folded away with the last card; an empty list hides itself)
   subList.innerHTML = subDrafts.map((s, i) => `<div class="sub-card${s.id === focusSubId ? ' focus' : ''}" data-i="${i}">
     <div class="sub-head"><input class="sub-name" value="${esc(s.name)}" placeholder="Sub-campaign name" autocomplete="off">
       <button type="button" class="t-btn sub-remove" title="Remove this sub-campaign">×</button></div>
@@ -2012,14 +2015,20 @@ subList.addEventListener('change', e => {
 });
 subList.addEventListener('click', e => {
   if (!e.target.closest('.sub-remove')) return;
-  subDrafts.splice(Number(e.target.closest('.sub-card').dataset.i), 1);
-  renderSubCampaigns();
+  const card = e.target.closest('.sub-card'), s = subDrafts[Number(card.dataset.i)];
+  foldTo(subDrafts.length === 1 ? subList : card, false).then(() => {
+    subDrafts = subDrafts.filter(x => x !== s);
+    renderSubCampaigns();
+  });
 });
 document.getElementById('sub-add').addEventListener('click', () => {
   // starts out on the campaign's own dates and markets
   subDrafts.push({ id: uid(), name: '', start: form.start.value, end: form.end.value, excluded: new Set(), ed: null });
   renderSubCampaigns();
-  subList.lastElementChild.querySelector('.sub-name').focus();
+  const card = subList.lastElementChild, unfold = subDrafts.length === 1 ? subList : card;
+  unfold.hidden = true;
+  foldTo(unfold, true);
+  card.querySelector('.sub-name').focus();
 });
 
 // ---------- "Select all" for the campaign's segments, the lead gen's and each sub-campaign's markets ----------
@@ -2426,6 +2435,31 @@ const MOTION = {
   leave: { duration: parseFloat(cssVar('--dur-leave')) * 1000, easing: 'ease-in' },  // something going away from where it was
 };
 const SPRING = MOTION.spring;
+// show or hide a block by folding its height (the standard fold), e.g. the parts of a form that open and close.
+// el.hidden flips at once (so code can read the new state); while folding out the block stays drawn via an inline
+// display. The parent's gap is folded too (negative margin), so nothing below jumps when the block appears or goes.
+// Not shown on screen (closed dialog, hidden tab): just set. Returns a promise for when it's done.
+function foldTo(el, show) {
+  if (el.hidden === !show) return Promise.resolve(); // already there (or on its way)
+  // turned around mid-fold: carry on from where it is now
+  const from = el.getAnimations().length ? { height: `${el.getBoundingClientRect().height}px`, opacity: getComputedStyle(el).opacity } : null;
+  el.getAnimations().forEach(a => a.cancel());
+  el.style.display = el.style.overflow = '';
+  const visible = el.parentElement && el.parentElement.offsetParent !== null;
+  if (reduceMotion || !visible) { el.hidden = !show; return Promise.resolve(); }
+  el.hidden = false;
+  const h = el.getBoundingClientRect().height, display = getComputedStyle(el).display;
+  const pcs = getComputedStyle(el.parentElement);
+  const gap = /grid|flex/.test(pcs.display) ? parseFloat(pcs.rowGap) || 0 : 0;
+  const side = el.previousElementSibling ? 'marginTop' : 'marginBottom';
+  const open = { height: `${h}px`, opacity: 1, [side]: '0px' }, shut = { height: '0px', opacity: 0, [side]: `${-gap}px` };
+  el.hidden = !show;
+  Object.assign(el.style, { display, overflow: 'hidden' });
+  const frames = show ? [shut, open] : [open, shut];
+  if (from) Object.assign(frames[0], from);
+  return el.animate(frames, MOTION.fold).finished
+    .then(() => { el.style.display = el.style.overflow = ''; }, () => {});
+}
 function settle(el, dx, dy) {
   if (dy < -2) {
     el.animate([
