@@ -737,9 +737,11 @@
 
   @media (max-width: 720px) {
     :root { --label-w: 72px; --day-w: 30px; }
-    .topbar { padding: 12px 16px; gap: 14px; }
+    /* four tabs: the logo and Backup / Settings share the first line, the tabs get their own */
+    .topbar { padding: 12px 16px; gap: 8px 14px; flex-wrap: wrap; }
+    .topbar .tabs { order: 1; }
     .brand span { display: none; }
-    .tab { padding: 6px 12px; }
+    .tab { padding: 6px 10px; }
     main { padding: 20px 16px; }
     .label .flag { display: none; }
     .mk-row { grid-template-columns: 44px 20px 1fr 1fr 24px; gap: 6px; padding: 6px 4px; }
@@ -756,6 +758,133 @@
     .mk-row .mk-reset { grid-column: 3; grid-row: 1; }
     .mk-row input { grid-column: 1 / -1; }
   }
+
+  /* ---------- tasks tab ---------- */
+  .tk-search {
+    width: 240px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; background: var(--surface); font-size: 13px;
+  }
+  .tk-search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .tk-wrap { position: relative; display: flex; align-items: flex-start; }
+  /* the panels' backgrounds live in one layer behind the content, so the gooey filter can melt them into each other */
+  .tk-bg {
+    position: absolute; inset: 0; pointer-events: none;
+    filter: url(#tk-goo) drop-shadow(0 0 1px rgba(var(--sh), .16)) drop-shadow(0 8px 20px rgba(var(--sh), .06));
+  }
+  .tk-bg div {
+    position: absolute; background: var(--surface); border-radius: var(--radius);
+    transition: left .3s, top .3s, width .3s, height .3s; transition-timing-function: cubic-bezier(.2, .8, .2, 1);
+  }
+  .tk-wrap.merging .tk-bg div { transition-duration: .7s; transition-timing-function: cubic-bezier(.5, 0, .3, 1); }
+  .tk-bg.still div, .tk-bg .tk-bridge { transition: none; }
+  .tk-bg .tk-bridge { border-radius: 50%; transform: scale(0); }
+  .tk-panel { position: relative; padding: 14px; }
+  .tk-main { display: grid; grid-template-columns: 176px 330px; gap: 14px; }
+  .tk-gen { width: 358px; transition: opacity .3s .25s; } /* rows as wide as the main list, so they keep their size moving across */
+  .tk-gen.gone { position: absolute; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s, visibility 0s .15s; }
+  .tk-seam { flex: none; width: 48px; display: flex; justify-content: center; padding-top: 58px; position: relative; z-index: 2; }
+  .tk-merge {
+    width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    display: grid; place-items: center; cursor: pointer; box-shadow: 0 1px 3px rgba(var(--sh), .12); transition: color .15s, border-color .15s;
+  }
+  .tk-merge:hover { color: var(--accent); border-color: var(--accent); }
+
+  .tk-side { display: grid; gap: 2px; align-content: start; }
+  .tk-nav {
+    display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; border-radius: 8px;
+    padding: 6px 8px; text-align: left; cursor: pointer; color: var(--ink-2); font-size: 13px; font-weight: 500;
+  }
+  .tk-nav:hover { background: var(--bg); color: var(--ink); }
+  .tk-nav[aria-current="true"] { background: var(--accent-soft); color: var(--accent); }
+  .tk-nav .dot { width: 8px; height: 8px; }
+  .tk-nav-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tk-n { font-size: 12px; font-weight: 500; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .tk-nav[aria-current="true"] .tk-n { color: inherit; }
+  .tk-tag { font-size: 10px; font-weight: 600; color: var(--ink-3); background: var(--line-soft); border-radius: 5px; padding: 0 5px; }
+  .tk-side-label { margin: 10px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
+  .tk-col { min-width: 0; display: grid; gap: 10px; align-content: start; }
+  .tk-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; }
+  .tk-head h2 { margin: 0; min-width: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tk-head .zoom button { padding: 3px 10px; font-size: 12px; }
+  .tk-head .zoom[hidden] { display: none; }
+  .tk-addbar { display: flex; align-items: center; gap: 6px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 2px 4px 2px 10px; }
+  .tk-addbar:focus-within { border-style: solid; border-color: var(--accent); }
+  .tk-add { flex: 1; min-width: 0; border: 0; background: none; padding: 6px 0; font-size: 13.5px; }
+  .tk-add:focus { outline: none; }
+  .tk-add::placeholder { color: var(--ink-3); }
+  .tk-addto { max-width: 140px; border: 0; border-radius: 7px; padding: 3px 6px; background: var(--line-soft); font-size: 12px; color: var(--ink-2); }
+  .tk-addto[hidden] { display: none; }
+  .tk-list { display: grid; gap: 3px; }
+  .tk-group, .tk-sub-head { display: flex; align-items: center; gap: 7px; margin: 8px 2px 2px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+  .tk-list > :first-child { margin-top: 0; }
+  .tk-row {
+    display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; align-items: start; padding: 6px 8px 6px 9px;
+    border-left: 3px solid var(--c-edge); border-radius: 3px 8px 8px 3px; background: var(--surface); cursor: pointer; user-select: none;
+  }
+  .tk-row.gen { border-left-style: dashed; }
+  .tk-row:hover { background: var(--bg); }
+  .tk-row.active, .tk-row.picked { background: var(--accent-soft); }
+  .tk-row.picked { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .tk-row .t-check { width: 16px; height: 16px; margin: 1px 0 0; }
+  .tk-line { font-size: 13.5px; line-height: 1.4; overflow-wrap: anywhere; }
+  .tk-line .t-chip { margin-left: 6px; vertical-align: 1px; }
+  .tk-row.done .tk-text { text-decoration: line-through; color: var(--ink-3); }
+  .tk-urg {
+    display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 4px; vertical-align: 1px;
+    background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 1;
+  }
+  .tk-from { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tk-done-toggle { justify-self: start; border: 0; background: none; padding: 6px 4px 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); cursor: pointer; }
+  .tk-done-toggle:hover { color: var(--accent); }
+  .tk-empty { margin: 0; padding: 8px 4px; font-size: 13px; color: var(--ink-3); }
+
+  /* the editor: every change is saved as it's made */
+  .tk-ed {
+    flex: none; width: 360px; margin-left: 16px; padding: 18px; display: grid; gap: 14px; align-content: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+    position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow-y: auto;
+  }
+  .tk-ed[hidden], #ed-archive[hidden], #ed-desc[hidden], #ed-desc-view[hidden] { display: none; }
+  .ed-top { display: grid; grid-template-columns: 20px minmax(0, 1fr) 28px 28px; gap: 10px; align-items: center; }
+  .ed-top .t-check { width: 20px; height: 20px; margin: 0; }
+  .ed-top .t-urgent { width: 28px; height: 28px; background: var(--line-soft); }
+  .ed-top .t-urgent.on { background: var(--danger); color: var(--on-danger); }
+  .ed-name { min-width: 0; border: 0; border-bottom: 1.5px solid var(--line); padding: 4px 0; background: none; font-size: 16px; font-weight: 600; }
+  .ed-name:focus { outline: none; border-color: var(--accent); }
+  .ed-x { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--ink-3); font-size: 20px; line-height: 1; cursor: pointer; }
+  .ed-x:hover { background: var(--line-soft); color: var(--ink); }
+  .ed-saved { font-size: 12px; color: var(--ink-3); opacity: 0; transition: opacity .6s .4s; }
+  .ed-saved.on { opacity: 1; transition: none; }
+
+  /* several tasks picked: one bar of actions for all of them */
+  .tk-bulk {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 30; max-width: calc(100vw - 32px);
+    display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 8px 10px 8px 16px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 40px rgba(var(--sh), .2);
+  }
+  .tk-bulk[hidden] { display: none; }
+  .tk-bulk .btn { padding: 6px 12px; font-size: 13px; }
+  .tk-bulk select, .tk-bulk input { border: 1px solid var(--line); border-radius: 10px; padding: 5px 8px; background: var(--surface); font-size: 13px; }
+  .tk-bulk-n { margin-right: 4px; font-size: 13px; font-weight: 600; }
+  .tk-bulk label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); }
+
+  /* not enough room beside the lists: the editor slides over from the right */
+  @media (max-width: 1420px) {
+    .tk-ed { position: fixed; right: 16px; top: 76px; bottom: 16px; max-height: none; margin: 0; z-index: 25; box-shadow: 0 24px 64px rgba(var(--sh), .22); }
+  }
+  /* narrow screens: everything in one column, the merge button between the two blocks */
+  @media (max-width: 900px) {
+    .tk-wrap { flex-direction: column; align-items: stretch; }
+    .tk-main { grid-template-columns: minmax(0, 1fr); }
+    .tk-side { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+    .tk-nav { width: auto; flex: none; }
+    .tk-side-label { display: none; }
+    .tk-gen { width: auto; }
+    .tk-seam { width: auto; height: 48px; padding: 0; align-items: center; }
+    .tk-merge svg { transform: rotate(90deg); }
+    .tk-ed { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 85vh; border-radius: 18px 18px 0 0; }
+    .tk-search { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -766,6 +895,7 @@
     <button class="tab" disabled title="Coming soon">Calendar</button>
     <button class="tab" data-view="campaigns">Campaigns</button>
     <button class="tab" data-view="timeline" aria-current="page">Timeline</button>
+    <button class="tab" data-view="tasks">Tasks</button>
   </nav>
   <div class="top-tools">
     <button class="link subtle" id="open-backup">Backup</button>
@@ -843,6 +973,110 @@
     <h2>Coming up <span>· next 30 days</span></h2>
     <ul class="up-list" id="upcoming"></ul>
   </section>
+</section>
+
+<section class="view" id="view-tasks" hidden>
+  <div class="toolbar">
+    <div>
+      <h1>Tasks</h1>
+      <p class="sub">Every to-do from every campaign, plus General ones that belong to none.</p>
+    </div>
+  </div>
+  <div class="viewbar">
+    <div class="filter dest-filter">
+      <span class="filter-label">Destination</span>
+    </div>
+    <input type="search" class="tk-search" id="tk-search" placeholder="Search tasks" autocomplete="off">
+  </div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="tk-goo" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="7"/>
+      <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -8"/>
+    </filter>
+  </svg>
+  <div class="tk-wrap" id="tk-wrap">
+    <div class="tk-bg" id="tk-bg" aria-hidden="true"><div id="tk-bg-main"></div><div id="tk-bg-gen"></div><div class="tk-bridge" id="tk-bridge"></div></div>
+    <div class="tk-panel tk-main" id="tk-main">
+      <nav class="tk-side" id="tk-side" aria-label="Task lists"></nav>
+      <div class="tk-col">
+        <div class="tk-head">
+          <h2 id="tk-title">All tasks</h2>
+          <div class="zoom" id="tk-sort" role="group" aria-label="Sort">
+            <button data-sort="campaign">Campaign</button>
+            <button data-sort="due">Due</button>
+          </div>
+        </div>
+        <div class="tk-addbar">
+          <input class="tk-add" id="tk-add" placeholder="+ Add a task" autocomplete="off">
+          <select class="tk-addto" id="tk-addto" aria-label="Add to campaign" hidden></select>
+        </div>
+        <div class="tk-list" id="tk-list"></div>
+      </div>
+    </div>
+    <div class="tk-seam"><button class="tk-merge" id="tk-merge"></button></div>
+    <div class="tk-panel tk-gen" id="tk-gen">
+      <div class="tk-col">
+        <div class="tk-head"><h2>General <span class="tk-n" id="tk-gen-n"></span></h2></div>
+        <div class="tk-addbar"><input class="tk-add" id="tk-gen-add" placeholder="+ Add a general task" autocomplete="off"></div>
+        <div class="tk-list" id="tk-gen-list"></div>
+      </div>
+    </div>
+    <aside class="tk-ed" id="tk-ed" data-fk="ed" aria-label="Task details" hidden>
+      <div class="ed-top">
+        <input type="checkbox" class="t-check" id="ed-done" aria-label="Done">
+        <input class="ed-name" id="ed-name" placeholder="Task name" autocomplete="off">
+        <button type="button" class="t-btn t-urgent" id="ed-urgent" title="Mark as urgent">!</button>
+        <button type="button" class="ed-x" id="ed-close" title="Close" aria-label="Close">×</button>
+      </div>
+      <label class="field">Campaign <select id="ed-campaign"></select></label>
+      <div class="field">Due
+        <div class="td-due">
+          <input type="date" id="ed-due">
+          <div class="td-quick" id="ed-quick">
+            <button type="button" data-days="0">Today</button>
+            <button type="button" data-days="1">Tomorrow</button>
+            <button type="button" data-days="7">Next week</button>
+            <button type="button" data-days="">Clear</button>
+          </div>
+        </div>
+      </div>
+      <fieldset aria-label="Markets">
+        <div class="fs-head">
+          <span>Markets <span class="opt">optional</span></span>
+          <label class="switch" title="Show the markets on the task card">
+            <input type="checkbox" id="ed-segs-show">
+            <span class="s-hide">Hide</span><span class="knob"></span><span class="s-show">Show</span>
+          </label>
+        </div>
+        <div class="chips" id="ed-segs"></div>
+      </fieldset>
+      <div class="field">Description
+        <div class="td-desc-view" id="ed-desc-view" title="Click to edit"></div>
+        <textarea id="ed-desc" rows="3" placeholder="Notes, links…"></textarea>
+      </div>
+      <fieldset>
+        <legend>Subtasks <span class="opt" id="ed-sub-count"></span></legend>
+        <ul class="subs" id="ed-subs"></ul>
+        <input class="sub-add" id="ed-sub-add" placeholder="+ Add subtask" autocomplete="off">
+      </fieldset>
+      <p class="td-meta" id="ed-meta"></p>
+      <div class="actions">
+        <button type="button" class="btn danger" id="ed-del">Delete</button>
+        <button type="button" class="btn" id="ed-archive">Archive</button>
+        <span class="spacer"></span>
+        <span class="ed-saved" id="ed-saved">Saved</span>
+      </div>
+    </aside>
+  </div>
+  <div class="tk-bulk" id="tk-bulk" hidden>
+    <span class="tk-bulk-n" id="tb-n"></span>
+    <button type="button" class="btn" data-bulk="done">Done</button>
+    <button type="button" class="btn" data-bulk="urgent" id="tb-urgent">Urgent</button>
+    <label>Due <input type="date" id="tb-due"></label>
+    <select id="tb-move" aria-label="Move to"></select>
+    <button type="button" class="btn danger" data-bulk="delete">Delete</button>
+    <button type="button" class="ed-x" data-bulk="clear" title="Clear selection" aria-label="Clear selection">×</button>
+  </div>
 </section>
 </main>
 
@@ -2014,7 +2248,7 @@ function renderBoard() {
   cboard.classList.toggle('dense', dense);
   syncScrollbar();
 }
-const renderAll = () => { render(); renderBoard(); };
+const renderAll = () => { render(); renderBoard(); renderTasks(); };
 
 // ---------- tasks ----------
 const taskById = (cid, tid) => listById(cid).tasks.find(t => t.id === tid);
@@ -2757,6 +2991,510 @@ document.addEventListener('click', e => {
   if (x) closeDialog(x.closest('dialog'));
 });
 
+// ---------- tasks tab: every task in one place; General either on its own panel or merged into the list ----------
+const TKV_STORE = 'planner.tasksview.v1';
+// sel: 'all' | 'urgent' | 'week' | a campaign id | 'general' (only while merged); sort: 'campaign' | 'due'
+const tkv = { sel: 'all', sort: 'campaign', merged: false, addTo: '', ...(() => { try { return JSON.parse(localStorage.getItem(TKV_STORE)) || {}; } catch (e) { return {}; } })() };
+const saveTkv = () => { try { localStorage.setItem(TKV_STORE, JSON.stringify(tkv)); } catch (e) {} };
+const $tk = id => document.getElementById(id);
+const tkWrap = $tk('tk-wrap'), tkSide = $tk('tk-side'), tkList = $tk('tk-list'), tkGen = $tk('tk-gen'), tkGenList = $tk('tk-gen-list');
+const tkMain = $tk('tk-main'), tkEd = $tk('tk-ed'), tkMerge = $tk('tk-merge'), tkAdd = $tk('tk-add'), tkAddTo = $tk('tk-addto');
+const $ed = id => document.getElementById(`ed-${id}`);
+let tkQuery = '', edTask = null, picked = new Set(), pickSide = 'L', pickAnchor = null;
+const doneOpen = new Set(); // lists whose Done block is expanded: 'L' (main) / 'R' (General)
+const MULTI = ['all', 'urgent', 'week'];
+const isMulti = () => MULTI.includes(tkv.sel);
+// arrows meeting at the seam (merge) / leaving it (split)
+const MERGE_ICON = `<svg viewBox="0 0 18 14" width="18" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5v11M1 7h5M3.5 4.5L6 7 3.5 9.5M17 7h-5M14.5 4.5L12 7l2.5 2.5"/></svg>`;
+const SPLIT_ICON = `<svg viewBox="0 0 18 14" width="18" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 1.5v11M6 7H1M3.5 4.5L1 7l2.5 2.5M12 7h5M14.5 4.5L17 7l-2.5 2.5"/></svg>`;
+
+const weekEnd = () => toISO(addDays(today, 6)); // the coming 7 days, today included (overdue ones count too)
+// by due date (no date last), urgent first among the same day
+const byDue = (a, b) => (a.t.due || '9999').localeCompare(b.t.due || '9999') || b.t.urgent - a.t.urgent || a.t.createdAt - b.t.createdAt;
+// campaigns in board order, ended ones after (latest first)
+const tkCampaigns = () => [...activeOrder(), ...campaigns.filter(isEnded).sort((a, b) => timing(b).last.localeCompare(timing(a).last))].filter(isShown);
+// every live task in reach: the shown campaigns, plus General while it's merged in
+const tkPool = () => [...tkCampaigns(), ...(tkv.merged ? [general] : [])].flatMap(c => c.tasks.filter(t => !t.archived).map(t => ({ t, c })));
+const inView = (sel, { t, c }) => sel === 'all' || (sel === 'urgent' ? t.urgent : sel === 'week' ? !!t.due && t.due <= weekEnd() : c.id === sel);
+const matches = ({ t }) => !tkQuery || t.text.toLowerCase().includes(tkQuery);
+const taskByTid = id => lists().flatMap(c => c.tasks).find(t => t.id === id);
+// "Campaign › Sub" under a task in mixed lists; just "↳ Sub" inside its campaign's group
+function fromLabel({ t, c }, withCampaign) {
+  const sub = c.subs.find(s => s.id === secOf(c, t));
+  return withCampaign ? esc(c.name) + (sub ? ` › ${esc(sub.name)}` : '') : sub ? `↳ ${esc(sub.name)}` : '';
+}
+
+function navHTML(sel, label, n, c = null) {
+  const p = c ? paint(c.color) : { cls: '', style: '' };
+  const tag = c && c !== general ? (c.parked ? 'parked' : isEnded(c) ? 'ended' : '') : '';
+  return `<button class="tk-nav ${p.cls}" style="${p.style}" data-sel="${sel}" data-fk="n:${sel}"${tkv.sel === sel ? ' aria-current="true"' : ''}>
+    ${c ? '<span class="dot"></span>' : ''}<span class="tk-nav-name">${label}</span>${tag ? `<span class="tk-tag">${tag}</span>` : ''}<span class="tk-n">${n || ''}</span></button>`;
+}
+function sideHTML() {
+  const open = tkPool().filter(x => !x.t.done), n = sel => open.filter(x => inView(sel, x)).length;
+  // only campaigns with something left to do (and the one being looked at, so it doesn't vanish under the pointer)
+  const camps = tkCampaigns().filter(c => n(c.id) || tkv.sel === c.id);
+  return navHTML('all', 'All tasks', n('all')) + navHTML('urgent', 'Urgent', n('urgent')) + navHTML('week', 'This week', n('week'))
+    + (camps.length || tkv.merged ? '<div class="tk-side-label">Campaigns</div>' : '')
+    + camps.map(c => navHTML(c.id, esc(c.name), n(c.id), c)).join('')
+    + (tkv.merged ? navHTML('general', 'General', n('general'), general) : '');
+}
+
+function rowHTML({ t, c }, from = '') {
+  const p = paint(c.color);
+  return `<div class="tk-row ${p.cls}${c === general ? ' gen' : ''}${t.done ? ' done' : ''}${t === edTask ? ' active' : ''}${picked.has(t.id) ? ' picked' : ''}" style="${p.style}" data-tid="${t.id}" data-fk="t:${t.id}">
+    <input type="checkbox" class="t-check"${t.done ? ' checked' : ''} aria-label="Done">
+    <div class="tk-line"><span class="tk-text">${esc(t.text)}</span>${dueChip(t)}${t.urgent && !t.done ? '<span class="tk-urg" title="Urgent">!</span>' : ''}${from ? `<span class="tk-from">${from}</span>` : ''}</div>
+  </div>`;
+}
+function doneHTML(side, done, label) {
+  if (!done.length) return '';
+  const open = doneOpen.has(side);
+  return `<button class="tk-done-toggle" data-side="${side}" data-fk="d:${side}">${open ? '▾' : '▸'} Done (${done.length})</button>`
+    + (open ? done.map(x => rowHTML(x, label(x))).join('') : '');
+}
+const emptyHTML = text => `<p class="tk-empty">${tkQuery ? `No tasks match “${esc(tkQuery)}”.` : text}</p>`;
+
+function mainListHTML() {
+  const one = isMulti() ? null : listById(tkv.sel);
+  const items = tkPool().filter(x => inView(tkv.sel, x) && matches(x));
+  const open = items.filter(x => !x.t.done), done = items.filter(x => x.t.done).sort((a, b) => a.t.doneAt - b.t.doneAt);
+  let html;
+  if (one) {
+    // one campaign: its own order, as on the Campaigns tab, with each sub-campaign in its own section
+    html = ['', ...one.subs.map(s => s.id)].map(sec => {
+      const rows = orderedTasks(one, sec).open.map(t => ({ t, c: one })).filter(matches).map(x => rowHTML(x));
+      if (!rows.length) return '';
+      return (sec ? `<div class="tk-sub-head" data-fk="s:${sec}">↳ ${esc(one.subs.find(s => s.id === sec).name)}</div>` : '') + rows.join('');
+    }).join('');
+  } else if (tkv.sort === 'campaign') {
+    html = [...tkCampaigns(), general].map(c => ({ c, xs: open.filter(x => x.c === c).sort(byDue) })).filter(g => g.xs.length)
+      .map(({ c, xs }) => {
+        const p = paint(c.color);
+        return `<div class="tk-group ${p.cls}" style="${p.style}" data-fk="g:${c.id}"><span class="dot"></span>${esc(c.name)}<span class="tk-n">${xs.length}</span></div>`
+          + xs.map(x => rowHTML(x, fromLabel(x, false))).join('');
+      }).join('');
+  } else html = open.sort(byDue).map(x => rowHTML(x, fromLabel(x, true))).join('');
+  return (html || emptyHTML(done.length ? 'All done here.' : 'Nothing to do here.')) + doneHTML('L', done, x => fromLabel(x, !one));
+}
+function genListHTML() {
+  const items = general.tasks.filter(t => !t.archived).map(t => ({ t, c: general })).filter(matches);
+  const open = items.filter(x => !x.t.done).sort(byDue), done = items.filter(x => x.t.done).sort((a, b) => a.t.doneAt - b.t.doneAt);
+  return (open.map(x => rowHTML(x)).join('') || emptyHTML(done.length ? 'All done here.' : 'Tasks that belong to no campaign go here.'))
+    + doneHTML('R', done, () => '');
+}
+
+function renderTasks() {
+  // a view that no longer exists falls back to All tasks
+  const one = isMulti() ? null : listById(tkv.sel);
+  if (!isMulti() && (!one || (one === general ? !tkv.merged : !isShown(one)))) tkv.sel = 'all';
+  if (edTask && (!campaignOfTask(edTask) || edTask.archived)) closeEditor();
+  picked = new Set([...picked].filter(taskByTid));
+  tkWrap.classList.toggle('merged', tkv.merged);
+  tkGen.classList.toggle('gone', tkv.merged);
+  if (!tkv.merged) tkGen.style.left = tkGen.style.top = ''; // the spot it faded out at only matters while it's gone
+  tkSide.innerHTML = sideHTML();
+  $tk('tk-title').textContent = { all: 'All tasks', urgent: 'Urgent', week: 'This week' }[tkv.sel] || listById(tkv.sel).name;
+  $tk('tk-sort').hidden = !isMulti();
+  document.querySelectorAll('#tk-sort button').forEach(b => b.setAttribute('aria-pressed', b.dataset.sort === tkv.sort));
+  // quick add: into the campaign being looked at; from a mixed view into General when merged, else into the picked campaign
+  const targets = activeOrder().filter(isShown);
+  const pickTarget = isMulti() && !tkv.merged;
+  tkAddTo.hidden = !pickTarget || !targets.length;
+  if (pickTarget) {
+    if (!targets.some(c => c.id === tkv.addTo)) tkv.addTo = targets[0]?.id || '';
+    tkAddTo.innerHTML = targets.map(c => `<option value="${c.id}"${c.id === tkv.addTo ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  }
+  tkAdd.disabled = pickTarget && !targets.length;
+  tkAdd.placeholder = tkAdd.disabled ? 'Create a campaign first' : tkv.sel === 'urgent' ? '+ Add an urgent task' : tkv.sel === 'week' ? '+ Add a task due today' : '+ Add a task';
+  tkList.innerHTML = mainListHTML();
+  tkGenList.innerHTML = tkv.merged ? '' : genListHTML();
+  const genOpen = general.tasks.filter(t => !t.done && !t.archived).length;
+  $tk('tk-gen-n').textContent = genOpen || '';
+  tkMerge.innerHTML = tkv.merged ? SPLIT_ICON : MERGE_ICON;
+  tkMerge.title = tkv.merged ? 'Split General out again' : 'Merge General into the list';
+  renderBulk();
+  syncTkBg();
+}
+
+// the panel backgrounds follow the panels; merged, General's shrinks into the seam
+const tkBg = $tk('tk-bg'), bgMain = $tk('tk-bg-main'), bgGen = $tk('tk-bg-gen'), bridge = $tk('tk-bridge');
+function syncTkBg(animate = true) {
+  if (!tkWrap.offsetParent) return; // tab not shown
+  const w = tkWrap.getBoundingClientRect(), m = tkMain.getBoundingClientRect(), b = tkMerge.getBoundingClientRect();
+  const put = (el, l, t, wd, h) => Object.assign(el.style, { left: `${l - w.left}px`, top: `${t - w.top}px`, width: `${wd}px`, height: `${h}px` });
+  tkBg.classList.toggle('still', !animate);
+  put(bgMain, m.left, m.top, m.width, m.height);
+  const cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+  if (tkv.merged) put(bgGen, cx, cy, 0, 0);
+  else { const g = tkGen.getBoundingClientRect(); put(bgGen, g.left, g.top, g.width, g.height); }
+  put(bridge, cx - 36, cy - 52, 72, 104);
+  if (!animate) { tkBg.offsetWidth; tkBg.classList.remove('still'); } // apply instantly, then animate again from here on
+}
+new ResizeObserver(() => syncTkBg()).observe(tkMain);
+new ResizeObserver(() => syncTkBg()).observe(tkGen);
+
+// FLIP for the tab: rows, headers and the editor glide to their new places, new ones fade in, gone ones fade out.
+// merge: the slower liquid version, General's rows trailing one after another (and flying to/from its sidebar item
+// when the list being looked at doesn't hold them)
+function tkFlip(update, merge = false) {
+  if (reduceMotion || !tkWrap.offsetParent) return update();
+  const shown = () => [...tkWrap.querySelectorAll('[data-fk]')].filter(el => !el.hidden);
+  const before = new Map(shown().map(el => [el.dataset.fk, { el, r: el.getBoundingClientRect() }]));
+  const genFrom = tkSide.querySelector('[data-sel="general"]')?.getBoundingClientRect();
+  update();
+  const genTo = tkSide.querySelector('[data-sel="general"]')?.getBoundingClientRect();
+  const EASE = 'cubic-bezier(.2, .8, .2, 1)', seen = new Set();
+  let k = 0;
+  const lagOf = el => (merge && el.matches('.gen') ? 120 + 45 * Math.min(k++, 8) : 0);
+  for (const el of shown()) {
+    seen.add(el.dataset.fk);
+    const old = before.get(el.dataset.fk), a = el.getBoundingClientRect(), delay = lagOf(el);
+    if (!old) {
+      const from = merge && el.matches('.gen') && genFrom
+        ? `translate(${genFrom.left - a.left}px, ${genFrom.top - a.top}px) scale(.6)` : 'translateY(-6px)';
+      el.animate([{ opacity: 0, transform: from }, { opacity: 1, transform: 'none' }],
+        { duration: merge ? 650 : 320, delay, easing: merge ? EASE : SPRING, fill: 'backwards' });
+      continue;
+    }
+    const dx = old.r.left - a.left, dy = old.r.top - a.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+    if (merge) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 650, delay, easing: EASE, fill: 'backwards' });
+    else if (el.matches('.tk-row')) settle(el, dx, dy);
+    else el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 380, easing: SPRING });
+  }
+  // what left the view (its element was replaced) fades out where it was; General's rows fly into their sidebar item
+  for (const [key, { el, r }] of before) {
+    if (seen.has(key) || el.isConnected) continue;
+    const to = merge && el.matches('.gen') && genTo;
+    Object.assign(el.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, margin: '0', zIndex: '40', pointerEvents: 'none', transformOrigin: 'left center' });
+    document.body.appendChild(el);
+    el.animate(to
+      ? [{ transform: 'none' }, { transform: `translate(${to.left - r.left}px, ${to.top - r.top}px) scale(.5)`, opacity: 0 }]
+      : [{ opacity: 1 }, { opacity: 0, transform: 'scale(.97)' }],
+      { duration: to ? 600 : 200, delay: to ? 45 * Math.min(k++, 8) : 0, easing: to ? EASE : 'ease-in', fill: 'forwards' })
+      .finished.then(() => el.remove());
+  }
+}
+const tkCommit = () => { save(); renderTasks(); };
+
+// merge / split: the two panels melt together through the seam (or bud apart), the rows following
+function toggleMerge() {
+  if (tkWrap.classList.contains('merging')) return;
+  const w = tkWrap.getBoundingClientRect(), g = tkGen.getBoundingClientRect();
+  tkv.merged = !tkv.merged;
+  if (!tkv.merged && tkv.sel === 'general') tkv.sel = 'all'; // General is its own panel again
+  picked.clear();
+  saveTkv();
+  tkWrap.classList.add('merging');
+  tkFlip(() => {
+    // merging: General's panel stays where it was while it fades (set only after the rows were measured)
+    if (tkv.merged) Object.assign(tkGen.style, { left: `${g.left - w.left}px`, top: `${g.top - w.top}px` });
+    renderTasks();
+  }, true);
+  if (!reduceMotion) bridge.animate([{ transform: 'scale(0)' }, { transform: 'scale(1)', offset: .3 }, { transform: 'scale(0)' }], { duration: 900, easing: 'ease-in-out' });
+  setTimeout(() => tkWrap.classList.remove('merging'), 1000);
+}
+
+// ---------- picking rows: click opens the editor, Cmd/Ctrl-click and Shift-click pick several ----------
+function pickRow(row, e) {
+  const t = taskByTid(row.dataset.tid), side = row.closest('#tk-gen') ? 'R' : 'L';
+  if (side !== pickSide) { picked.clear(); pickSide = side; }
+  const multi = e.metaKey || e.ctrlKey;
+  if (!multi && !e.shiftKey) {
+    picked.clear();
+    pickAnchor = t.id;
+    openEditor(t);
+    return renderTasks();
+  }
+  // the task already open in the editor counts as picked
+  if (!picked.size && edTask && edTask !== t && row.parentNode.querySelector(`[data-tid="${edTask.id}"]`)) picked.add(edTask.id);
+  const ids = [...row.parentNode.querySelectorAll('.tk-row')].map(r => r.dataset.tid);
+  if (e.shiftKey && ids.includes(pickAnchor)) {
+    const a = ids.indexOf(pickAnchor), b = ids.indexOf(t.id);
+    picked = new Set([...(multi ? picked : []), ...ids.slice(Math.min(a, b), Math.max(a, b) + 1)]);
+  } else {
+    if (picked.has(t.id)) picked.delete(t.id); else picked.add(t.id);
+    pickAnchor = t.id;
+  }
+  // one picked task is just an open one
+  if (picked.size < 2) {
+    const one = taskByTid([...picked][0]);
+    picked.clear();
+    if (one) openEditor(one); else closeEditor();
+  } else closeEditor();
+  renderTasks();
+}
+
+tkWrap.addEventListener('click', e => {
+  const nav = e.target.closest('.tk-nav');
+  if (nav) {
+    if (tkv.sel === nav.dataset.sel) return;
+    tkv.sel = nav.dataset.sel;
+    picked.clear();
+    saveTkv();
+    return tkFlip(renderTasks);
+  }
+  const sortBtn = e.target.closest('#tk-sort [data-sort]');
+  if (sortBtn) {
+    tkv.sort = sortBtn.dataset.sort;
+    saveTkv();
+    return tkFlip(renderTasks);
+  }
+  const dt = e.target.closest('.tk-done-toggle');
+  if (dt) {
+    if (doneOpen.has(dt.dataset.side)) doneOpen.delete(dt.dataset.side); else doneOpen.add(dt.dataset.side);
+    return tkFlip(renderTasks);
+  }
+  if (e.target.closest('#tk-merge')) return toggleMerge();
+  const row = e.target.closest('.tk-row');
+  if (row && !e.target.closest('.t-check')) pickRow(row, e);
+});
+function setDone(t, on) {
+  tkFlip(() => {
+    t.done = on;
+    t.doneAt = Date.now();
+    if (!on) placeTask(campaignOfTask(t), t);
+    tkCommit();
+  });
+  if (t === edTask) fillEditor();
+}
+tkWrap.addEventListener('change', e => {
+  if (e.target.matches('.tk-row .t-check')) setDone(taskByTid(e.target.closest('.tk-row').dataset.tid), e.target.checked);
+});
+$tk('tk-search').addEventListener('input', e => { tkQuery = e.target.value.trim().toLowerCase(); renderTasks(); });
+
+// quick add: type and press Enter; the field stays ready for the next one
+function quickAdd(input, dst) {
+  const text = input.value.trim();
+  if (!text || !dst) return;
+  // added in Urgent it's urgent; in This week it's due today
+  const main = input === tkAdd;
+  const t = normTask({ text, urgent: main && tkv.sel === 'urgent', due: main && tkv.sel === 'week' ? toISO(today) : '' });
+  input.value = '';
+  tkFlip(() => { placeTask(dst, t); tkCommit(); });
+}
+tkAdd.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  quickAdd(tkAdd, !isMulti() ? listById(tkv.sel) : tkv.merged ? general : listById(tkAddTo.value));
+});
+$tk('tk-gen-add').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  quickAdd(e.target, general);
+});
+tkAddTo.addEventListener('change', () => { tkv.addTo = tkAddTo.value; saveTkv(); });
+
+// ---------- the editor: changes land right away ----------
+let saveTimer = null;
+function saveSoon() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { saveTimer = null; save(); }, 300);
+  flashSaved();
+}
+addEventListener('pagehide', () => { if (saveTimer) save(); });
+function flashSaved() {
+  const s = $ed('saved');
+  s.classList.add('on');
+  requestAnimationFrame(() => requestAnimationFrame(() => s.classList.remove('on')));
+}
+function openEditor(t) {
+  const was = !tkEd.hidden;
+  edTask = t;
+  tkEd.hidden = false;
+  fillEditor();
+  if (!was && !reduceMotion) tkEd.animate([{ opacity: 0, transform: 'translateX(14px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'ease-out' });
+}
+function closeEditor() {
+  if (!edTask) return;
+  edTask = null;
+  if (reduceMotion) { tkEd.hidden = true; return; }
+  tkEd.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateX(14px)' }], { duration: 160, easing: 'ease-in' })
+    .finished.then(() => { if (!edTask) tkEd.hidden = true; });
+}
+function fillEditor() {
+  const t = edTask, c = campaignOfTask(t);
+  $ed('done').checked = t.done;
+  $ed('name').value = t.text;
+  $ed('urgent').classList.toggle('on', t.urgent);
+  $ed('campaign').innerHTML = campaignOptions(c.id, secOf(c, t));
+  $ed('due').value = t.due;
+  $ed('segs-show').checked = t.showSegs;
+  $ed('segs').innerHTML = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s =>
+    `<label class="chip"><input type="checkbox" value="${s.id}"${t.segments.includes(s.id) ? ' checked' : ''}><span><span class="flag">${s.flag}</span> ${s.code}</span></label>`).join('');
+  $ed('desc').value = t.desc;
+  showEdDesc(!!t.desc);
+  renderEdSubs();
+  const when = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  $ed('meta').textContent = `Created ${when(t.createdAt)}${t.done && t.doneAt ? ` · Done ${when(t.doneAt)}` : ''}`;
+  $ed('archive').hidden = !t.done;
+}
+function showEdDesc(view) {
+  $ed('desc-view').hidden = !view;
+  $ed('desc').hidden = view;
+  if (view) $ed('desc-view').innerHTML = linkify($ed('desc').value);
+}
+function renderEdSubs() {
+  const subs = edTask.subtasks;
+  $ed('sub-count').textContent = subs.length ? `${subs.filter(s => s.done).length}/${subs.length}` : '';
+  $ed('subs').innerHTML = subs.map(s => `<li class="subtask${s.done ? ' done' : ''}" data-sid="${s.id}">
+    <input type="checkbox" class="t-check"${s.done ? ' checked' : ''} aria-label="Done">
+    <input class="sub-text" value="${esc(s.text)}" aria-label="Subtask">
+    <button type="button" class="sub-del" title="Remove">×</button></li>`).join('');
+}
+// a change that can move the task in the lists: animate it there
+const edMove = change => { tkFlip(() => { change(edTask); tkCommit(); }); fillEditor(); flashSaved(); };
+const reposition = t => placeTask(campaignOfTask(t), t);
+
+$ed('name').addEventListener('input', e => {
+  if (!e.target.value.trim()) return; // an emptied name comes back on leaving the field
+  edTask.text = e.target.value.trim();
+  renderTasks();
+  saveSoon();
+});
+$ed('name').addEventListener('blur', e => { if (edTask) e.target.value = edTask.text; });
+$ed('name').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+$ed('done').addEventListener('change', e => { setDone(edTask, e.target.checked); flashSaved(); });
+$ed('urgent').addEventListener('click', () => edMove(t => { t.urgent = !t.urgent; reposition(t); }));
+$ed('campaign').addEventListener('change', e => {
+  const [cid, sub] = e.target.value.split('|');
+  edMove(t => moveTask(t, listById(cid), sub));
+});
+$ed('due').addEventListener('change', e => edMove(t => { t.due = e.target.value; reposition(t); }));
+$ed('quick').addEventListener('click', e => {
+  const b = e.target.closest('[data-days]');
+  if (b) edMove(t => { t.due = b.dataset.days === '' ? '' : toISO(addDays(today, Number(b.dataset.days))); reposition(t); });
+});
+$ed('segs').addEventListener('change', () => {
+  edTask.segments = [...$ed('segs').querySelectorAll('input:checked')].map(i => i.value);
+  saveSoon();
+});
+$ed('segs-show').addEventListener('change', e => { edTask.showSegs = e.target.checked; saveSoon(); });
+$ed('desc').addEventListener('input', e => { edTask.desc = e.target.value; saveSoon(); });
+$ed('desc').addEventListener('blur', e => {
+  if (!edTask) return;
+  edTask.desc = e.target.value.trim();
+  showEdDesc(!!edTask.desc);
+  saveSoon();
+});
+$ed('desc-view').addEventListener('click', e => {
+  if (e.target.closest('a')) return;
+  showEdDesc(false);
+  $ed('desc').focus();
+});
+const edSubOf = el => edTask.subtasks.find(s => s.id === el.closest('.subtask').dataset.sid);
+$ed('subs').addEventListener('change', e => {
+  if (!e.target.matches('.t-check')) return;
+  edSubOf(e.target).done = e.target.checked;
+  renderEdSubs();
+  saveSoon();
+});
+$ed('subs').addEventListener('input', e => {
+  if (e.target.matches('.sub-text')) { edSubOf(e.target).text = e.target.value; saveSoon(); }
+});
+$ed('subs').addEventListener('focusout', e => {
+  // an emptied subtask goes away when you leave it
+  if (!e.target.matches('.sub-text') || e.target.value.trim()) return;
+  edTask.subtasks = edTask.subtasks.filter(s => s !== edSubOf(e.target));
+  renderEdSubs();
+  saveSoon();
+});
+$ed('subs').addEventListener('click', e => {
+  if (!e.target.closest('.sub-del')) return;
+  edTask.subtasks = edTask.subtasks.filter(s => s !== edSubOf(e.target));
+  renderEdSubs();
+  saveSoon();
+});
+$ed('subs').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('.sub-text')) { e.preventDefault(); $ed('sub-add').focus(); }
+});
+$ed('sub-add').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.isComposing) return;
+  e.preventDefault();
+  const text = e.target.value.trim();
+  if (!text) return;
+  edTask.subtasks.push({ id: uid(), text, done: false });
+  e.target.value = '';
+  renderEdSubs();
+  saveSoon();
+});
+$ed('close').addEventListener('click', () => { closeEditor(); renderTasks(); });
+$ed('del').addEventListener('click', () => {
+  // no question asked: it goes to Trash and can be restored from there
+  const t = edTask;
+  closeEditor();
+  tkFlip(() => { trashTasks([t]); tkCommit(); });
+});
+$ed('archive').addEventListener('click', () => {
+  const t = edTask;
+  closeEditor();
+  tkFlip(() => { t.archived = true; tkCommit(); });
+});
+
+function moveTask(t, dst, sub = '') {
+  const src = campaignOfTask(t);
+  if (src !== dst) {
+    src.tasks = src.tasks.filter(x => x !== t);
+    t.segments = t.segments.filter(s => dst.segments.includes(s));
+  }
+  if (sub) t.sub = sub; else delete t.sub;
+  placeTask(dst, t);
+}
+function trashTasks(ts) {
+  for (const t of ts) {
+    const c = campaignOfTask(t);
+    trashTask(t, c);
+    c.tasks = c.tasks.filter(x => x !== t);
+  }
+  saveTrash();
+}
+
+// ---------- several picked: one bar of actions ----------
+const tkBulk = $tk('tk-bulk');
+const pickedTasks = () => [...picked].map(taskByTid).filter(Boolean);
+function renderBulk() {
+  tkBulk.hidden = picked.size < 2;
+  if (tkBulk.hidden) return;
+  const ts = pickedTasks();
+  $tk('tb-n').textContent = `${ts.length} selected`;
+  $tk('tb-urgent').textContent = ts.every(t => t.urgent) ? 'Not urgent' : 'Urgent';
+  $tk('tb-move').innerHTML = `<option value="">Move to…</option>${campaignOptions(null)}`;
+}
+const bulk = (change, keep = true) => tkFlip(() => {
+  change(pickedTasks());
+  if (!keep) picked.clear();
+  tkCommit();
+});
+tkBulk.addEventListener('click', e => {
+  const b = e.target.closest('[data-bulk]');
+  if (!b) return;
+  const what = b.dataset.bulk;
+  if (what === 'clear') { picked.clear(); return renderTasks(); }
+  if (what === 'done') bulk(ts => ts.forEach(t => { if (!t.done) Object.assign(t, { done: true, doneAt: Date.now() }); }), false);
+  if (what === 'urgent') bulk(ts => { const on = !ts.every(t => t.urgent); ts.forEach(t => { t.urgent = on; reposition(t); }); });
+  if (what === 'delete') bulk(trashTasks, false);
+});
+$tk('tb-due').addEventListener('change', e => {
+  const due = e.target.value;
+  e.target.value = '';
+  bulk(ts => ts.forEach(t => { t.due = due; reposition(t); }));
+});
+$tk('tb-move').addEventListener('change', e => {
+  if (!e.target.value) return;
+  const [cid, sub] = e.target.value.split('|');
+  bulk(ts => ts.forEach(t => moveTask(t, listById(cid), sub)), false);
+});
+
+// Esc: drop the picked tasks, or close the editor
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || $tk('view-tasks').hidden || document.querySelector('dialog[open]')) return;
+  if (picked.size) picked.clear();
+  else if (edTask) { document.activeElement?.blur(); closeEditor(); }
+  else return;
+  renderTasks();
+});
+
 // ---------- tabs: the open tab lives in the URL hash so a refresh keeps it ----------
 function showView(view) {
   try { history.replaceState(null, '', `#${view}`); } catch (e) {} // not allowed on data: URLs (preview pane)
@@ -2765,6 +3503,7 @@ function showView(view) {
     t.dataset.view === view ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
   renderAll();
   if (view === 'timeline') scrollToToday();
+  if (view === 'tasks') syncTkBg(false);
 }
 document.querySelector('.tabs').addEventListener('click', e => {
   const t = e.target.closest('[data-view]');
@@ -2810,9 +3549,9 @@ document.getElementById('zoom').addEventListener('click', e => {
   render();
   scrollToToday();
 });
-window.addEventListener('resize', render);
+window.addEventListener('resize', () => { render(); syncTkBg(false); });
 
-showView(location.hash === '#campaigns' ? 'campaigns' : 'timeline');
+showView(['campaigns', 'tasks'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
 </script>
 </body>
 </html>
