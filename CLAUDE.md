@@ -32,6 +32,8 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 
 ## Gotchas
 - Write localStorage only via `store(key, value)` (shows the save warning on failure). Other tabs' saves arrive via the `storage` event → `syncFromOtherTab()` (reloads data; keep editor references id-based).
+- WAAPI: a single keyframe without `offset` is the END frame. For "from X to current" write `[{ opacity: 0, offset: 0 }]`.
+- Timeline changes: `morphTimeline(update)` (bars glide by key `seg|id|kind`), month moves: `slideTimeline(dir, update)`.
 - `today` is a `let` that `checkNewDay()` moves on past midnight; never cache dates derived from it across renders.
 - `crypto.randomUUID` is missing on `file://` → `uid()`. Every campaign needs `tasks: []` and `subs: []`.
 - Name clash: `renderSubs` = task subtasks; sub-campaigns use `renderSubCampaigns`.
