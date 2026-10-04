@@ -7,3 +7,4 @@ PROPOSALS.md
 scheduled_tasks.lock
 # exported user data (Backup) - never publish
 planner-backup-*.json
+NIGHT_PLAN.md
