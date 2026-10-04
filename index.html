@@ -1353,8 +1353,8 @@ const fromISO = s => { const [y, m, d] = s.split('-').map(Number); return new Da
 const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 const diffDays = (a, b) => Math.round((b - a) / 864e5);
 const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-const now = new Date();
-const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+const dayOf = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+let today = dayOf(new Date()); // moves on by itself when the tab stays open past midnight (checkNewDay)
 const cssPx = name => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -3811,6 +3811,24 @@ document.getElementById('zoom').addEventListener('click', e => {
   scrollToToday();
 });
 window.addEventListener('resize', () => { render(); syncTkBg(false); });
+
+// a tab left open overnight moves on to the new day: statuses, the Today line, due chips, This week
+function checkNewDay() {
+  const d = dayOf(new Date());
+  if (d.getTime() === today.getTime()) return;
+  // don't redraw under someone typing (a quick-add field would lose its text); try again shortly
+  if (document.activeElement?.matches('input, textarea')) return setTimeout(checkNewDay, 60000);
+  const onHome = viewStart.getTime() === homeStart().getTime();
+  today = d;
+  if (onHome) viewStart = homeStart(); // the Timeline follows along if it was showing the default range
+  renderAll();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkNewDay(); });
+addEventListener('focus', checkNewDay);
+(function atMidnight() {
+  const n = new Date();
+  setTimeout(() => { checkNewDay(); atMidnight(); }, new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) - n + 1000);
+})();
 
 showView(['campaigns', 'tasks'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
 </script>
