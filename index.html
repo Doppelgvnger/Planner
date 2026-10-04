@@ -214,9 +214,10 @@
     border: 0; cursor: pointer; z-index: 2;
     background: var(--c-bg); color: var(--c-ink);
     box-shadow: inset 3px 0 0 var(--c-edge), 0 1px 2px rgba(var(--sh), .06);
-    transition: transform .12s, box-shadow .12s;
+    transition: transform .22s cubic-bezier(.34, 1.4, .6, 1), box-shadow .22s;
   }
-  .bar:hover { transform: translateY(-1px); box-shadow: inset 3px 0 0 var(--c-edge), 0 6px 16px rgba(var(--sh), .12); }
+  /* hover lifts the whole campaign in that row: its bar and its sub-campaign bands together (.lift is set from JS) */
+  .bar.lift { transform: translateY(-3px); box-shadow: inset 3px 0 0 var(--c-edge), 0 10px 24px rgba(var(--sh), .2); }
   .bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .bar.cut-left { border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: 0 1px 2px rgba(var(--sh), .06); }
   .bar.cut-right { border-top-right-radius: 0; border-bottom-right-radius: 0; }
@@ -246,7 +247,7 @@
     background-image: repeating-linear-gradient(-45deg, rgba(var(--hi), .7) 0 4px, transparent 4px 9px);
     box-shadow: none; outline: 1px dashed var(--c-edge); outline-offset: -1px;
   }
-  .bar.lg:hover { box-shadow: 0 6px 16px rgba(var(--sh), .12); }
+  .bar.lg.lift { box-shadow: 0 10px 24px rgba(var(--sh), .2); }
   .bar.lg .bar-name { font-size: 12px; }
   /* sub-campaign: a band along the bottom edge of its campaign's bar (which grows taller to hold it),
      continuing on its own where the campaign has already ended */
@@ -257,7 +258,8 @@
     background: color-mix(in srgb, var(--c-edge) 60%, var(--c-bg));
     box-shadow: none;
   }
-  .bar.sub:hover { transform: none; box-shadow: 0 2px 8px rgba(var(--sh), .18); }
+  .bar.sub.lift { box-shadow: none; }
+  .bar.sub.lift:hover { box-shadow: 0 2px 8px rgba(var(--sh), .25); }
   .bar.sub .bar-name { font-size: 10.5px; }
   .bar.sub .bar-dates { font-size: 10px; }
 
@@ -779,8 +781,11 @@
   .tk-bg .tk-bridge { border-radius: 50%; transform: scale(0); }
   .tk-panel { position: relative; padding: 14px; }
   .tk-main { display: grid; grid-template-columns: 176px 330px; gap: 14px; }
-  .tk-gen { width: 358px; transition: opacity .3s .25s; } /* rows as wide as the main list, so they keep their size moving across */
-  .tk-gen.gone { position: absolute; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s, visibility 0s .15s; }
+  .tk-gen { width: 358px; } /* rows as wide as the main list, so they keep their size moving across */
+  /* only General's header and add field fade; its rows stay visible, flying out of the list from the first frame */
+  .tk-gen .tk-head, .tk-gen .tk-addbar { transition: opacity .3s .25s; }
+  .tk-gen.gone { position: absolute; visibility: hidden; pointer-events: none; transition: visibility 0s .15s; }
+  .tk-gen.gone .tk-head, .tk-gen.gone .tk-addbar { opacity: 0; transition: opacity .15s; }
   .tk-seam { flex: none; width: 48px; display: flex; justify-content: center; padding-top: 58px; position: relative; z-index: 2; }
   .tk-merge {
     width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
@@ -818,7 +823,8 @@
   .tk-group, .tk-sub-head { display: flex; align-items: center; gap: 7px; margin: 8px 2px 2px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
   .tk-list > :first-child { margin-top: 0; }
   .tk-row {
-    display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; align-items: start; padding: 6px 8px 6px 9px;
+    /* done · name (+ floating "!") · subtasks · due: the last two are fixed columns so they line up row to row */
+    display: grid; grid-template-columns: 16px minmax(0, 1fr) 18px 64px; gap: 9px; align-items: start; padding: 6px 8px 6px 9px;
     border-left: 3px solid var(--c-edge); border-radius: 3px 8px 8px 3px; background: var(--surface); cursor: pointer; user-select: none;
   }
   .tk-row.gen { border-left-style: dashed; }
@@ -827,10 +833,17 @@
   .tk-row.picked { box-shadow: inset 0 0 0 1.5px var(--accent); }
   .tk-row .t-check { width: 16px; height: 16px; margin: 1px 0 0; }
   .tk-line { font-size: 13.5px; line-height: 1.4; overflow-wrap: anywhere; }
-  .tk-line .t-chip { margin-left: 6px; vertical-align: 1px; }
+  .tk-due { justify-self: end; padding-top: 1px; }
+  .tk-subs { padding-top: 1px; }
+  .tk-sub-badge {
+    display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px;
+    background: var(--line-soft); color: var(--ink-2);
+  }
+  .tk-sub-badge svg { width: 10px; height: 9px; }
+  .tk-sub-badge.all { background: var(--accent-soft); color: var(--accent); }
   .tk-row.done .tk-text { text-decoration: line-through; color: var(--ink-3); }
   .tk-urg {
-    display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 4px; vertical-align: 1px;
+    display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 6px; border-radius: 4px; vertical-align: 1px;
     background: var(--danger); color: var(--on-danger); font-size: 11px; font-weight: 700; line-height: 1;
   }
   .tk-from { display: block; margin-top: 1px; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -853,6 +866,7 @@
   .ed-name:focus { outline: none; border-color: var(--accent); }
   .ed-x { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--ink-3); font-size: 20px; line-height: 1; cursor: pointer; }
   .ed-x:hover { background: var(--line-soft); color: var(--ink); }
+  .ed-segs-tools { display: flex; align-items: center; gap: 14px; }
   .ed-saved { font-size: 12px; color: var(--ink-3); opacity: 0; transition: opacity .6s .4s; }
   .ed-saved.on { opacity: 1; transition: none; }
 
@@ -1028,6 +1042,10 @@
         <button type="button" class="t-btn t-urgent" id="ed-urgent" title="Mark as urgent">!</button>
         <button type="button" class="ed-x" id="ed-close" title="Close" aria-label="Close">×</button>
       </div>
+      <div class="field">Description
+        <div class="td-desc-view" id="ed-desc-view" title="Click to edit"></div>
+        <textarea id="ed-desc" rows="3" placeholder="Notes, links…"></textarea>
+      </div>
       <label class="field">Campaign <select id="ed-campaign"></select></label>
       <div class="field">Due
         <div class="td-due">
@@ -1040,24 +1058,23 @@
           </div>
         </div>
       </div>
-      <fieldset aria-label="Markets">
-        <div class="fs-head">
-          <span>Markets <span class="opt">optional</span></span>
-          <label class="switch" title="Show the markets on the task card">
-            <input type="checkbox" id="ed-segs-show">
-            <span class="s-hide">Hide</span><span class="knob"></span><span class="s-show">Show</span>
-          </label>
-        </div>
-        <div class="chips" id="ed-segs"></div>
-      </fieldset>
-      <div class="field">Description
-        <div class="td-desc-view" id="ed-desc-view" title="Click to edit"></div>
-        <textarea id="ed-desc" rows="3" placeholder="Notes, links…"></textarea>
-      </div>
       <fieldset>
         <legend>Subtasks <span class="opt" id="ed-sub-count"></span></legend>
         <ul class="subs" id="ed-subs"></ul>
         <input class="sub-add" id="ed-sub-add" placeholder="+ Add subtask" autocomplete="off">
+      </fieldset>
+      <fieldset aria-label="Markets">
+        <div class="fs-head">
+          <span>Markets <span class="opt">optional</span></span>
+          <span class="ed-segs-tools">
+            <button type="button" class="link" id="ed-segs-all">Select all</button>
+            <label class="switch" title="Show the markets on the task card">
+              <input type="checkbox" id="ed-segs-show">
+              <span class="s-hide">Hide</span><span class="knob"></span><span class="s-show">Show</span>
+            </label>
+          </span>
+        </div>
+        <div class="chips" id="ed-segs"></div>
       </fieldset>
       <p class="td-meta" id="ed-meta"></p>
       <div class="actions">
@@ -1482,10 +1499,19 @@ function lanesFor(segId, vs, ve) {
     .filter(c => isShown(c) && c.segments.includes(segId))
     .map(c => {
       const d = datesIn(c, segId), lg = lgIn(c, segId);
-      const subs = c.subs.map(sub => ({ sub, d: subIn(c, sub, segId) })).filter(x => x.d);
+      // sub-campaigns share a line unless their dates overlap; lane = which line under the campaign
+      const subEnds = [];
+      const subs = c.subs.map(sub => ({ sub, d: subIn(c, sub, segId) })).filter(x => x.d)
+        .sort((a, b) => a.d.start.localeCompare(b.d.start))
+        .map(x => {
+          let lane = subEnds.findIndex(end => end < x.d.start);
+          if (lane === -1) lane = subEnds.length;
+          subEnds[lane] = x.d.end;
+          return { ...x, lane };
+        });
       // lead gen and sub-campaigns share their campaign's lane, so lanes are assigned on the combined span
       const all = spanOf([d, lg, ...subs.map(x => x.d)].filter(Boolean));
-      return { c, d, lg, subs, start: all.start, end: all.end };
+      return { c, d, lg, subs, subLanes: subEnds.length, start: all.start, end: all.end };
     })
     .filter(x => fromISO(x.end) >= vs && fromISO(x.start) <= ve)
     .sort((a, b) => a.start.localeCompare(b.start) || b.end.localeCompare(a.end));
@@ -1553,15 +1579,15 @@ function render() {
     const placed = lanesFor(seg.id, vs, ve);
     // a lane is as tall as its tallest campaign: the campaign line plus one thin line per sub-campaign
     const laneH = [];
-    for (const p of placed) laneH[p.lane] = Math.max(laneH[p.lane] || 0, LANE_H + p.subs.length * SUB_H);
+    for (const p of placed) laneH[p.lane] = Math.max(laneH[p.lane] || 0, LANE_H + p.subLanes * SUB_H);
     const laneTop = [];
     laneH.reduce((y, h, i) => (laneTop[i] = y) + h, 0);
     let bars = '';
-    for (const { c, d, lg, subs, lane } of placed) {
+    for (const { c, d, lg, subs, subLanes, lane } of placed) {
       const top = ROW_PAD / 2 + laneTop[lane] + 4;
       if (lg) bars += bar(c, lg, top, 'lg');
-      bars += bar(c, d, top, 'main', null, subs.length);
-      subs.forEach((x, k) => { bars += bar(c, x.d, top + 24 + k * SUB_H, 'sub', x.sub); });
+      bars += bar(c, d, top, 'main', null, subLanes);
+      subs.forEach(x => { bars += bar(c, x.d, top + 24 + x.lane * SUB_H, 'sub', x.sub); });
     }
     const height = Math.max(LANE_H, laneH.reduce((a, h) => a + h, 0)) + ROW_PAD;
     rows += `<div class="row">
@@ -1615,6 +1641,20 @@ function scrollToToday() {
   const ti = diffDays(viewStart, today);
   scroller.scrollLeft = Math.max(0, (ti - 4) * dayW());
 }
+
+// ---------- hover: a campaign's bar and its sub-campaign bands in that row lift together ----------
+let lifted = [];
+tl.addEventListener('pointerover', e => {
+  const b = e.target.closest('.bar');
+  // lead gen lifts on its own; the campaign bar and its subs as one
+  const group = !b ? [] : b.matches('.lg') ? [b]
+    : [...b.closest('.track').querySelectorAll(`.bar[data-id="${b.dataset.id}"]:not(.lg)`)];
+  if (group.length === lifted.length && group.every(x => lifted.includes(x))) return;
+  lifted.forEach(x => x.classList.remove('lift'));
+  group.forEach(x => x.classList.add('lift'));
+  lifted = group;
+});
+tl.addEventListener('pointerleave', () => { lifted.forEach(x => x.classList.remove('lift')); lifted = []; });
 
 // ---------- drag to create ----------
 let drag = null;
@@ -2247,6 +2287,7 @@ function renderBoard() {
   document.getElementById('open-trash').textContent = trash.length ? `Trash (${trash.length})` : 'Trash';
   cboard.classList.toggle('dense', dense);
   syncScrollbar();
+  if (quickAt) openQuickAdd(quickAt.cid, quickAt.sub);
 }
 const renderAll = () => { render(); renderBoard(); renderTasks(); };
 
@@ -2261,6 +2302,18 @@ const campaignOptions = (cid, sub = '') => [general, ...activeOrder(), ...campai
 
 // ---------- motion: tasks glide to their new place; going down they fall and bounce, going up they spring ----------
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// run fn once the pointer press in progress (if any) has finished and its click has landed. Used where losing focus
+// changes the layout: doing it at once would move things under the pointer and the click would miss.
+let pointerIsDown = false;
+addEventListener('pointerdown', () => { pointerIsDown = true; }, true);
+addEventListener('pointerup', () => setTimeout(() => { pointerIsDown = false; }), true);
+addEventListener('pointercancel', () => { pointerIsDown = false; }, true);
+function afterPointer(fn) {
+  if (!pointerIsDown) return fn();
+  const done = () => { removeEventListener('pointerup', done, true); removeEventListener('pointercancel', done, true); setTimeout(fn); };
+  addEventListener('pointerup', done, true);
+  addEventListener('pointercancel', done, true);
+}
 const SPRING = 'cubic-bezier(.34, 1.4, .6, 1)';
 function settle(el, dx, dy) {
   if (dy < -2) {
@@ -2304,7 +2357,7 @@ cboard.addEventListener('change', e => {
 });
 cboard.addEventListener('click', e => {
   const add = e.target.closest('.t-add-btn');
-  if (add) return openTask(add.closest('.ccol').dataset.id, null, add.closest('.tasks').dataset.sub || '');
+  if (add) return openQuickAdd(add.closest('.ccol').dataset.id, add.closest('.tasks').dataset.sub || '');
   const btn = e.target.closest('.t-urgent, .t-archive');
   if (btn) {
     const t = taskOf(btn), row = btn.closest('.task');
@@ -2321,6 +2374,48 @@ cboard.addEventListener('click', e => {
   }
   const row = e.target.closest('.task');
   if (row && !e.target.closest('.t-check, .t-handle, a')) openTask(row.closest('.ccol').dataset.id, row.dataset.tid);
+});
+
+// ---------- quick add on the board: "+ Add task" turns into a field; Enter adds and keeps it open for the next one,
+// clicking away adds what's typed, Esc drops it ----------
+let quickAt = null; // { cid, sub } of the list whose field is open; survives board re-renders
+function openQuickAdd(cid, sub) {
+  quickAt = { cid, sub };
+  const list = cboard.querySelector(`.ccol[data-id="${cid}"] .tasks${sub ? `[data-sub="${sub}"]` : ':not([data-sub])'}`);
+  const row = list?.querySelector('.add-row');
+  if (!row) return (quickAt = null);
+  row.innerHTML = `<input class="t-add" data-cid="${cid}" data-sub="${sub}" placeholder="Task name, then Enter" autocomplete="off" aria-label="New task">`;
+  row.firstChild.focus();
+}
+// keepOpen: the re-rendered board opens the field again, ready for the next task
+function quickAddTask(input, keepOpen) {
+  const { cid, sub } = input.dataset, text = input.value.trim();
+  input.dataset.used = '1'; // its blur (when the re-render removes it) must not add it again
+  // closing: unless the click that ended it already opened another list's field
+  if (!keepOpen && quickAt?.cid === cid && quickAt.sub === sub) quickAt = null;
+  const c = campaigns.find(x => x.id === cid);
+  if (!text || !c) return renderBoard();
+  const t = normTask({ text });
+  if (sub) t.sub = sub;
+  placeTask(c, t);
+  withFlip(commit);
+}
+cboard.addEventListener('keydown', e => {
+  if (!e.target.matches('.t-add') || e.isComposing) return;
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (e.target.value.trim()) quickAddTask(e.target, true);
+  } else if (e.key === 'Escape') {
+    e.target.dataset.used = '1';
+    quickAt = null;
+    renderBoard();
+  }
+});
+cboard.addEventListener('focusout', e => {
+  const input = e.target;
+  if (!input.matches('.t-add') || input.dataset.used) return;
+  // wait until the click that took the focus away has landed, so re-rendering can't swallow it
+  afterPointer(() => { if (!input.dataset.used) quickAddTask(input, false); });
 });
 
 // ---------- drag a task by its handle: within a column or into another campaign ----------
@@ -3044,8 +3139,15 @@ function rowHTML({ t, c }, from = '') {
   const p = paint(c.color);
   return `<div class="tk-row ${p.cls}${c === general ? ' gen' : ''}${t.done ? ' done' : ''}${t === edTask ? ' active' : ''}${picked.has(t.id) ? ' picked' : ''}" style="${p.style}" data-tid="${t.id}" data-fk="t:${t.id}">
     <input type="checkbox" class="t-check"${t.done ? ' checked' : ''} aria-label="Done">
-    <div class="tk-line"><span class="tk-text">${esc(t.text)}</span>${dueChip(t)}${t.urgent && !t.done ? '<span class="tk-urg" title="Urgent">!</span>' : ''}${from ? `<span class="tk-from">${from}</span>` : ''}</div>
+    <div class="tk-line"><span class="tk-text">${esc(t.text)}</span>${t.urgent && !t.done ? '<span class="tk-urg" title="Urgent">!</span>' : ''}${from ? `<span class="tk-from">${from}</span>` : ''}</div>
+    <span class="tk-subs">${subsBadge(t)}</span><span class="tk-due">${dueChip(t)}</span>
   </div>`;
+}
+// has subtasks: a small square with lines (accent once they're all done), the count in its tooltip
+function subsBadge(t) {
+  if (!t.subtasks.length) return '';
+  const n = t.subtasks.filter(s => s.done).length, all = n === t.subtasks.length;
+  return `<span class="tk-sub-badge${all ? ' all' : ''}" title="Subtasks ${n}/${t.subtasks.length}">${DESC_ICON}</span>`;
 }
 function doneHTML(side, done, label) {
   if (!done.length) return '';
@@ -3323,6 +3425,7 @@ function fillEditor() {
   $ed('segs-show').checked = t.showSegs;
   $ed('segs').innerHTML = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s =>
     `<label class="chip"><input type="checkbox" value="${s.id}"${t.segments.includes(s.id) ? ' checked' : ''}><span><span class="flag">${s.flag}</span> ${s.code}</span></label>`).join('');
+  syncEdSegsAll();
   $ed('desc').value = t.desc;
   showEdDesc(!!t.desc);
   renderEdSubs();
@@ -3366,17 +3469,29 @@ $ed('quick').addEventListener('click', e => {
   const b = e.target.closest('[data-days]');
   if (b) edMove(t => { t.due = b.dataset.days === '' ? '' : toISO(addDays(today, Number(b.dataset.days))); reposition(t); });
 });
+const edSegBoxes = () => [...$ed('segs').querySelectorAll('input')];
+function syncEdSegsAll() {
+  $ed('segs-all').textContent = edSegBoxes().every(i => i.checked) ? 'Clear all' : 'Select all';
+}
 $ed('segs').addEventListener('change', () => {
-  edTask.segments = [...$ed('segs').querySelectorAll('input:checked')].map(i => i.value);
+  edTask.segments = edSegBoxes().filter(i => i.checked).map(i => i.value);
+  syncEdSegsAll();
   saveSoon();
+});
+$ed('segs-all').addEventListener('click', () => {
+  const on = !edSegBoxes().every(i => i.checked);
+  edSegBoxes().forEach(i => { i.checked = on; });
+  $ed('segs').dispatchEvent(new Event('change'));
 });
 $ed('segs-show').addEventListener('change', e => { edTask.showSegs = e.target.checked; saveSoon(); });
 $ed('desc').addEventListener('input', e => { edTask.desc = e.target.value; saveSoon(); });
 $ed('desc').addEventListener('blur', e => {
   if (!edTask) return;
   edTask.desc = e.target.value.trim();
-  showEdDesc(!!edTask.desc);
   saveSoon();
+  // switching to the link view changes the height: wait for the click that moved focus away to land first
+  const t = edTask;
+  afterPointer(() => { if (edTask === t && document.activeElement !== $ed('desc')) showEdDesc(!!t.desc); });
 });
 $ed('desc-view').addEventListener('click', e => {
   if (e.target.closest('a')) return;
@@ -3394,11 +3509,15 @@ $ed('subs').addEventListener('input', e => {
   if (e.target.matches('.sub-text')) { edSubOf(e.target).text = e.target.value; saveSoon(); }
 });
 $ed('subs').addEventListener('focusout', e => {
-  // an emptied subtask goes away when you leave it
+  // an emptied subtask goes away when you leave it (after the click that left it has landed)
   if (!e.target.matches('.sub-text') || e.target.value.trim()) return;
-  edTask.subtasks = edTask.subtasks.filter(s => s !== edSubOf(e.target));
-  renderEdSubs();
-  saveSoon();
+  const sub = edSubOf(e.target), t = edTask;
+  afterPointer(() => {
+    if (edTask !== t || !t.subtasks.includes(sub) || sub.text.trim()) return;
+    t.subtasks = t.subtasks.filter(s => s !== sub);
+    renderEdSubs();
+    saveSoon();
+  });
 });
 $ed('subs').addEventListener('click', e => {
   if (!e.target.closest('.sub-del')) return;
