@@ -201,7 +201,8 @@
     flex: none; min-width: 44px; text-align: center; padding: 3px 6px; border-radius: 6px;
     background: var(--line-soft); color: var(--ink-2); font-size: 11px; font-weight: 600; letter-spacing: .03em;
   }
-  /* Windows has no color flag glyphs of its own, so flags come from the Noto Color Emoji webfont */
+  /* Windows has no color flag glyphs of its own, so flags come from the Noto Color Emoji webfont.
+     Only the Timeline's market labels show flags; everywhere else markets are just their codes. */
   .flag { font-family: 'Noto Color Emoji', sans-serif; font-size: 22px; line-height: 1; }
   .track { position: relative; flex: none; width: calc(var(--days) * var(--day-w)); cursor: crosshair; touch-action: pan-x pan-y; }
 
@@ -419,12 +420,11 @@
   .link:hover { text-decoration: underline; }
   .mk-list { display: grid; gap: 4px; }
   .mk-row {
-    display: grid; grid-template-columns: 48px 22px 1fr 1fr 28px; gap: 8px; align-items: center;
+    display: grid; grid-template-columns: 48px 1fr 1fr 28px; gap: 8px; align-items: center;
     padding: 6px 8px; border-radius: 10px; border: 1px solid transparent;
   }
   .mk-row.moved { background: var(--accent-soft); }
   .mk-row.focus { border-color: var(--accent); }
-  .mk-row .flag { font-size: 18px; }
   .mk-row input {
     min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
     background: var(--surface); font-size: 13px;
@@ -538,7 +538,6 @@
   .tile .col-btn { width: 22px; height: 22px; }
   .tile-meta { font-size: 11px; color: var(--ink-2); }
   .tile .mini { font-size: 10px; padding: 1px 5px; }
-  .tile .mini .flag { font-size: 11px; }
   .tile .statuses { align-items: flex-start; }
   .tile .status { font-size: 11px; padding: 1px 7px; white-space: normal; } /* long ones wrap inside the tile */
   .tile .st-mk { font-size: 10px; }
@@ -563,7 +562,6 @@
     display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 6px;
     background: rgba(var(--hi), .75); font-size: 11px; font-weight: 600; color: var(--ink-2);
   }
-  .mini .flag { font-size: 13px; }
   .col-meta { font-size: 12px; color: var(--ink-2); }
   .col-head .statuses { align-items: flex-start; margin-top: 8px; }
   .col-empty { color: var(--ink-3); padding: 24px 4px; }
@@ -588,7 +586,10 @@
     position: fixed; z-index: 50; margin: 0; pointer-events: none; overflow: hidden;
     background: var(--surface); border-radius: 10px; box-shadow: 0 12px 32px rgba(var(--sh), .18);
   }
-  .sub-sec-meta { padding: 0 14px 2px 29px; font-size: 11.5px; color: var(--ink-3); }
+  .sub-sec-meta {
+    padding: 0 14px 7px 29px; font-size: 11.5px; color: var(--ink-2);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c-edge) 16%, transparent), transparent 75%);
+  }
   .sub-sec .tasks { border-top: 0; padding-top: 2px; }
   .sub-count { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
   .ar-sub { color: var(--ink-3); font-size: 12px; }
@@ -613,7 +614,6 @@
     display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px; border-radius: 6px;
     background: var(--line-soft); color: var(--ink-2); font-size: 11px; font-weight: 500;
   }
-  .t-chip .flag { font-size: 12px; }
   .t-chip.icon { padding: 2px 5px; }
   .t-chip.soon { background: var(--soon-bg); color: var(--soon-ink); }
   .t-chip.overdue { background: var(--over-bg); color: var(--over-ink); }
@@ -668,7 +668,6 @@
   .switch input:checked ~ .knob::after { transform: translateX(14px); }
   .switch input:focus-visible ~ .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
   .switch input:not(:checked) ~ .s-hide, .switch input:checked ~ .s-show { color: var(--ink); }
-  .chip .flag { font-size: 14px; }
   .td-desc-view {
     white-space: pre-wrap; overflow-wrap: anywhere; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
     font-size: 14px; font-weight: 400; color: var(--ink); line-height: 1.45; cursor: text; min-height: 40px;
@@ -752,7 +751,7 @@
     .tab { padding: 6px 10px; }
     main { padding: 20px 16px; }
     .label .flag { display: none; }
-    .mk-row { grid-template-columns: 44px 20px 1fr 1fr 24px; gap: 6px; padding: 6px 4px; }
+    .mk-row { grid-template-columns: 44px 1fr 1fr 24px; gap: 6px; padding: 6px 4px; }
     .label, .corner { padding: 0 10px; justify-content: center; }
     .corner { font-size: 0; }
     .range { min-width: 0; }
@@ -762,7 +761,6 @@
     .two { grid-template-columns: 1fr; }
     .mk-row { grid-template-columns: auto 1fr 24px; row-gap: 6px; }
     .mk-row .code { grid-column: 1; grid-row: 1; }
-    .mk-row .flag { grid-column: 2; grid-row: 1; justify-self: start; }
     .mk-row .mk-reset { grid-column: 3; grid-row: 1; }
     .mk-row input { grid-column: 1 / -1; }
   }
@@ -1822,7 +1820,7 @@ function marketEditor(box, getSegs, getMain) {
     list.innerHTML = SEGMENTS.filter(s => segs.includes(s.id)).map(s => {
       const d = ed.draft[s.id] || main;
       return `<div class="mk-row${ed.draft[s.id] ? ' moved' : ''}${s.id === ed.focus ? ' focus' : ''}" data-seg="${s.id}" title="${s.name}">
-        <span class="code">${s.code}</span><span class="flag">${s.flag}</span>
+        <span class="code">${s.code}</span>
         <input type="date" value="${d.start}" aria-label="${s.name} start">
         <input type="date" value="${d.end}" aria-label="${s.name} end">
         <button type="button" class="mk-reset" title="Back to the main dates"${ed.draft[s.id] ? '' : ' style="visibility:hidden"'}>↺</button>
@@ -2121,7 +2119,7 @@ const park = document.getElementById('park');
 const PARK_ICON = `<svg viewBox="0 0 14 12" width="13" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1v10M13 6H4.5M8 2.5L4.5 6 8 9.5"/></svg>`;
 const UNPARK_ICON = `<svg viewBox="0 0 14 12" width="13" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1v10M4.5 6H13M9.5 2.5L13 6 9.5 9.5"/></svg>`;
 const marketChips = c => SEGMENTS.filter(s => c.segments.includes(s.id))
-  .map(s => `<span class="mini" title="${s.name}"><span class="flag">${s.flag}</span>${s.code}</span>`).join('');
+  .map(s => `<span class="mini" title="${s.name}">${s.code}</span>`).join('');
 const ARCHIVE_ICON = `<svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="3.5" rx="1"/><path d="M2.5 6v6.5a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V6M6.5 9h3"/></svg>`;
 
 // running/upcoming campaigns: the user's drag order if there is one; campaigns not in it go after, by date
@@ -2182,7 +2180,7 @@ function taskHTML(t) {
   const subsDone = t.subtasks.filter(s => s.done).length;
   const chips = [
     dueChip(t),
-    ...SEGMENTS.filter(s => t.showSegs && t.segments.includes(s.id)).map(s => `<span class="t-chip" title="${s.name}"><span class="flag">${s.flag}</span>${s.code}</span>`),
+    ...SEGMENTS.filter(s => t.showSegs && t.segments.includes(s.id)).map(s => `<span class="t-chip" title="${s.name}">${s.code}</span>`),
     t.subtasks.length ? `<span class="t-chip" title="Subtasks">${subsDone}/${t.subtasks.length}</span>` : '',
     t.desc ? `<span class="t-chip icon" title="Has a description">${DESC_ICON}</span>` : '',
   ].join('');
@@ -2195,7 +2193,7 @@ function taskHTML(t) {
 
 const CHEVRON = `<svg viewBox="0 0 12 8" width="11" height="8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 6.5l5-5 5 5"/></svg>`;
 const subChips = sub => SEGMENTS.filter(s => sub.segments.includes(s.id))
-  .map(s => `<span class="mini" title="${s.name}"><span class="flag">${s.flag}</span>${s.code}</span>`).join('');
+  .map(s => `<span class="mini" title="${s.name}">${s.code}</span>`).join('');
 const subSpan = (c, sub) => timing(c).subs.find(x => x.sub === sub)?.sp;
 
 // one section's task list: the campaign's own (sec '') or a sub-campaign's
@@ -2554,7 +2552,7 @@ function renderTdSegs() {
   const c = listById(tdDraft.cid);
   tdDraft.segments =tdDraft.segments.filter(s => c.segments.includes(s));
   $td('segs').innerHTML = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s =>
-    `<label class="chip"><input type="checkbox" value="${s.id}"${tdDraft.segments.includes(s.id) ? ' checked' : ''}><span>${s.flag ? `<span class="flag">${s.flag}</span> ` : ''}${s.code}</span></label>`).join('');
+    `<label class="chip"><input type="checkbox" value="${s.id}"${tdDraft.segments.includes(s.id) ? ' checked' : ''}><span>${s.code}</span></label>`).join('');
 }
 function renderSubs() {
   const subs = tdDraft.subtasks;
@@ -2769,11 +2767,15 @@ cboard.addEventListener('click', e => {
   if (sub.compact) {
     const body = sec.querySelector('.sub-body');
     sec.classList.add('compact'); // turns the chevron with the same timing
+    // the header's padding changes when folded: move it with the fold instead of in one frame
+    sec.querySelector('.sub-sec-head').animate([{ paddingTop: '9px', paddingBottom: '4px' }, { paddingTop: '6px', paddingBottom: '6px' }], FOLD);
     body.animate([foldOpen(body), foldShut], FOLD).finished.then(commit);
   } else {
     commit();
     const fresh = cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`), body = fresh.querySelector('.sub-body');
     body.animate([foldShut, foldOpen(body)], { ...FOLD, fill: 'none' });
+    // the re-rendered header starts from its folded padding, so nothing shifts on the first frame (see .sub-sec.compact)
+    fresh.querySelector('.sub-sec-head').animate([{ paddingTop: '6px', paddingBottom: '6px' }, { paddingTop: '9px', paddingBottom: '4px' }], { ...FOLD, fill: 'none' });
     fresh.querySelector('.sub-toggle svg').animate([{ transform: 'rotate(180deg)' }, { transform: 'none' }], { ...FOLD, fill: 'none' });
   }
 });
@@ -3510,7 +3512,7 @@ function fillEditor() {
   $ed('due').value = t.due;
   $ed('segs-show').checked = t.showSegs;
   $ed('segs').innerHTML = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s =>
-    `<label class="chip"><input type="checkbox" value="${s.id}"${t.segments.includes(s.id) ? ' checked' : ''}><span><span class="flag">${s.flag}</span> ${s.code}</span></label>`).join('');
+    `<label class="chip"><input type="checkbox" value="${s.id}"${t.segments.includes(s.id) ? ' checked' : ''}><span>${s.code}</span></label>`).join('');
   syncEdSegsAll();
   $ed('desc').value = t.desc;
   showEdDesc(!!t.desc);
