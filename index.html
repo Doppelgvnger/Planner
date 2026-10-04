@@ -582,6 +582,12 @@
   .sub-sec-head .sub-toggle svg { transition: transform .34s cubic-bezier(.4, 0, .2, 1); }
   .sub-sec.compact .sub-sec-head { padding: 6px 10px 6px 14px; }
   .sub-sec.compact .sub-toggle svg { transform: rotate(180deg); }
+  .sub-body { overflow: hidden; } /* folds smoothly (height animated from JS) */
+  /* stand-in that flies between a parked sub-campaign's tile and its section */
+  .morph-ghost {
+    position: fixed; z-index: 50; margin: 0; pointer-events: none; overflow: hidden;
+    background: var(--surface); border-radius: 10px; box-shadow: 0 12px 32px rgba(var(--sh), .18);
+  }
   .sub-sec-meta { padding: 0 14px 2px 29px; font-size: 11.5px; color: var(--ink-3); }
   .sub-sec .tasks { border-top: 0; padding-top: 2px; }
   .sub-count { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
@@ -1422,7 +1428,8 @@ let viewStart = homeStart();
 let monthsShown = 3;
 const destFilter = new Set(DESTS.map(d => d.id));
 const viewEnd = () => new Date(viewStart.getFullYear(), viewStart.getMonth() + monthsShown, 0);
-const isShown = c => c.destinations.some(d => destFilter.has(d));
+// nothing ticked in the filter shows everything
+const isShown = c => !destFilter.size || c.destinations.some(d => destFilter.has(d));
 // a market's own dates if it was moved, otherwise the campaign's
 const datesIn = (c, seg) => c.overrides?.[seg] || c;
 // same for the lead gen; null if this market has no lead gen
@@ -1976,7 +1983,7 @@ for (const el of [form.start, form.end, document.getElementById('seg-chips')]) {
 function openDialog(id, preset, seg = null, fromLg = false, subId = null) {
   editingId = id;
   const c = id ? campaigns.find(x => x.id === id) : {
-    name: '', segments: [], destinations: [...destFilter], start: toISO(today), end: toISO(addDays(today, 6)),
+    name: '', segments: [], destinations: destFilter.size ? [...destFilter] : DESTS.map(d => d.id), start: toISO(today), end: toISO(addDays(today, 6)),
     color: COLORS[campaigns.length % COLORS.length], ...preset,
   };
   document.getElementById('dlg-title').textContent = id ? 'Edit campaign' : 'New campaign';
@@ -2211,7 +2218,7 @@ function subSectionHTML(c, sub) {
       <button class="col-btn sub-park" title="Park · done for now">${PARK_ICON}</button>
       <button class="col-btn sub-toggle" title="${sub.compact ? 'Show tasks' : 'Collapse'}">${CHEVRON}</button>
     </div>
-    ${sub.compact ? '' : `${sp ? `<div class="sub-sec-meta">${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))}</div>` : ''}${taskListHTML(c, sub.id)}`}
+    ${sub.compact ? '' : `<div class="sub-body">${sp ? `<div class="sub-sec-meta">${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))}</div>` : ''}${taskListHTML(c, sub.id)}</div>`}
   </div>`;
 }
 // a parked sub-campaign's tile in the left rail
@@ -2308,6 +2315,21 @@ let pointerIsDown = false;
 addEventListener('pointerdown', () => { pointerIsDown = true; }, true);
 addEventListener('pointerup', () => setTimeout(() => { pointerIsDown = false; }), true);
 addEventListener('pointercancel', () => { pointerIsDown = false; }, true);
+// chips and toggle buttons switch as soon as they're pressed. A click only counts when the button goes down and up
+// on the same element, so quick clicks made while the mouse is still moving used to get lost.
+let pressedEl = null;
+addEventListener('pointerdown', e => {
+  const el = e.button === 0 && e.pointerType !== 'touch' && e.target.closest('.chip, .toggle, .zoom > button');
+  if (!el || el.querySelector('input:disabled')) return;
+  e.preventDefault(); // no focus jump, no text selection
+  pressedEl = null;
+  el.click();
+  pressedEl = el; // the real click that may follow this press is already handled
+});
+addEventListener('click', e => {
+  if (pressedEl && e.isTrusted && pressedEl.contains(e.target)) { e.preventDefault(); e.stopPropagation(); }
+  pressedEl = null;
+}, true);
 function afterPointer(fn) {
   if (!pointerIsDown) return fn();
   const done = () => { removeEventListener('pointerup', done, true); removeEventListener('pointercancel', done, true); setTimeout(fn); };
@@ -2693,6 +2715,10 @@ function endColDrag() {
 window.addEventListener('pointerup', endColDrag);
 window.addEventListener('pointercancel', endColDrag);
 
+// folding: only the height moves (exact, unrounded), so the motion starts and stops without a jump
+const FOLD = { duration: 340, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' };
+const foldOpen = d => ({ height: `${d.getBoundingClientRect().height}px`, opacity: 1 });
+const foldShut = { height: '0px', opacity: 0 };
 // collapse / expand a campaign's header details
 cboard.addEventListener('click', e => {
   const btn = e.target.closest('.col-toggle');
@@ -2702,18 +2728,14 @@ cboard.addEventListener('click', e => {
   c.compact = !c.compact;
   if (reduceMotion) return commit();
   // the details block changes height smoothly and the tasks below simply ride along with it
-  // only the height moves (exact, unrounded), so the motion starts and stops without a jump
-  const FOLD = { duration: 340, easing: 'cubic-bezier(.4, 0, .2, 1)', fill: 'forwards' };
-  const open = d => ({ height: `${d.getBoundingClientRect().height}px`, opacity: 1 });
-  const shut = { height: '0px', opacity: 0 };
   if (c.compact) {
     const d = col.querySelector('.col-details');
     col.classList.add('compact'); // turns the chevron with the same timing
-    d.animate([open(d), shut], FOLD).finished.then(commit);
+    d.animate([foldOpen(d), foldShut], FOLD).finished.then(commit);
   } else {
     commit();
     const fresh = cboard.querySelector(`.ccol[data-id="${c.id}"]`), d = fresh.querySelector('.col-details');
-    d.animate([shut, open(d)], { ...FOLD, fill: 'none' });
+    d.animate([foldShut, foldOpen(d)], { ...FOLD, fill: 'none' });
     // the column was re-rendered, so turn the chevron back by hand
     fresh.querySelector('.col-toggle svg').animate([{ transform: 'rotate(180deg)' }, { transform: 'none' }], { ...FOLD, fill: 'none' });
   }
@@ -2739,16 +2761,80 @@ cboard.addEventListener('click', e => {
   e.stopPropagation(); // don't open the campaign
   if (btn.matches('.col-park')) return setParked(campaigns.find(x => x.id === btn.closest('.ccol').dataset.id), true);
   const sub = subOfNode(btn.closest('.sub-sec-head'));
-  if (btn.matches('.sub-park')) return setParked(sub, true);
-  sub.compact = !sub.compact; // collapse to one line / show its tasks again
-  withFlip(commit);
+  if (btn.matches('.sub-park')) return setSubParked(sub, true);
+  // collapse to one line / show its tasks again: the section folds like a column's details
+  sub.compact = !sub.compact;
+  if (reduceMotion) return commit();
+  const sec = btn.closest('.sub-sec');
+  if (sub.compact) {
+    const body = sec.querySelector('.sub-body');
+    sec.classList.add('compact'); // turns the chevron with the same timing
+    body.animate([foldOpen(body), foldShut], FOLD).finished.then(commit);
+  } else {
+    commit();
+    const fresh = cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`), body = fresh.querySelector('.sub-body');
+    body.animate([foldShut, foldOpen(body)], { ...FOLD, fill: 'none' });
+    fresh.querySelector('.sub-toggle svg').animate([{ transform: 'rotate(180deg)' }, { transform: 'none' }], { ...FOLD, fill: 'none' });
+  }
 });
+
+// park / unpark a sub-campaign: a stand-in flies between its section and its tile in the rail while the column
+// grows or shrinks around it and everything else glides to its new place; section / tile fade in as it lands
+function setSubParked(sub, on) {
+  const from = on ? cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`) : park.querySelector(`.tile[data-sub="${sub.id}"]`);
+  const apply = () => { if (on) sub.parked = Date.now(); else delete sub.parked; save(); renderBoard(); };
+  if (reduceMotion || !from) return apply();
+  const SEL = '.ccol, .ccol .task, .ccol .sub-sec, .ccol .add-row, .park .tile';
+  const keyOf = el => el.matches('.ccol') ? `c${el.dataset.id}` : el.matches('.task') ? `t${el.dataset.tid}`
+    : el.matches('.sub-sec') ? `s${el.dataset.sub}` : el.matches('.add-row') ? `a${el.closest('.ccol').dataset.id}|${el.closest('.tasks').dataset.sub || ''}`
+    : `p${el.dataset.sub || el.dataset.id}`;
+  const before = new Map([...document.querySelectorAll(SEL)].map(el => [keyOf(el), el.getBoundingClientRect()]));
+  const fr = from.getBoundingClientRect();
+  const ghost = from.cloneNode(true);
+  ghost.classList.add('morph-ghost');
+  ghost.style.viewTransitionName = 'none';
+  // the section takes its campaign colour from the column it sat in
+  const cs = getComputedStyle(from);
+  for (const v of ['--c-bg', '--c-edge', '--c-ink']) ghost.style.setProperty(v, cs.getPropertyValue(v));
+  Object.assign(ghost.style, { left: `${fr.left}px`, top: `${fr.top}px`, width: `${fr.width}px`, height: `${fr.height}px` });
+  document.body.appendChild(ghost);
+  apply();
+  const to = on ? park.querySelector(`.tile[data-sub="${sub.id}"]`) : cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`);
+  const MOVE = { duration: 520, easing: 'cubic-bezier(.2, .8, .2, 1)' };
+  // FLIP; each element only animates its own move, not the part its moved parent already covers
+  // (measure everything first: once a parent animates, its children's rects include its offset)
+  const after = [...document.querySelectorAll(SEL)].map(el => [el, el.getBoundingClientRect()]);
+  const moved = new Map();
+  for (const [el, a] of after) {
+    const b = before.get(keyOf(el));
+    if (!b || el === to) continue;
+    const abs = [b.left - a.left, b.top - a.top];
+    moved.set(el, abs);
+    let p = el.parentElement;
+    while (p && !moved.has(p)) p = p.parentElement;
+    const [px, py] = p ? moved.get(p) : [0, 0], dx = abs[0] - px, dy = abs[1] - py;
+    const shift = Math.abs(dx) >= 1 || Math.abs(dy) >= 1, grow = el.matches('.ccol') && Math.abs(b.height - a.height) >= 1;
+    if (!shift && !grow) continue;
+    const kf = [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }];
+    if (grow) { kf[0].height = `${b.height}px`; kf[1].height = `${a.height}px`; }
+    el.animate(kf, MOVE);
+  }
+  if (!to) return ghost.remove();
+  const tr = after.find(([el]) => el === to)[1];
+  ghost.animate([
+    { left: `${fr.left}px`, top: `${fr.top}px`, width: `${fr.width}px`, height: `${fr.height}px`, opacity: 1 },
+    { opacity: 1, offset: .6 },
+    { left: `${tr.left}px`, top: `${tr.top}px`, width: `${tr.width}px`, height: `${tr.height}px`, opacity: 0 },
+  ], { ...MOVE, fill: 'forwards' }).finished.then(() => ghost.remove());
+  to.animate([{ opacity: 0 }, { opacity: 0, offset: .5 }, { opacity: 1 }], MOVE);
+}
 park.addEventListener('click', e => {
   const btn = e.target.closest('.tile-unpark');
   if (!btn) return;
   e.stopPropagation(); // the tile itself opens the campaign; only this button unparks
   const tile = btn.closest('.tile');
-  setParked(tile.dataset.sub ? subOfNode(tile) : campaigns.find(x => x.id === tile.dataset.id), false);
+  if (tile.dataset.sub) setSubParked(subOfNode(tile), false);
+  else setParked(campaigns.find(x => x.id === tile.dataset.id), false);
 });
 
 // Detailed / Compact board; columns morph to their new size with a view transition where the browser has it
@@ -3498,12 +3584,13 @@ $ed('desc-view').addEventListener('click', e => {
   showEdDesc(false);
   $ed('desc').focus();
 });
+// the lists show a subtasks badge, so they redraw too
+const edSubsChanged = () => { renderEdSubs(); renderTasks(); saveSoon(); };
 const edSubOf = el => edTask.subtasks.find(s => s.id === el.closest('.subtask').dataset.sid);
 $ed('subs').addEventListener('change', e => {
   if (!e.target.matches('.t-check')) return;
   edSubOf(e.target).done = e.target.checked;
-  renderEdSubs();
-  saveSoon();
+  edSubsChanged();
 });
 $ed('subs').addEventListener('input', e => {
   if (e.target.matches('.sub-text')) { edSubOf(e.target).text = e.target.value; saveSoon(); }
@@ -3515,15 +3602,13 @@ $ed('subs').addEventListener('focusout', e => {
   afterPointer(() => {
     if (edTask !== t || !t.subtasks.includes(sub) || sub.text.trim()) return;
     t.subtasks = t.subtasks.filter(s => s !== sub);
-    renderEdSubs();
-    saveSoon();
+    edSubsChanged();
   });
 });
 $ed('subs').addEventListener('click', e => {
   if (!e.target.closest('.sub-del')) return;
   edTask.subtasks = edTask.subtasks.filter(s => s !== edSubOf(e.target));
-  renderEdSubs();
-  saveSoon();
+  edSubsChanged();
 });
 $ed('subs').addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.matches('.sub-text')) { e.preventDefault(); $ed('sub-add').focus(); }
@@ -3535,8 +3620,7 @@ $ed('sub-add').addEventListener('keydown', e => {
   if (!text) return;
   edTask.subtasks.push({ id: uid(), text, done: false });
   e.target.value = '';
-  renderEdSubs();
-  saveSoon();
+  edSubsChanged();
 });
 $ed('close').addEventListener('click', () => { closeEditor(); renderTasks(); });
 $ed('del').addEventListener('click', () => {
@@ -3652,10 +3736,7 @@ document.querySelectorAll('.dest-filter').forEach(el => {
     const btn = e.target.closest('[data-dest]');
     if (!btn) return;
     const id = btn.dataset.dest;
-    if (destFilter.has(id)) {
-      if (destFilter.size === 1) return; // keep at least one on, otherwise the board is just empty
-      destFilter.delete(id);
-    } else destFilter.add(id);
+    if (destFilter.has(id)) destFilter.delete(id); else destFilter.add(id);
     document.querySelectorAll(`[data-dest="${id}"]`).forEach(b => b.setAttribute('aria-pressed', destFilter.has(id)));
     renderAll();
   });
