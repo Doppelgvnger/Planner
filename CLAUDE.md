@@ -28,7 +28,7 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - Motion standard: CSS vars `--ease-spring/glide/fold`, `--dur-fold/move` → JS `MOTION` {fold, move, enter, leave}; use these, not literals.
 - Showing/hiding a block: `foldTo(el, show)` (folds height + parent gap; elements with a `display` rule need a matching `[hidden]` rule).
 - Tabs / `.zoom` segmented controls get the pill glide automatically (capture click listener + `pickedIn`); new segmented controls just need `.zoom > button[aria-pressed]`.
-- Motion: `withFlip` (board tasks), `tkFlip` (Tasks tab; `merge` = liquid version), `flipCols` (columns), View Transitions for park/density (`view-transition-name` col-<id> / sub-<id>).
+- Motion: `withFlip` (board tasks), `tkFlip` (Tasks tab; `merge` = liquid version), `flipCols` (columns), View Transition only for Detailed/Compact (`view-transition-name` col-<id> / sub-<id>).
 
 ## Gotchas
 - Write localStorage only via `store(key, value)` (shows the save warning on failure). Other tabs' saves arrive via the `storage` event → `syncFromOtherTab()` (reloads data; keep editor references id-based).
@@ -42,5 +42,5 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - After a pointer drag Firefox clicks the element under the pointer; clicks within 400ms of `dragEndedAt` are swallowed. Drag listeners live on `window`.
 - The in-app preview pane is a hidden `data:` page: no localStorage/hash, and dialog close events and view transitions are delayed there — test real behaviour in Firefox. To check motion, freeze frames: on load trigger the change, then `document.getAnimations().forEach(a => { a.pause(); a.currentTime = T })` and screenshot.
 - `.chip`, `.toggle`, `.zoom > button` act on pointerdown (quick clicks while the mouse moves were lost); the trusted click after is swallowed. Layout changes on blur go through `afterPointer` so the click lands first.
-- FLIP with nested elements: measure every "after" rect before starting any animation, then subtract the moved parent's delta (`setSubParked`).
+- Board changes that move columns/tasks/tiles: wrap the update in `flipBoard(update)` (nested FLIP: all after-rects measured first, parent delta subtracted). Park/unpark of campaigns and subs: `morphPark`.
 - `timing()` / `isEnded()` crash on `general` (no dates): guard with `c !== general`.
