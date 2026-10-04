@@ -1724,6 +1724,40 @@ function scrollToToday() {
   scroller.scrollLeft = Math.max(0, (ti - 4) * dayW());
 }
 
+// ---------- timeline motion ----------
+// morph: bars that are still there glide to their new place and size (zoom, edits, filter), new bars fade in,
+// rows grow / shrink smoothly. Positions are compensated for a scroll jump made by the update.
+const barKey = b => `${b.closest('.track').dataset.seg}|${b.dataset.id}|${b.dataset.lg ? 'lg' : b.dataset.sub || 'main'}`;
+function morphTimeline(update) {
+  if (reduceMotion || document.getElementById('view-timeline').hidden) return update();
+  const box = el => ({ left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight });
+  const bars = new Map([...tl.querySelectorAll('.bar')].map(b => [barKey(b), box(b)]));
+  const rows = new Map([...tl.querySelectorAll('.track')].map(t => [t.dataset.seg, t.offsetHeight]));
+  const scroll0 = scroller.scrollLeft;
+  update();
+  const shift = scroller.scrollLeft - scroll0;
+  for (const t of tl.querySelectorAll('.track')) {
+    const h = rows.get(t.dataset.seg);
+    if (h != null && h !== t.offsetHeight) t.animate([{ height: `${h}px` }, { height: `${t.offsetHeight}px` }], MOTION.move);
+  }
+  for (const b of tl.querySelectorAll('.bar')) {
+    const o = bars.get(barKey(b)), n = box(b);
+    if (!o) { b.animate([{ opacity: 0, offset: 0 }], MOTION.enter); continue; } // (offset 0: a lone keyframe would be the end)
+    const from = { left: `${o.left + shift}px`, top: `${o.top}px`, width: `${o.width}px`, height: `${o.height}px` };
+    if (from.left === `${n.left}px` && o.top === n.top && o.width === n.width && o.height === n.height) continue;
+    b.animate([from, { left: `${n.left}px`, top: `${n.top}px`, width: `${n.width}px`, height: `${n.height}px` }], MOTION.move);
+  }
+}
+// slide: another stretch of time comes in from the side it lies on (dir 1 = later, from the right; -1 = earlier).
+// The market labels stay put; the header, day columns, Today line and rows move.
+function slideTimeline(dir, update) {
+  update();
+  if (reduceMotion || !dir) return;
+  for (const el of tl.querySelectorAll('.tl-head > div:last-child, .cols, .today-line, .track')) {
+    el.animate([{ transform: `translateX(${dir * 40}px)`, opacity: .3 }, { transform: 'none', opacity: 1 }], { duration: 320, easing: MOTION.glide });
+  }
+}
+
 // ---------- hover: a campaign's bar and its sub-campaign bands in that row lift together ----------
 let lifted = [];
 tl.addEventListener('pointerover', e => {
@@ -2188,7 +2222,7 @@ document.getElementById('del').addEventListener('click', () => {
   shut(dlg);
 });
 document.getElementById('cancel').addEventListener('click', () => shut(dlg));
-dlg.addEventListener('close', () => renderAll());
+dlg.addEventListener('close', () => morphTimeline(renderAll)); // a new or edited campaign's bars settle in on the Timeline
 
 // ---------- campaigns board ----------
 const ORDER_STORE = 'planner.colorder.v1';
@@ -2920,8 +2954,8 @@ function flipBoard(update, target = () => null, source = null) {
     if (el === skip) continue;
     const b = before.get(k)?.r;
     if (!b) {
-      // (implicit end keyframe: lands on its own opacity, e.g. an ended column's dimmed one)
-      if (el.matches('.ccol, .tile')) el.animate([{ opacity: 0, transform: 'translateY(8px)' }], MOTION.enter);
+      // a lone start keyframe (offset 0; without it, it'd be the end): lands on its own opacity, e.g. an ended column's dimmed one
+      if (el.matches('.ccol, .tile')) el.animate([{ opacity: 0, transform: 'translateY(8px)', offset: 0 }], MOTION.enter);
       continue;
     }
     const abs = [b.left - a.left, b.top - a.top];
@@ -3905,14 +3939,19 @@ document.addEventListener('click', e => {
   if (el) openDialog(el.dataset.id, null, el.closest('.track')?.dataset.seg, !!el.dataset.lg, el.dataset.sub || null);
 });
 document.querySelectorAll('.add-campaign').forEach(b => b.addEventListener('click', () => openDialog(null)));
-document.getElementById('prev').addEventListener('click', () => {
+document.getElementById('prev').addEventListener('click', () => slideTimeline(-1, () => {
   viewStart = new Date(viewStart.getFullYear(), viewStart.getMonth() - 1, 1); render(); scroller.scrollLeft = 0;
-});
-document.getElementById('next').addEventListener('click', () => {
+}));
+document.getElementById('next').addEventListener('click', () => slideTimeline(1, () => {
   viewStart = new Date(viewStart.getFullYear(), viewStart.getMonth() + 1, 1); render(); scroller.scrollLeft = 0;
-});
+}));
 document.getElementById('today').addEventListener('click', () => {
-  viewStart = homeStart(); render(); scrollToToday();
+  const home = homeStart(), dir = Math.sign(home - viewStart);
+  if (!dir) { // already on this range: just scroll back to today, smoothly
+    const ti = diffDays(viewStart, today);
+    return scroller.scrollTo({ left: Math.max(0, (ti - 4) * dayW()), behavior: reduceMotion ? 'auto' : 'smooth' });
+  }
+  slideTimeline(dir, () => { viewStart = home; render(); scrollToToday(); });
 });
 // one filter shared by both tabs
 document.querySelectorAll('.dest-filter').forEach(el => {
@@ -3924,7 +3963,7 @@ document.querySelectorAll('.dest-filter').forEach(el => {
     const id = btn.dataset.dest;
     if (destFilter.has(id)) destFilter.delete(id); else destFilter.add(id);
     document.querySelectorAll(`[data-dest="${id}"]`).forEach(b => b.setAttribute('aria-pressed', destFilter.has(id)));
-    renderAll();
+    morphTimeline(renderAll);
   });
 });
 document.getElementById('zoom').addEventListener('click', e => {
@@ -3932,8 +3971,9 @@ document.getElementById('zoom').addEventListener('click', e => {
   if (!btn) return;
   monthsShown = Number(btn.dataset.months);
   document.querySelectorAll('#zoom button').forEach(b => b.setAttribute('aria-pressed', b === btn));
-  render();
-  scrollToToday();
+  // the bars stretch / squeeze to the new scale; the rebuilt header fades in
+  morphTimeline(() => { render(); scrollToToday(); });
+  if (!reduceMotion) tl.querySelector('.tl-head > div:last-child').animate([{ opacity: .3 }, { opacity: 1 }], MOTION.enter);
 });
 window.addEventListener('resize', () => { render(); syncTkBg(false); });
 
