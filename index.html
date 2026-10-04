@@ -743,6 +743,15 @@
   .bk-msg:empty { display: none; }
   .tr-row .btn:disabled { opacity: .45; cursor: default; }
 
+  /* shown while the browser refuses to save */
+  .save-warn {
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%); z-index: 40; width: max-content; max-width: calc(100vw - 32px);
+    padding: 10px 16px; border-radius: 12px; background: var(--over-bg); color: var(--over-ink);
+    font-size: 13px; font-weight: 500; box-shadow: var(--shadow);
+  }
+  .save-warn[hidden] { display: none; }
+  .save-warn .link { color: inherit; text-decoration: underline; margin-left: 6px; }
+  @media (max-width: 720px) { .save-warn { top: 112px; } } /* below the two-line top bar */
   /* in-page confirmation, replaces the browser's confirm() */
   dialog.ask { width: min(400px, calc(100vw - 32px)); }
   .ask h2 { margin: 0; font-size: 17px; font-weight: 600; }
@@ -941,6 +950,10 @@
     <button class="link subtle" id="open-settings">Settings</button>
   </div>
 </header>
+<div class="save-warn" id="save-warn" role="alert" hidden>
+  Changes can't be saved in this browser right now (its storage is full or blocked).
+  <button class="link" id="save-warn-backup">Export a backup</button>
+</div>
 
 <main>
 <section class="view" id="view-campaigns" hidden>
@@ -1389,11 +1402,23 @@ function load() {
   } catch (e) {}
   return []; // first visit starts empty
 }
+// every write goes through store(): a write the browser refuses (storage full, blocked, private mode) shows a
+// warning instead of failing silently; the next write that works hides it again
+function store(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { setSaveWarn(true); return false; }
+  setSaveWarn(false);
+  return true;
+}
+function setSaveWarn(on) {
+  const w = document.getElementById('save-warn');
+  if (!w || w.hidden === !on) return;
+  w.hidden = !on;
+  if (on && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    w.animate([{ opacity: 0, transform: 'translate(-50%, -8px)' }, { opacity: 1, transform: 'translate(-50%, 0)' }], { duration: 240, easing: 'ease-out' });
+  }
+}
 function save() {
-  try {
-    localStorage.setItem(STORE, JSON.stringify(campaigns));
-    localStorage.setItem(GENERAL_STORE, JSON.stringify(general.tasks));
-  } catch (e) {}
+  store(STORE, JSON.stringify(campaigns)) && store(GENERAL_STORE, JSON.stringify(general.tasks));
 }
 
 let campaigns = load();
@@ -1402,8 +1427,11 @@ let campaigns = load();
 const GENERAL_STORE = 'planner.general.v1';
 const general = {
   id: 'general', name: 'General', color: 'general', segments: SEGMENTS.map(s => s.id), destinations: DESTS.map(d => d.id), subs: [],
-  tasks: (() => { try { return (JSON.parse(localStorage.getItem(GENERAL_STORE)) || []).map(normTask); } catch (e) { return []; } })(),
+  tasks: loadGeneral(),
 };
+function loadGeneral() {
+  try { return (JSON.parse(localStorage.getItem(GENERAL_STORE)) || []).map(normTask); } catch (e) { return []; }
+}
 // every task list: the campaigns, then General
 const lists = () => [...campaigns, general];
 const listById = id => lists().find(c => c.id === id);
@@ -1411,11 +1439,12 @@ const listById = id => lists().find(c => c.id === id);
 const TRASH_STORE = 'planner.trash.v1';
 // trashed campaigns may come from older versions too, so fill them in like live ones
 const normTrashItem = x => (x.type === 'task' ? x : { ...x, c: normCampaign(x.c) });
-let trash = (() => {
+let trash = loadTrash();
+function loadTrash() {
   try { return (JSON.parse(localStorage.getItem(TRASH_STORE)) || []).map(normTrashItem); } catch (e) { return []; }
-})();
+}
 function saveTrash() {
-  try { localStorage.setItem(TRASH_STORE, JSON.stringify(trash)); } catch (e) {}
+  store(TRASH_STORE, JSON.stringify(trash));
 }
 // items without a type predate task trash and are campaigns
 const isTaskItem = x => x.type === 'task';
@@ -2118,6 +2147,7 @@ form.addEventListener('submit', e => {
     if (badSub) return err.textContent = badSub;
     data.subs.push(sub);
   }
+  if (editingId && !campaigns.some(x => x.id === editingId)) campaigns.push({ id: editingId, tasks: [] }); // deleted in another tab meanwhile
   if (editingId) {
     const c = Object.assign(campaigns.find(x => x.id === editingId), data);
     // a market dropped from the campaign can't stay on its tasks
@@ -2149,9 +2179,12 @@ dlg.addEventListener('close', () => renderAll());
 
 // ---------- campaigns board ----------
 const ORDER_STORE = 'planner.colorder.v1';
-let colOrder = (() => { try { return JSON.parse(localStorage.getItem(ORDER_STORE)) || []; } catch (e) { return []; } })();
+let colOrder = loadOrder();
+function loadOrder() {
+  try { return JSON.parse(localStorage.getItem(ORDER_STORE)) || []; } catch (e) { return []; }
+}
 function saveOrder() {
-  try { localStorage.setItem(ORDER_STORE, JSON.stringify(colOrder)); } catch (e) {}
+  store(ORDER_STORE, JSON.stringify(colOrder));
 }
 let showEnded = false;
 const DENSE_STORE = 'planner.dense.v1';
@@ -2898,7 +2931,7 @@ document.getElementById('density').addEventListener('click', e => {
   const btn = e.target.closest('[data-dense]');
   if (!btn || (btn.dataset.dense === '1') === dense) return;
   dense = btn.dataset.dense === '1';
-  try { localStorage.setItem(DENSE_STORE, dense ? '1' : '0'); } catch (err) {}
+  store(DENSE_STORE, dense ? '1' : '0');
   document.querySelectorAll('#density button').forEach(b => b.setAttribute('aria-pressed', b === btn));
   // a transition the browser skips (hidden tab, interrupted) only rejects its promise: the board still updates
   if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard).ready.catch(() => {});
@@ -3160,7 +3193,7 @@ bkFile.addEventListener('change', async () => {
   save();
   saveTrash();
   saveOrder();
-  try { localStorage.setItem(DENSE_STORE, dense ? '1' : '0'); } catch (e) {}
+  store(DENSE_STORE, dense ? '1' : '0');
   document.querySelectorAll('#density button').forEach(x => x.setAttribute('aria-pressed', (x.dataset.dense === '1') === dense));
   renderAll();
   showBkMsg(`Imported ${plural(campaigns.length, 'campaign')} and ${plural(countTasks(lists()), 'task')}.`);
@@ -3177,7 +3210,7 @@ document.querySelector('#settings-dlg .zoom').addEventListener('click', e => {
   if (!b) return;
   if (b.dataset.themePick === 'dark') document.documentElement.dataset.theme = 'dark';
   else delete document.documentElement.dataset.theme;
-  try { localStorage.setItem(THEME_STORE, b.dataset.themePick); } catch (err) {}
+  store(THEME_STORE, b.dataset.themePick);
   syncThemePick();
   renderAll(); // custom campaign colours are computed per theme
 });
@@ -3237,7 +3270,7 @@ document.addEventListener('click', e => {
 const TKV_STORE = 'planner.tasksview.v1';
 // sel: 'all' | 'urgent' | 'week' | a campaign id | 'general' (only while merged); sort: 'campaign' | 'due'
 const tkv = { sel: 'all', sort: 'campaign', merged: false, addTo: '', ...(() => { try { return JSON.parse(localStorage.getItem(TKV_STORE)) || {}; } catch (e) { return {}; } })() };
-const saveTkv = () => { try { localStorage.setItem(TKV_STORE, JSON.stringify(tkv)); } catch (e) {} };
+const saveTkv = () => store(TKV_STORE, JSON.stringify(tkv));
 const $tk = id => document.getElementById(id);
 const tkWrap = $tk('tk-wrap'), tkSide = $tk('tk-side'), tkList = $tk('tk-list'), tkGen = $tk('tk-gen'), tkGenList = $tk('tk-gen-list');
 const tkMain = $tk('tk-main'), tkEd = $tk('tk-ed'), tkMerge = $tk('tk-merge'), tkAdd = $tk('tk-add'), tkAddTo = $tk('tk-addto');
@@ -3811,6 +3844,31 @@ document.getElementById('zoom').addEventListener('click', e => {
   scrollToToday();
 });
 window.addEventListener('resize', () => { render(); syncTkBg(false); });
+
+document.getElementById('save-warn-backup').addEventListener('click', () => { showBkMsg(''); openDlg(bkDlg); });
+
+// another tab of the app saved: take its data, so this tab's next save doesn't wipe those changes out.
+// Open editors hold the old objects, so they're found again by id.
+function syncFromOtherTab() {
+  if (tdrag || cdrag) return setTimeout(syncFromOtherTab, 500); // mid-drag: wait for the drop
+  campaigns = load();
+  general.tasks = loadGeneral();
+  trash = loadTrash();
+  colOrder = loadOrder();
+  if (tdTask) tdTask = taskByTid(tdTask.id) || null;
+  if (edTask) {
+    const t = taskByTid(edTask.id);
+    if (!t) closeEditor();
+    else { edTask = t; if (!tkEd.contains(document.activeElement)) fillEditor(); }
+  }
+  // a board quick-add field would be rebuilt (and lose its text): redraw once it's left
+  const typing = document.activeElement?.matches('#cboard .t-add');
+  if (typing) document.activeElement.addEventListener('blur', () => setTimeout(renderAll), { once: true });
+  else renderAll();
+}
+addEventListener('storage', e => {
+  if (e.key === null || [STORE, GENERAL_STORE, TRASH_STORE, ORDER_STORE].includes(e.key)) syncFromOtherTab();
+});
 
 // a tab left open overnight moves on to the new day: statuses, the Today line, due chips, This week
 function checkNewDay() {
