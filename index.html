@@ -2864,15 +2864,8 @@ cboard.addEventListener('click', e => {
   }
 });
 
-// park a campaign (header button) or bring it back (tile button); its column and tile share a
-// view-transition-name, so the header morphs into the tile and back
-function setParked(c, on) {
-  if (on) c.parked = Date.now(); else delete c.parked;
-  save();
-  // a transition the browser skips (hidden tab, interrupted) only rejects its promise: the board still updates
-  if (document.startViewTransition && !reduceMotion) document.startViewTransition(renderBoard).ready.catch(() => {});
-  else renderBoard();
-}
+// park a campaign (header button) or bring it back (tile button): see morphPark
+function setParked(c, on) { morphPark(c, on, parkSpots(c)); }
 // the sub-campaign object a sub header / tile / list belongs to
 const subOfNode = el => {
   const c = campaigns.find(x => x.id === el.closest('[data-id]').dataset.id);
@@ -2905,36 +2898,32 @@ cboard.addEventListener('click', e => {
   }
 });
 
-// park / unpark a sub-campaign: a stand-in flies between its section and its tile in the rail while the column
-// grows or shrinks around it and everything else glides to its new place; section / tile fade in as it lands
-function setSubParked(sub, on) {
-  const from = on ? cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`) : park.querySelector(`.tile[data-sub="${sub.id}"]`);
-  const apply = () => { if (on) sub.parked = Date.now(); else delete sub.parked; save(); renderBoard(); };
-  if (reduceMotion || !from) return apply();
-  const SEL = '.ccol, .ccol .task, .ccol .sub-sec, .ccol .add-row, .park .tile';
-  const keyOf = el => el.matches('.ccol') ? `c${el.dataset.id}` : el.matches('.task') ? `t${el.dataset.tid}`
-    : el.matches('.sub-sec') ? `s${el.dataset.sub}` : el.matches('.add-row') ? `a${el.closest('.ccol').dataset.id}|${el.closest('.tasks').dataset.sub || ''}`
-    : `p${el.dataset.sub || el.dataset.id}`;
-  const before = new Map([...document.querySelectorAll(SEL)].map(el => [keyOf(el), el.getBoundingClientRect()]));
-  const fr = from.getBoundingClientRect();
-  const ghost = from.cloneNode(true);
-  ghost.classList.add('morph-ghost');
-  ghost.style.viewTransitionName = 'none';
-  // the section takes its campaign colour from the column it sat in
-  const cs = getComputedStyle(from);
-  for (const v of ['--c-bg', '--c-edge', '--c-ink']) ghost.style.setProperty(v, cs.getPropertyValue(v));
-  Object.assign(ghost.style, { left: `${fr.left}px`, top: `${fr.top}px`, width: `${fr.width}px`, height: `${fr.height}px` });
-  document.body.appendChild(ghost);
-  apply();
-  const to = on ? park.querySelector(`.tile[data-sub="${sub.id}"]`) : cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`);
-  const MOVE = MOTION.move;
-  // FLIP; each element only animates its own move, not the part its moved parent already covers
-  // (measure everything first: once a parent animates, its children's rects include its offset)
-  const after = [...document.querySelectorAll(SEL)].map(el => [el, el.getBoundingClientRect()]);
-  const moved = new Map();
+// ---------- board FLIP: columns, tasks, sub-campaign sections, add rows and rail tiles glide from where they were;
+// a column grows / shrinks with its content; new columns and tiles fade in; columns that left fade out where they
+// were. Each element only animates its own move, not the part its moved parent already covers (all "after" rects
+// are measured before anything starts moving). target(): an element the caller animates itself; source: an element
+// the caller replaces with a stand-in. Returns a lookup of the "after" rects.
+const BOARD_SEL = '.ccol, .ccol .task, .ccol .sub-sec, .ccol .add-row, .park .tile';
+const boardKey = el => el.matches('.ccol') ? `c${el.dataset.id}` : el.matches('.task') ? `t${el.dataset.tid}`
+  : el.matches('.sub-sec') ? `s${el.dataset.sub}` : el.matches('.add-row') ? `a${el.closest('.ccol').dataset.id}|${el.closest('.tasks').dataset.sub || ''}`
+  : `p${el.dataset.sub || el.dataset.id}`;
+function flipBoard(update, target = () => null, source = null) {
+  if (reduceMotion) { update(); return () => null; }
+  const before = new Map([...document.querySelectorAll(BOARD_SEL)].map(el => [boardKey(el), { el, r: el.getBoundingClientRect() }]));
+  update();
+  const skip = target();
+  const after = [...document.querySelectorAll(BOARD_SEL)].map(el => [el, el.getBoundingClientRect()]);
+  const moved = new Map(), seen = new Set();
   for (const [el, a] of after) {
-    const b = before.get(keyOf(el));
-    if (!b || el === to) continue;
+    const k = boardKey(el);
+    seen.add(k);
+    if (el === skip) continue;
+    const b = before.get(k)?.r;
+    if (!b) {
+      // (implicit end keyframe: lands on its own opacity, e.g. an ended column's dimmed one)
+      if (el.matches('.ccol, .tile')) el.animate([{ opacity: 0, transform: 'translateY(8px)' }], MOTION.enter);
+      continue;
+    }
     const abs = [b.left - a.left, b.top - a.top];
     moved.set(el, abs);
     let p = el.parentElement;
@@ -2944,16 +2933,48 @@ function setSubParked(sub, on) {
     if (!shift && !grow) continue;
     const kf = [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }];
     if (grow) { kf[0].height = `${b.height}px`; kf[1].height = `${a.height}px`; }
-    el.animate(kf, MOVE);
+    el.animate(kf, MOTION.move);
   }
-  if (!to) return ghost.remove();
-  const tr = after.find(([el]) => el === to)[1];
+  for (const [k, { el, r }] of before) {
+    if (seen.has(k) || el.isConnected || el === source || !el.matches('.ccol')) continue;
+    Object.assign(el.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: '0', zIndex: '40', pointerEvents: 'none' });
+    document.body.appendChild(el);
+    el.animate([{ opacity: 0, transform: 'scale(.97)' }], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => el.remove());
+  }
+  const rects = new Map(after);
+  return el => rects.get(el);
+}
+
+// park / unpark a campaign or a sub-campaign: a stand-in flies between its column / section and its tile in the
+// rail while everything else glides to its new place (flipBoard); the column / section / tile fades in as it lands
+const parkSpots = (c, sub) => sub
+  ? { place: () => cboard.querySelector(`.sub-sec[data-sub="${sub.id}"]`), tile: () => park.querySelector(`.tile[data-sub="${sub.id}"]`) }
+  : { place: () => cboard.querySelector(`.ccol[data-id="${c.id}"]`), tile: () => park.querySelector(`.tile[data-id="${c.id}"]:not([data-sub])`) };
+function setSubParked(sub, on) { morphPark(sub, on, parkSpots(null, sub)); }
+function morphPark(obj, on, spot) {
+  const from = on ? spot.place() : spot.tile();
+  const apply = () => { if (on) obj.parked = Date.now(); else delete obj.parked; save(); renderBoard(); };
+  if (reduceMotion || !from) return apply();
+  const fr = from.getBoundingClientRect();
+  const ghost = from.cloneNode(true);
+  ghost.classList.add('morph-ghost');
+  ghost.style.viewTransitionName = 'none';
+  // a section takes its campaign colour from the column it sat in
+  const cs = getComputedStyle(from);
+  for (const v of ['--c-bg', '--c-edge', '--c-ink']) ghost.style.setProperty(v, cs.getPropertyValue(v));
+  Object.assign(ghost.style, { left: `${fr.left}px`, top: `${fr.top}px`, width: `${fr.width}px`, height: `${fr.height}px` });
+  document.body.appendChild(ghost);
+  let to = null;
+  const rectOf = flipBoard(apply, () => (to = on ? spot.tile() : spot.place()), from);
+  // nowhere to land (an ended campaign while ended ones are hidden): it fades out where it was
+  if (!to) return ghost.animate([{ opacity: 0, transform: 'scale(.97)' }], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => ghost.remove());
+  const tr = rectOf(to);
   ghost.animate([
     { left: `${fr.left}px`, top: `${fr.top}px`, width: `${fr.width}px`, height: `${fr.height}px`, opacity: 1 },
     { opacity: 1, offset: .6 },
     { left: `${tr.left}px`, top: `${tr.top}px`, width: `${tr.width}px`, height: `${tr.height}px`, opacity: 0 },
-  ], { ...MOVE, fill: 'forwards' }).finished.then(() => ghost.remove());
-  to.animate([{ opacity: 0 }, { opacity: 0, offset: .5 }, { opacity: 1 }], MOVE);
+  ], { ...MOTION.move, fill: 'forwards' }).finished.then(() => ghost.remove());
+  to.animate([{ opacity: 0 }, { opacity: 0, offset: .5 }, {}], MOTION.move);
 }
 park.addEventListener('click', e => {
   const btn = e.target.closest('.tile-unpark');
@@ -3029,9 +3050,9 @@ cboard.addEventListener('click', e => {
 document.getElementById('show-ended').addEventListener('click', e => {
   showEnded = !showEnded;
   e.currentTarget.setAttribute('aria-pressed', showEnded);
-  renderBoard();
+  flipBoard(renderBoard); // ended columns fade in at the end / fade out
 });
-document.getElementById('reset-order').addEventListener('click', () => { colOrder = []; saveOrder(); renderBoard(); });
+document.getElementById('reset-order').addEventListener('click', () => { colOrder = []; saveOrder(); flipBoard(renderBoard); });
 
 // ---------- archive ----------
 const arDlg = document.getElementById('archive-dlg'), arList = document.getElementById('ar-list');
