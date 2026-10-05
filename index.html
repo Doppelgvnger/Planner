@@ -67,6 +67,10 @@
     --peach-bg: #fde9dc;    --peach-edge: #f29a61;    --peach-ink: #7a3a12;
     --rose-bg: #fde4ea;     --rose-edge: #ec6f8e;     --rose-ink: #7c1d36;
     --butter-bg: #fcf1cf;   --butter-edge: #e0b12a;   --butter-ink: #6b5208;
+
+    /* description text colours + highlighters (stored as class names, so they follow the theme) */
+    --tc-red: #c2334d; --tc-orange: #b5600b; --tc-green: #2f8a4f; --tc-teal: #0c8a80; --tc-blue: #2c6fc2; --tc-purple: #6a4fc9;
+    --hl-yellow: #fdf0b0; --hl-green: #d6f5d8; --hl-pink: #fde0e8; --hl-blue: #dcebfd;
   }
 
   :root[data-theme="dark"] {
@@ -109,6 +113,9 @@
     --peach-bg: #43291b;    --peach-edge: #f29a61;    --peach-ink: #ffd4b8;
     --rose-bg: #45202c;     --rose-edge: #ec6f8e;     --rose-ink: #ffc6d4;
     --butter-bg: #3d3415;   --butter-edge: #e0b12a;   --butter-ink: #f7e3a3;
+
+    --tc-red: #ff7d95; --tc-orange: #f2a65a; --tc-green: #6fd08f; --tc-teal: #3fd3c6; --tc-blue: #7fb2f5; --tc-purple: #b39dfb;
+    --hl-yellow: #5a4a12; --hl-green: #1f4a2b; --hl-pink: #5a2433; --hl-blue: #1d3a5c;
   }
   :root[data-theme="dark"] .brand-mark { border-radius: 8px; box-shadow: 0 0 0 1px var(--line-strong); }
 
@@ -693,13 +700,33 @@
   .switch input:checked ~ .knob::after { transform: translateX(14px); }
   .switch input:focus-visible ~ .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
   .switch input:not(:checked) ~ .s-hide, .switch input:checked ~ .s-show { color: var(--ink); }
-  .td-desc-view {
-    white-space: pre-wrap; overflow-wrap: anywhere; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px;
-    font-size: 14px; font-weight: 400; color: var(--ink); line-height: 1.45; cursor: text; min-height: 40px;
+  /* rich description: reads like text (links clickable); click it to edit, with a formatting bar folding in above */
+  .rt-field { display: grid; gap: 6px; }
+  .rt {
+    min-height: 72px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+    font-size: 14px; font-weight: 400; color: var(--ink); line-height: 1.45; overflow-wrap: anywhere; cursor: text; outline: none;
   }
-  .td-desc-view:hover { border-color: var(--line-strong); background: var(--surface-2); }
-  .td-desc-view a { color: var(--accent); }
-  .td-desc-view[hidden], #td-desc[hidden] { display: none; }
+  .rt:not([contenteditable="true"]):hover { border-color: var(--line-strong); background: var(--surface-2); }
+  .rt[contenteditable="true"] { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .rt:empty::before { content: attr(data-placeholder); color: var(--ink-3); pointer-events: none; }
+  .rt a { color: var(--accent); }
+  .rt mark { color: inherit; border-radius: 3px; padding: 0 1px; }
+  .tc-red { color: var(--tc-red); } .tc-orange { color: var(--tc-orange); } .tc-green { color: var(--tc-green); }
+  .tc-teal { color: var(--tc-teal); } .tc-blue { color: var(--tc-blue); } .tc-purple { color: var(--tc-purple); }
+  .hl-yellow { background: var(--hl-yellow); } .hl-green { background: var(--hl-green); }
+  .hl-pink { background: var(--hl-pink); } .hl-blue { background: var(--hl-blue); }
+  .rt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  .rt-bar[hidden], .rt-pal[hidden] { display: none; }
+  .rt-bar button {
+    width: 30px; height: 28px; padding: 0; border: 0; border-radius: 7px; background: none; color: var(--ink-2);
+    display: grid; place-items: center; font-size: 14px; cursor: pointer;
+  }
+  .rt-bar button:hover, .rt-bar button.on { background: var(--line-soft); color: var(--ink); }
+  .rt-sep { width: 1px; height: 18px; margin: 0 3px; background: var(--line); }
+  .rt-a { font-weight: 600; line-height: 1; border-bottom: 3px solid var(--tc-red); padding: 0 1px; }
+  .rt-pal { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  .rt-sw { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--line-strong); cursor: pointer; }
+  .rt-sw.none { background: var(--surface) linear-gradient(135deg, transparent 45%, var(--danger) 45% 55%, transparent 55%); }
   .subs { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
   .subtask { display: grid; grid-template-columns: 16px 1fr 22px; gap: 10px; align-items: center; padding: 3px 4px; border-radius: 8px; }
   .subtask:hover { background: var(--bg); }
@@ -895,7 +922,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
     position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow-y: auto;
   }
-  .tk-ed[hidden], #ed-archive[hidden], #ed-desc[hidden], #ed-desc-view[hidden] { display: none; }
+  .tk-ed[hidden], #ed-archive[hidden] { display: none; }
   .ed-top { display: grid; grid-template-columns: 20px minmax(0, 1fr) 28px 28px; gap: 10px; align-items: center; }
   .ed-top .t-check { width: 20px; height: 20px; margin: 0; }
   .ed-top .t-urgent { width: 28px; height: 28px; background: var(--line-soft); }
@@ -1086,8 +1113,7 @@
         <button type="button" class="ed-x" id="ed-close" title="Close" aria-label="Close">×</button>
       </div>
       <div class="field">Description
-        <div class="td-desc-view" id="ed-desc-view" title="Click to edit"></div>
-        <textarea id="ed-desc" rows="3" placeholder="Notes, links…"></textarea>
+        <div class="rt-field"><div class="rt" id="ed-desc" data-placeholder="Notes, links…"></div></div>
       </div>
       <label class="field">Campaign <select id="ed-campaign"></select></label>
       <div class="field">Due
@@ -1171,8 +1197,7 @@
       <div class="chips" id="td-segs"></div>
     </fieldset>
     <div class="field">Description
-      <div class="td-desc-view" id="td-desc-view" title="Click to edit"></div>
-      <textarea id="td-desc" rows="3" placeholder="Notes, links…"></textarea>
+      <div class="rt-field"><div class="rt" id="td-desc" data-placeholder="Notes, links…"></div></div>
     </div>
     <fieldset>
       <legend>Subtasks <span class="opt" id="td-sub-count"></span></legend>
@@ -2674,6 +2699,197 @@ let tdTask = null, tdDraft = null;
 // escape first, then turn http(s) links into anchors
 const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 
+// ---------- rich descriptions: bold, italic, underline, strikethrough, text colour, highlighter ----------
+// Stored as small, cleaned HTML (t.desc with t.rich = true); older plain-text descriptions are shown as text.
+// Colours are class names (tc-* / hl-*), so they follow the light / dark theme.
+const TEXT_COLORS = ['red', 'orange', 'green', 'teal', 'blue', 'purple'];
+const HIGHLIGHTS = ['yellow', 'green', 'pink', 'blue'];
+// the browser's colour commands write inline colours; these stand-in values are turned into classes right after
+const stand = (kind, i) => `rgb(${kind === 'tc' ? 1 : 2}, 1, ${i + 1})`; // i = -1… for "no colour": rgb(x, 1, 99)
+const descHTML = t => (t.rich ? cleanRich(t.desc) : linkify(t.desc || '').replace(/\n/g, '<br>'));
+// keep only the formatting we offer; everything else becomes plain text
+function cleanRich(html) {
+  const box = document.createElement('template');
+  box.innerHTML = html || '';
+  const TAGS = { B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', S: 's', STRIKE: 's', DEL: 's', BR: 'br', DIV: 'div', P: 'div', SPAN: 'span', MARK: 'mark', A: 'a' };
+  const walk = node => {
+    for (const el of [...node.children]) {
+      if (/^(SCRIPT|STYLE|TEMPLATE|IFRAME|OBJECT|SVG|MATH)$/i.test(el.tagName)) { el.remove(); continue; } // not text at all
+      walk(el);
+      const tag = TAGS[el.tagName];
+      const cls = [...el.classList].find(c => /^(tc|hl)-[a-z]+$/.test(c));
+      const href = el.getAttribute('href');
+      const keep = tag && (tag !== 'span' && tag !== 'mark' || cls) && (tag !== 'a' || /^https?:\/\//.test(href || ''));
+      if (!keep) { el.replaceWith(...el.childNodes); continue; }
+      const out = document.createElement(tag);
+      if (cls && (tag === 'span' || tag === 'mark')) out.className = cls;
+      if (tag === 'a') Object.assign(out, { href, target: '_blank', rel: 'noopener' });
+      out.append(...el.childNodes);
+      el.replaceWith(out);
+    }
+  };
+  walk(box.content);
+  return box.innerHTML;
+}
+// the field's content as stored: '' when there's no text at all
+const rtGet = el => (el.textContent.trim() ? cleanRich(el.innerHTML) : '');
+// inline colours from the browser → our classes (and "no colour" unwraps)
+function rtNormalize(el) {
+  const toClass = (val, kind) => {
+    const m = /rgb\((\d+), 1, (\d+)\)/.exec(val || '');
+    if (!m || Number(m[1]) !== (kind === 'tc' ? 1 : 2)) return undefined;
+    return Number(m[2]) === 99 ? null : `${kind}-${(kind === 'tc' ? TEXT_COLORS : HIGHLIGHTS)[Number(m[2]) - 1]}`;
+  };
+  for (const f of el.querySelectorAll('font[color]')) {
+    const hex = f.getAttribute('color'), rgb = /^#[0-9a-f]{6}$/i.test(hex) ? `rgb(${[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(', ')})` : hex;
+    f.style.color = rgb;
+    f.removeAttribute('color');
+  }
+  for (const n of el.querySelectorAll('[style]')) {
+    const fg = toClass(n.style.color, 'tc'), bg = toClass(n.style.backgroundColor, 'hl');
+    let inner = [...n.childNodes];
+    // an explicit "no colour" also clears that kind of colour inside
+    if (fg === null) n.querySelectorAll('[class^="tc-"]').forEach(x => x.replaceWith(...x.childNodes));
+    if (bg === null) n.querySelectorAll('[class^="hl-"]').forEach(x => x.replaceWith(...x.childNodes));
+    inner = [...n.childNodes];
+    let wrap = null;
+    if (bg) { wrap = document.createElement('mark'); wrap.className = bg; wrap.append(...inner); inner = [wrap]; }
+    if (fg) { const sp = document.createElement('span'); sp.className = fg; sp.append(...inner); inner = [sp]; }
+    if (n.tagName === 'SPAN' || n.tagName === 'FONT') n.replaceWith(...inner);
+    else { n.removeAttribute('style'); n.replaceChildren(...inner); }
+  }
+  // a colour span inside the same colour: one is enough
+  for (const x of el.querySelectorAll('span[class^="tc-"] span[class^="tc-"], mark mark')) if (x.parentElement.closest(x.tagName.toLowerCase())?.className === x.className) x.replaceWith(...x.childNodes);
+}
+// plain web addresses typed into the text become links
+function rtLinkify(el) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  const hits = [];
+  for (let n; (n = walker.nextNode());) if (!n.parentElement.closest('a') && /https?:\/\//.test(n.data)) hits.push(n);
+  for (const n of hits) {
+    const span = document.createElement('span');
+    span.innerHTML = linkify(n.data);
+    n.replaceWith(...span.childNodes);
+  }
+}
+// set up a field: show(html) fills it; onChange(html) on every edit; it edits on click (links still open) and
+// folds its formatting bar in while editing
+function richField(el, onChange) {
+  const bar = document.createElement('div');
+  bar.className = 'rt-bar';
+  bar.hidden = true;
+  bar.innerHTML = `<button type="button" data-cmd="bold" title="Bold (Cmd+B)" style="font-weight:700">B</button>
+    <button type="button" data-cmd="italic" title="Italic (Cmd+I)" style="font-style:italic;font-family:Georgia,serif">I</button>
+    <button type="button" data-cmd="underline" title="Underline (Cmd+U)" style="text-decoration:underline">U</button>
+    <button type="button" data-cmd="strikeThrough" title="Strikethrough" style="text-decoration:line-through">S</button>
+    <span class="rt-sep"></span>
+    <button type="button" data-pal="tc" title="Text colour"><span class="rt-a">A</span></button>
+    <button type="button" data-pal="hl" title="Highlighter"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9.5 2.5l4 4-6 6H4.5l-1-1v-3z"/><path d="M2 14.5h6" stroke-linecap="round"/></svg></button>
+    <span class="rt-sep"></span>
+    <button type="button" data-cmd="clear" title="Clear formatting"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3.5h8M7 3.5L5 12.5M10 9l4 4M14 9l-4 4"/></svg></button>`;
+  const pal = document.createElement('div');
+  pal.className = 'rt-pal';
+  pal.hidden = true;
+  el.before(bar, pal);
+  let saved = null;
+  const keep = () => { const s = getSelection(); if (s.rangeCount && el.contains(s.anchorNode)) saved = s.getRangeAt(0).cloneRange(); };
+  const restore = () => { if (!saved) return; const s = getSelection(); s.removeAllRanges(); s.addRange(saved); };
+  document.addEventListener('selectionchange', () => { if (el.isContentEditable) { keep(); syncButtons(); } });
+  const syncButtons = () => bar.querySelectorAll('[data-cmd]').forEach(b => {
+    try { b.classList.toggle('on', b.dataset.cmd !== 'clear' && document.queryCommandState(b.dataset.cmd)); } catch (e) {}
+  });
+  // after a formatting command the browser's inline colours become classes; plain typing is left alone (rewriting
+  // the text under the caret would move it)
+  const changed = () => { rtNormalize(el); onChange(rtGet(el)); syncButtons(); };
+  const typed = () => { onChange(rtGet(el)); syncButtons(); };
+  // buttons keep the text focused (no blur) and act on the selection
+  for (const x of [bar, pal]) x.addEventListener('mousedown', e => e.preventDefault());
+  bar.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    restore();
+    if (b.dataset.cmd === 'clear') {
+      document.execCommand('removeFormat');
+      // our colour wrappers inside the selection go too
+      const r = saved;
+      if (r) el.querySelectorAll('span[class^="tc-"], mark').forEach(x => { if (r.intersectsNode(x)) x.replaceWith(...x.childNodes); });
+      foldTo(pal, false);
+      return changed();
+    }
+    if (b.dataset.cmd) { document.execCommand(b.dataset.cmd); return changed(); }
+    const kind = b.dataset.pal;
+    if (!pal.hidden && pal.dataset.kind === kind) return foldTo(pal, false);
+    pal.dataset.kind = kind;
+    const names = kind === 'tc' ? TEXT_COLORS : HIGHLIGHTS;
+    pal.innerHTML = names.map((n, i) => `<button type="button" class="rt-sw" data-i="${i}" title="${n}" style="background:var(--${kind}-${n})"></button>`).join('')
+      + `<button type="button" class="rt-sw none" data-i="98" title="No ${kind === 'tc' ? 'colour' : 'highlight'}"></button>`;
+    foldTo(pal, true);
+  });
+  pal.addEventListener('click', e => {
+    const b = e.target.closest('.rt-sw');
+    if (!b) return;
+    restore();
+    const kind = pal.dataset.kind;
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand(kind === 'tc' ? 'foreColor' : 'hiliteColor', false, stand(kind, Number(b.dataset.i)));
+    document.execCommand('styleWithCSS', false, false);
+    foldTo(pal, false);
+    changed();
+  });
+  // editing: on a click that isn't on a link, the caret lands where you clicked
+  el.addEventListener('mousedown', e => {
+    if (el.isContentEditable || e.target.closest('a') || e.button !== 0) return;
+    e.preventDefault();
+    edit(e.clientX, e.clientY);
+  });
+  el.addEventListener('focus', () => { if (!el.isContentEditable) edit(); });
+  el.tabIndex = 0;
+  function edit(x, y) {
+    el.contentEditable = 'true';
+    el.focus();
+    const pos = x == null ? null : document.caretPositionFromPoint?.(x, y) || document.caretRangeFromPoint?.(x, y);
+    const s = getSelection();
+    if (pos) {
+      const r = document.createRange();
+      if (pos.offsetNode) r.setStart(pos.offsetNode, pos.offset); else r.setStart(pos.startContainer, pos.startOffset);
+      s.removeAllRanges(); s.addRange(r);
+    }
+    try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch (e) {}
+    foldTo(bar, true);
+  }
+  el.addEventListener('input', typed);
+  // pasted text comes in plain (no foreign fonts or sizes)
+  el.addEventListener('paste', e => {
+    e.preventDefault();
+    document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+  });
+  el.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); el.blur(); } // leaves the field, not the dialog
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'x') { e.preventDefault(); document.execCommand('strikeThrough'); changed(); }
+  });
+  el.addEventListener('blur', () => {
+    // leaving the field: web addresses become links and the text is stored now (still for the same task);
+    // back to reading mode once the click that left it has landed (the bar folding away moves things)
+    rtLinkify(el);
+    rtNormalize(el);
+    if (!el.textContent.trim()) el.innerHTML = '';
+    onChange(rtGet(el));
+    afterPointer(() => {
+      if (document.activeElement === el) return;
+      el.contentEditable = 'false';
+      foldTo(bar, false);
+      foldTo(pal, false);
+    });
+  });
+  return {
+    show(html) {
+      el.contentEditable = 'false';
+      el.innerHTML = html;
+      bar.hidden = pal.hidden = true;
+    },
+  };
+}
+
 function openTask(cid, tid, sub = '') {
   const c = listById(cid);
   tdTask = tid ? c.tasks.find(t => t.id === tid) : null;
@@ -2689,8 +2905,7 @@ function openTask(cid, tid, sub = '') {
   $td('campaign').innerHTML = campaignOptions(cid, tdDraft.sub);
   $td('due').value = tdDraft.due;
   $td('segs-show').checked = tdDraft.showSegs;
-  $td('desc').value = tdDraft.desc;
-  showDescView(!!tdDraft.desc);
+  tdDesc.show(descHTML(tdDraft));
   renderTdSegs();
   renderSubs();
   const when = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -2704,11 +2919,6 @@ function openTask(cid, tid, sub = '') {
   tdSnap = taskSnap(); // what "unchanged" looks like, for closing by clicking outside
 }
 function syncTdArchive() { $td('archive').hidden = !tdTask || !$td('done').checked; }
-function showDescView(view) {
-  $td('desc-view').hidden = !view;
-  $td('desc').hidden = view;
-  if (view) $td('desc-view').innerHTML = linkify($td('desc').value);
-}
 function renderTdSegs() {
   const c = listById(tdDraft.cid);
   tdDraft.segments =tdDraft.segments.filter(s => c.segments.includes(s));
@@ -2737,11 +2947,8 @@ tdForm.querySelector('.td-quick').addEventListener('click', e => {
 $td('segs').addEventListener('change', () => {
   tdDraft.segments = [...$td('segs').querySelectorAll('input:checked')].map(i => i.value);
 });
-$td('desc-view').addEventListener('click', e => {
-  if (e.target.closest('a')) return; // links open; anywhere else switches to editing
-  showDescView(false);
-  $td('desc').focus();
-});
+// (the draft keeps the text as you edit; Save stores it)
+const tdDesc = richField($td('desc'), html => { tdDraft.desc = html; tdDraft.rich = true; });
 const subOf = el => tdDraft.subtasks.find(s => s.id === el.closest('.subtask').dataset.sid);
 $td('subs').addEventListener('change', e => {
   if (!e.target.matches('.t-check')) return;
@@ -2773,7 +2980,7 @@ tdForm.addEventListener('submit', e => {
   if (!text) return $td('err').textContent = 'Give the task a name.';
   const { cid, ...fields } = tdDraft;
   Object.assign(fields, {
-    text, done: $td('done').checked, due: $td('due').value, desc: $td('desc').value.trim(), showSegs: $td('segs-show').checked,
+    text, done: $td('done').checked, due: $td('due').value, desc: rtGet($td('desc')), rich: true, showSegs: $td('segs-show').checked,
     subtasks: fields.subtasks.filter(s => s.text.trim()),
   });
   const t = tdTask || {};
@@ -3361,7 +3568,7 @@ const formSnap = (f, extra) => JSON.stringify([
 ]);
 const campaignSnap = () => formSnap(form, [mainEd.draft, [...lgExcluded], lgEd.draft,
   subDrafts.map(s => [s.name, s.start, s.end, [...s.excluded], s.ed?.draft])]);
-const taskSnap = () => formSnap(tdForm, [tdDraft.urgent, tdDraft.cid, tdDraft.segments, tdDraft.subtasks]);
+const taskSnap = () => formSnap(tdForm, [tdDraft.urgent, tdDraft.cid, tdDraft.segments, tdDraft.subtasks, rtGet($td('desc'))]);
 
 async function closeGuarded(d, snapNow, snapThen, f) {
   if (snapNow() === snapThen()) return shut(d);
@@ -3749,17 +3956,11 @@ function fillEditor() {
   $ed('segs').innerHTML = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s =>
     `<label class="chip"><input type="checkbox" value="${s.id}"${t.segments.includes(s.id) ? ' checked' : ''}><span>${s.code}</span></label>`).join('');
   syncEdSegsAll();
-  $ed('desc').value = t.desc;
-  showEdDesc(!!t.desc);
+  edDesc.show(descHTML(t));
   renderEdSubs();
   const when = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   $ed('meta').textContent = `Created ${when(t.createdAt)}${t.done && t.doneAt ? ` · Done ${when(t.doneAt)}` : ''}`;
   $ed('archive').hidden = !t.done;
-}
-function showEdDesc(view) {
-  $ed('desc-view').hidden = !view;
-  $ed('desc').hidden = view;
-  if (view) $ed('desc-view').innerHTML = linkify($ed('desc').value);
 }
 function renderEdSubs() {
   const subs = edTask.subtasks;
@@ -3809,19 +4010,11 @@ $ed('segs-all').addEventListener('click', () => {
   $ed('segs').dispatchEvent(new Event('change'));
 });
 $ed('segs-show').addEventListener('change', e => { edTask.showSegs = e.target.checked; saveSoon(); });
-$ed('desc').addEventListener('input', e => { edTask.desc = e.target.value; saveSoon(); });
-$ed('desc').addEventListener('blur', e => {
-  if (!edTask) return;
-  edTask.desc = e.target.value.trim();
+const edDesc = richField($ed('desc'), html => {
+  if (!edTask || edTask.desc === html && edTask.rich) return;
+  edTask.desc = html;
+  edTask.rich = true;
   saveSoon();
-  // switching to the link view changes the height: wait for the click that moved focus away to land first
-  const t = edTask;
-  afterPointer(() => { if (edTask === t && document.activeElement !== $ed('desc')) showEdDesc(!!t.desc); });
-});
-$ed('desc-view').addEventListener('click', e => {
-  if (e.target.closest('a')) return;
-  showEdDesc(false);
-  $ed('desc').focus();
 });
 // the lists show a subtasks badge, so they redraw too
 const edSubsChanged = () => { renderEdSubs(); renderTasks(); saveSoon(); };
