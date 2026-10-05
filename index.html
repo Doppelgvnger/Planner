@@ -230,13 +230,19 @@
   .bar {
     border: 0; cursor: pointer; z-index: 2;
     background: var(--c-bg); color: var(--c-ink);
-    box-shadow: inset 3px 0 0 var(--c-edge), 0 1px 2px rgba(var(--sh), .06);
+    box-shadow: 0 1px 2px rgba(var(--sh), .06);
     transition: transform .22s var(--ease-spring), box-shadow .22s;
+    /* always on its own layer: otherwise the browser moves it to one only while it animates, which redraws the
+       coloured edge thinner for the duration and snaps it back at the end */
+    will-change: transform;
   }
   /* hover lifts the whole campaign in that row: its bar and its sub-campaign bands together (.lift is set from JS) */
-  .bar.lift { transform: translateY(-3px); box-shadow: inset 3px 0 0 var(--c-edge), 0 10px 24px rgba(var(--sh), .2); }
+  .bar.lift { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(var(--sh), .2); }
+  /* the coloured left edge: its own strip, not part of the shadow, so the hover's shadow change can't thin it */
+  .bar::before { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 3px 0 0 var(--c-edge); pointer-events: none; }
+  .bar.cut-left::before, .bar.lg::before, .bar.sub::before { display: none; }
   .bar:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .bar.cut-left { border-top-left-radius: 0; border-bottom-left-radius: 0; box-shadow: 0 1px 2px rgba(var(--sh), .06); }
+  .bar.cut-left { border-top-left-radius: 0; border-bottom-left-radius: 0; }
   .bar.cut-right { border-top-right-radius: 0; border-bottom-right-radius: 0; }
   /* sticky so the name stays readable when the bar starts off-screen to the left */
   .bar-text { position: sticky; left: calc(var(--label-w) + 10px); display: flex; align-items: baseline; gap: 8px; }
@@ -307,7 +313,9 @@
 
   /* 6-month overview: days too narrow for labels, so only Mondays get a number */
   .tl.compact .days { overflow: hidden; } /* last day's number would otherwise overflow and add a scrollbar */
-  .tl.compact .day { text-align: left; white-space: nowrap; font-size: 11px; }
+  /* smaller day numbers, same row height as 3 months (12px × 1.25), so switching zoom doesn't shift the rows by a pixel */
+  .tl.compact .day { text-align: left; white-space: nowrap; font-size: 11px; line-height: 15px; }
+  .tl.compact .day small { line-height: 12.5px; }
   .tl.compact .day small, .tl.compact .day:not(.mon) b { visibility: hidden; }
   .tl.compact .day b { padding-left: 2px; }
   .tl.compact .col.weekend { background: none; }
@@ -2087,8 +2095,8 @@ document.getElementById('sub-add').addEventListener('click', () => {
   renderSubCampaigns();
   const card = subList.lastElementChild, unfold = subDrafts.length === 1 ? subList : card;
   unfold.hidden = true;
-  foldTo(unfold, true);
-  card.querySelector('.sub-name').focus();
+  card.querySelector('.sub-name').focus({ preventScroll: true }); // no jump: it scrolls into view smoothly once unfolded
+  foldTo(unfold, true).then(() => card.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' }));
 });
 
 // ---------- "Select all" for the campaign's segments, the lead gen's and each sub-campaign's markets ----------
@@ -2498,28 +2506,66 @@ const MOTION = {
 const SPRING = MOTION.spring;
 // show or hide a block by folding its height (the standard fold), e.g. the parts of a form that open and close.
 // el.hidden flips at once (so code can read the new state); while folding out the block stays drawn via an inline
-// display. The parent's gap is folded too (negative margin), so nothing below jumps when the block appears or goes.
-// Not shown on screen (closed dialog, hidden tab): just set. Returns a promise for when it's done.
+// display. The box folds as a whole (height, padding, borders) and so does the parent's gap next to it, so nothing
+// around it jumps on the first or last frame. Not on screen (closed dialog, hidden tab): just set. Returns a promise.
+const shownEl = x => getComputedStyle(x).display !== 'none';
+// a grid/flex gap can't be folded (and negative margins don't work in grids: tracks clamp at 0), so while folds run
+// in a parent its gap is swapped for the same space as top margins on its visible children; undone when the last
+// fold in that parent ends (identical layout either way)
+function gapToMargins(parent, el) {
+  if (!parent._fold) {
+    const cs = getComputedStyle(parent);
+    parent._fold = { gap: /grid|flex/.test(cs.display) ? parseFloat(cs.rowGap) || 0 : 0, n: 0, kids: new Set() };
+    if (parent._fold.gap) parent.style.rowGap = '0px';
+  }
+  const f = parent._fold;
+  f.n++;
+  // (a fieldset's legend sits outside its grid, so it's no grid neighbour)
+  const vis = [...parent.children].filter(k => (k === el || shownEl(k)) && !(k.tagName === 'LEGEND' && parent.tagName === 'FIELDSET'));
+  const i = vis.indexOf(el);
+  vis.forEach((k, j) => {
+    // the gap above each child becomes its margin; the folding one (and, if it's first, the gap below it) is animated
+    if (!f.gap || j === 0 || k === el || (i === 0 && j === 1) || f.kids.has(k)) return;
+    k.style.marginTop = `${parseFloat(getComputedStyle(k).marginTop) + f.gap}px`;
+    f.kids.add(k);
+  });
+  const side = i > 0 ? 'marginTop' : vis.length > 1 ? 'marginBottom' : null;
+  const release = () => {
+    if (--f.n) return;
+    parent.style.rowGap = '';
+    f.kids.forEach(k => { k.style.marginTop = ''; });
+    parent._fold = null;
+  };
+  return { gap: f.gap, side, release };
+}
 function foldTo(el, show) {
   if (el.hidden === !show) return Promise.resolve(); // already there (or on its way)
+  const BOX = ['height', 'paddingTop', 'paddingBottom', 'marginTop', 'marginBottom'];
+  const boxNow = () => { const cs = getComputedStyle(el); return Object.fromEntries([...BOX.map(k => [k, k === 'height' ? `${el.getBoundingClientRect().height}px` : cs[k]]), ['opacity', cs.opacity]]); };
   // turned around mid-fold: carry on from where it is now
-  const from = el.getAnimations().length ? { height: `${el.getBoundingClientRect().height}px`, opacity: getComputedStyle(el).opacity } : null;
+  const from = el.getAnimations().length ? boxNow() : null;
   el.getAnimations().forEach(a => a.cancel());
   el.style.display = el.style.overflow = '';
   const visible = el.parentElement && el.parentElement.offsetParent !== null;
   if (reduceMotion || !visible) { el.hidden = !show; return Promise.resolve(); }
   el.hidden = false;
-  const h = el.getBoundingClientRect().height, display = getComputedStyle(el).display;
-  const pcs = getComputedStyle(el.parentElement);
-  const gap = /grid|flex/.test(pcs.display) ? parseFloat(pcs.rowGap) || 0 : 0;
-  const side = el.previousElementSibling ? 'marginTop' : 'marginBottom';
-  const open = { height: `${h}px`, opacity: 1, [side]: '0px' }, shut = { height: '0px', opacity: 0, [side]: `${-gap}px` };
+  const { gap, side, release } = gapToMargins(el.parentElement, el);
+  const open = boxNow(), display = getComputedStyle(el).display;
+  open.opacity = 1;
+  const shut = { height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px', opacity: 0 }; // its own margins fold too
+  // borders can't fold (browsers keep any non-zero border at least 1px until it's exactly 0), so a folded box's
+  // borders are taken back by a negative margin (fine here: inside a fold, gaps are margins, not grid gaps)
+  const cs = getComputedStyle(el), borders = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+  const edge = side || 'marginBottom';
+  shut[edge] = `${-borders}px`;
+  if (side) open[side] = `${parseFloat(open[side]) + gap}px`;
   el.hidden = !show;
   Object.assign(el.style, { display, overflow: 'hidden' });
   const frames = show ? [shut, open] : [open, shut];
   if (from) Object.assign(frames[0], from);
   return el.animate(frames, MOTION.fold).finished
-    .then(() => { el.style.display = el.style.overflow = ''; }, () => {});
+    .then(() => { el.style.display = el.style.overflow = ''; }, () => {})
+    .finally(release);
 }
 function settle(el, dx, dy) {
   if (dy < -2) {
@@ -2533,24 +2579,9 @@ function settle(el, dx, dy) {
     el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 480, easing: SPRING });
   }
 }
-// FLIP: remember where every task is, change the DOM, then animate each task from its old spot
-function withFlip(update, quick = false) {
-  if (reduceMotion) return update();
-  const before = new Map([...cboard.querySelectorAll('.task[data-tid]')].map(el => [el.dataset.tid, el.getBoundingClientRect()]));
-  update();
-  cboard.querySelectorAll('.task[data-tid]').forEach(el => {
-    if (el.classList.contains('placeholder')) return;
-    const b = before.get(el.dataset.tid), a = el.getBoundingClientRect();
-    if (!b) {
-      if (!quick) el.animate([{ opacity: 0, transform: 'translateY(-16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 460, easing: SPRING });
-      return;
-    }
-    const dx = b.left - a.left, dy = b.top - a.top;
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-    if (quick) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
-    else settle(el, dx, dy);
-  });
-}
+// task changes on the board (done, urgent, archive, add, drag): the whole board FLIPs — tasks fall / spring into
+// place (quick: a short glide, while dragging), and columns, sub-campaign headers and separators move with them
+const withFlip = (update, quick = false) => flipBoard(update, () => null, null, { tasks: quick ? 'quick' : 'settle' });
 const commit = () => { save(); renderBoard(); };
 
 cboard.addEventListener('change', e => {
@@ -2591,7 +2622,9 @@ function openQuickAdd(cid, sub) {
   const row = list?.querySelector('.add-row');
   if (!row) return (quickAt = null);
   row.innerHTML = `<input class="t-add" data-cid="${cid}" data-sub="${sub}" placeholder="Task name, then Enter" autocomplete="off" aria-label="New task">`;
-  row.firstChild.focus();
+  // no scroll jump if the field moved down out of view: it scrolls there smoothly
+  row.firstChild.focus({ preventScroll: true });
+  row.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
 }
 // keepOpen: the re-rendered board opens the field again, ready for the next task
 function quickAddTask(input, keepOpen) {
@@ -2846,7 +2879,7 @@ function richField(el, onChange) {
   el.tabIndex = 0;
   function edit(x, y) {
     el.contentEditable = 'true';
-    el.focus();
+    el.focus({ preventScroll: true }); // it was clicked, so it's on screen: no scroll jump
     const pos = x == null ? null : document.caretPositionFromPoint?.(x, y) || document.caretRangeFromPoint?.(x, y);
     const s = getSelection();
     if (pos) {
@@ -3146,23 +3179,28 @@ cboard.addEventListener('click', e => {
 // were. Each element only animates its own move, not the part its moved parent already covers (all "after" rects
 // are measured before anything starts moving). target(): an element the caller animates itself; source: an element
 // the caller replaces with a stand-in. Returns a lookup of the "after" rects.
-const BOARD_SEL = '.ccol, .ccol .task, .ccol .sub-sec, .ccol .add-row, .park .tile';
+const BOARD_SEL = '.ccol, .ccol .task, .ccol .sub-sec, .ccol .add-row, .ccol .done-sep, .park .tile';
+const listKey = el => `${el.closest('.ccol').dataset.id}|${el.closest('.tasks').dataset.sub || ''}`;
 const boardKey = el => el.matches('.ccol') ? `c${el.dataset.id}` : el.matches('.task') ? `t${el.dataset.tid}`
-  : el.matches('.sub-sec') ? `s${el.dataset.sub}` : el.matches('.add-row') ? `a${el.closest('.ccol').dataset.id}|${el.closest('.tasks').dataset.sub || ''}`
+  : el.matches('.sub-sec') ? `s${el.dataset.sub}` : el.matches('.add-row') ? `a${listKey(el)}` : el.matches('.done-sep') ? `d${listKey(el)}`
   : `p${el.dataset.sub || el.dataset.id}`;
-function flipBoard(update, target = () => null, source = null) {
+// opts.tasks: how tasks move — 'move' (the standard glide), 'settle' (fall and bounce / spring), 'quick' (dragging)
+function flipBoard(update, target = () => null, source = null, { tasks = 'move' } = {}) {
   if (reduceMotion) { update(); return () => null; }
   const before = new Map([...document.querySelectorAll(BOARD_SEL)].map(el => [boardKey(el), { el, r: el.getBoundingClientRect() }]));
   update();
   const skip = target();
   const after = [...document.querySelectorAll(BOARD_SEL)].map(el => [el, el.getBoundingClientRect()]);
   const moved = new Map(), seen = new Set();
+  const quick = tasks === 'quick', MOVE = quick ? { duration: 180, easing: 'ease-out' } : MOTION.move;
   for (const [el, a] of after) {
     const k = boardKey(el);
     seen.add(k);
-    if (el === skip) continue;
+    if (el === skip || el.classList.contains('placeholder')) continue;
     const b = before.get(k)?.r;
     if (!b) {
+      // a new task drops in
+      if (el.matches('.task') && !quick) el.animate([{ opacity: 0, transform: 'translateY(-16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 460, easing: SPRING });
       // a lone start keyframe (offset 0; without it, it'd be the end): lands on its own opacity, e.g. an ended column's dimmed one
       if (el.matches('.ccol, .tile')) el.animate([{ opacity: 0, transform: 'translateY(8px)', offset: 0 }], MOTION.enter);
       continue;
@@ -3174,9 +3212,10 @@ function flipBoard(update, target = () => null, source = null) {
     const [px, py] = p ? moved.get(p) : [0, 0], dx = abs[0] - px, dy = abs[1] - py;
     const shift = Math.abs(dx) >= 1 || Math.abs(dy) >= 1, grow = el.matches('.ccol') && Math.abs(b.height - a.height) >= 1;
     if (!shift && !grow) continue;
+    if (el.matches('.task') && tasks === 'settle' && shift) { settle(el, dx, dy); continue; }
     const kf = [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }];
     if (grow) { kf[0].height = `${b.height}px`; kf[1].height = `${a.height}px`; }
-    el.animate(kf, MOTION.move);
+    el.animate(kf, MOVE);
   }
   for (const [k, { el, r }] of before) {
     if (seen.has(k) || el.isConnected || el === source || !el.matches('.ccol')) continue;
@@ -3786,6 +3825,10 @@ function tkFlip(update, merge = false) {
         { duration: merge ? 650 : 320, delay, easing: merge ? EASE : SPRING, fill: 'backwards' });
       continue;
     }
+    // a row that got taller (e.g. its campaign line appeared): the new part is revealed downwards instead of popping;
+    // a clip, so layout (and the other rows' FLIP) isn't touched
+    const taller = a.height - old.r.height;
+    if (taller >= 1) el.animate([{ clipPath: `inset(0 0 ${taller}px 0)` }, { clipPath: 'inset(0 0 0 0)' }], { ...MOTION.move, delay });
     const dx = old.r.left - a.left, dy = old.r.top - a.top;
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
     if (merge) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 650, delay, easing: EASE, fill: 'backwards' });

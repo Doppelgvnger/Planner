@@ -9,8 +9,10 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - Bigger features: propose a plan in Russian, wait for the user's "green light", then build. Small fixes: just do them.
 - One commit per change, then push; verify in Firefox (light + dark, 375/1280/1920 when layout changes).
 - Never commit `planner-backup-*.json` (her real data; gitignored).
+- **Every new or changed animation gets a stutter check before shipping** (she notices 1px jumps): run `dev/probe.js` on it — it pauses the animation at each 10ms step and compares every nearby element with the state just before and just after. Nothing may step >1px on the first or last frame, no spike mid-way. Usual culprits: a folding box's padding/borders (use `foldTo`), grid gaps (negative margins clamp in grids), size changes outside the FLIP (column heights, row heights), layer promotion during transform transitions (keep `will-change`), measuring after a parent already started moving.
 
 ## Layout
+- `dev/probe.js` — stutter detector for animations (dev only, not loaded by the app).
 - `index.html` — everything. Tabs: Calendar (placeholder), Campaigns, Timeline, Tasks (`showView`, open tab in URL hash). They share `campaigns`, the dialogs and the DTC/Sephora filter; `renderAll()` redraws only the visible tab (`showView` redraws a tab when shown).
 - Tasks tab: sidebar (All / Urgent / This week = next 7 days incl. overdue / campaigns with open tasks) + list + General panel; the seam button merges General into the list (gooey SVG filter `#tk-goo` on `.tk-bg`, panel shapes synced by `syncTkBg`). Right-hand editor autosaves; Cmd/Shift-click picks several → bulk bar.
 - `favicon.svg` (also the header mark), `favicon-32.png`, `apple-touch-icon.png` (PNG fallbacks drawn with PowerShell System.Drawing): dark square, three phase circles in `#18c2b4`.
