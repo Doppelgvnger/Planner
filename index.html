@@ -880,8 +880,9 @@
   .cal-card-top { display: flex; align-items: flex-start; gap: 6px; }
   .cal-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .cal-from { font-size: 11.5px; opacity: .75; }
-  .cal-col .t-add-btn { margin-top: auto; padding: 6px; font-size: 13px; }
-  .cal-input { width: 100%; border: 1px solid var(--accent); border-radius: 8px; padding: 6px 8px; background: var(--surface); font-size: 13px; outline: 2px solid var(--accent-soft); }
+  /* "+ Add" sits right after the day's tasks, like the next one; it and its field share one height (no jump) */
+  .cal-col .t-add-btn { height: 32px; padding: 0 8px; font-size: 13px; }
+  .cal-input { width: 100%; height: 32px; border: 1px solid var(--accent); border-radius: 8px; padding: 0 8px; background: var(--surface); font-size: 13px; outline: 2px solid var(--accent-soft); }
   /* a day opened from the month: all its tasks plus a field to add one */
   .cal-pop {
     position: absolute; z-index: 20; width: 270px; max-height: 380px; overflow: auto; padding: 10px; display: grid; gap: 6px; align-content: start;
@@ -4325,6 +4326,10 @@ function calCardHTML({ t, c }) {
 }
 function renderCalendar() {
   const by = calTasks(), t0 = toISO(today);
+  // what's open survives the redraw: the day popover (it glides / resizes to its new state) and the week's add field
+  const popRect = calPop?.el.isConnected ? calPop.el.getBoundingClientRect() : null;
+  const field = calPop ? calPop.el.querySelector('.cal-input') : calWeekAdd ? calEl.querySelector(`.cal-input[data-date="${calWeekAdd}"]`) : null;
+  const typed = field?.value || '', hadFocus = !!field && document.activeElement === field;
   document.querySelectorAll('#cal-mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === calState.mode));
   if (calState.mode === 'week') {
     const mon = mondayOf(calAnchor), sun = addDays(mon, 6);
@@ -4351,7 +4356,8 @@ function renderCalendar() {
           ${items.length > shown.length ? `<button class="cal-more">+${items.length - shown.length} more</button>` : ''}</div>`;
       }).join('')}</div></div>`;
   }
-  if (calPop) openCalPop(calPop.date, false); // an open day stays open, refreshed
+  if (calPop) openCalPop(calPop.date, false, popRect, typed, hadFocus);
+  else if (calWeekAdd && calState.mode === 'week') openWeekAdd(calWeekAdd, { typed, focus: hadFocus, animate: false });
 }
 const saveCal = () => store(CAL_STORE, JSON.stringify({ mode: calState.mode }));
 // changes inside the calendar: kept tasks glide to their new day, new ones fade in, gone ones fade out (flipRows)
@@ -4359,9 +4365,10 @@ const calFlip = update => flipRows(calEl, update);
 
 // ---------- a day opened from the month view: all its tasks, plus a field to add one ----------
 let calPop = null; // { date, el }
-function openCalPop(date, focus = true) {
+function openCalPop(date, focus = true, fromRect = null, typed = '', keepFocus = false) {
   const cell = calEl.querySelector(`.cal-day[data-date="${date}"]`);
   const fresh = !calPop;
+  const from = fromRect || (calPop?.el.isConnected ? calPop.el.getBoundingClientRect() : null);
   calPop?.el.remove();
   if (!cell) { calPop = null; return; }
   const items = calTasks().get(date) || [];
@@ -4378,8 +4385,20 @@ function openCalPop(date, focus = true) {
   const top = Math.min(r.top - box.top - 8, Math.max(0, box.height - el.offsetHeight));
   Object.assign(el.style, { left: `${left}px`, top: `${top}px`, transformOrigin: `${r.left - box.left - left + r.width / 2}px ${r.top - box.top - top + 20}px` });
   calPop = { date, el };
-  if (fresh && !reduceMotion) el.animate([{ opacity: 0, transform: 'scale(.94)', offset: 0 }], MOTION.enter);
-  if (focus) el.querySelector('.cal-input').focus({ preventScroll: true });
+  const input = el.querySelector('.cal-input');
+  input.value = typed;
+  if (!reduceMotion) {
+    if (fresh) el.animate([{ opacity: 0, transform: 'scale(.94)', offset: 0 }], MOTION.enter);
+    else if (from) {
+      // it was open: glide from where it was, its height following; a new day's contents blend in
+      const to = el.getBoundingClientRect(), dx = from.left - to.left, dy = from.top - to.top;
+      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1 || Math.abs(from.height - to.height) >= 1) {
+        el.animate([{ transform: `translate(${dx}px, ${dy}px)`, height: `${from.height}px` }, { transform: 'none', height: `${to.height}px` }], MOTION.move);
+      }
+      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) for (const k of el.children) k.animate([{ opacity: .2, offset: 0 }], MOTION.move);
+    }
+  }
+  if (focus || keepFocus) input.focus({ preventScroll: true });
 }
 function closeCalPop() {
   if (!calPop) return;
@@ -4390,25 +4409,39 @@ function closeCalPop() {
 }
 
 // ---------- adding: a field in the day; Enter adds (and stays for the next), clicking away adds, Esc drops ----------
-function calAdd(input) {
-  const text = input.value.trim(), date = input.dataset.date;
-  input.dataset.used = '1';
-  if (!text) return;
+function addOn(date, text) {
   const t = normTask({ text, due: date }); // into General; the task dialog can move it to a campaign
   placeTask(general, t);
   save();
-  calFlip(renderCalendar);
-  // keep a field open on that day for the next one
-  if (calState.mode === 'week') openWeekAdd(date); else if (calPop) calPop.el.querySelector('.cal-input')?.focus({ preventScroll: true });
+  calFlip(renderCalendar); // (keeps the open popover / field; see renderCalendar)
 }
-function openWeekAdd(date) {
+// Enter in a field: add, and the field stays (empty) for the next one
+function calAdd(input) {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addOn(input.dataset.date, text);
+}
+let calWeekAdd = null; // the day whose add field is open in the week view
+function openWeekAdd(date, { typed = '', focus = true, animate = true } = {}) {
   const col = calEl.querySelector(`.cal-col[data-date="${date}"]`), btn = col?.querySelector('.cal-add');
   if (!btn) return;
+  calWeekAdd = date;
   const input = document.createElement('input');
-  Object.assign(input, { className: 'cal-input', placeholder: 'Task name, then Enter', autocomplete: 'off' });
+  Object.assign(input, { className: 'cal-input', placeholder: 'Task name, then Enter', autocomplete: 'off', value: typed });
   input.dataset.date = date;
   btn.replaceWith(input);
-  input.focus({ preventScroll: true });
+  if (animate && !reduceMotion) input.animate([{ opacity: 0, transform: 'scale(.97)', offset: 0 }], MOTION.enter);
+  if (focus) input.focus({ preventScroll: true });
+}
+// back to the "+ Add" button (only this field: other days are left as they are)
+function closeWeekAdd(input) {
+  if (calWeekAdd === input.dataset.date) calWeekAdd = null;
+  if (!input.isConnected) return;
+  const btn = document.createElement('button');
+  Object.assign(btn, { className: 't-add-btn cal-add', textContent: '+ Add' });
+  input.replaceWith(btn);
+  if (!reduceMotion) btn.animate([{ opacity: 0, offset: 0 }], MOTION.enter);
 }
 calEl.addEventListener('keydown', e => {
   if (!e.target.matches('.cal-input') || e.isComposing) return;
@@ -4416,7 +4449,7 @@ calEl.addEventListener('keydown', e => {
   else if (e.key === 'Escape') {
     e.stopPropagation();
     e.target.dataset.used = '1';
-    if (calState.mode === 'week') renderCalendar(); else closeCalPop();
+    if (calState.mode === 'week') closeWeekAdd(e.target); else closeCalPop();
   }
 });
 calEl.addEventListener('focusout', e => {
@@ -4424,8 +4457,11 @@ calEl.addEventListener('focusout', e => {
   if (!input.matches('.cal-input') || input.dataset.used) return;
   afterPointer(() => {
     if (input.dataset.used || !input.isConnected) return;
-    if (input.value.trim()) { calAdd(input); if (calState.mode === 'week') renderCalendar(); }
-    else if (calState.mode === 'week') renderCalendar();
+    const text = input.value.trim(), date = input.dataset.date;
+    if (calState.mode !== 'week') { if (text) { input.value = ''; addOn(date, text); } return; } // the day popover's field
+    // left for another day's field (or elsewhere): this one closes; what was typed is added
+    if (calWeekAdd === date) calWeekAdd = null;
+    if (text) { input.dataset.used = '1'; addOn(date, text); } else closeWeekAdd(input);
   });
 });
 
