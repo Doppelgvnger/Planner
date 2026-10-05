@@ -11,7 +11,7 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - Never commit `planner-backup-*.json` (her real data; gitignored).
 
 ## Layout
-- `index.html` — everything. Tabs: Calendar (placeholder), Campaigns, Timeline, Tasks (`showView`, open tab in URL hash). They share `campaigns`, the dialogs and the DTC/Sephora filter; `renderAll()` redraws all.
+- `index.html` — everything. Tabs: Calendar (placeholder), Campaigns, Timeline, Tasks (`showView`, open tab in URL hash). They share `campaigns`, the dialogs and the DTC/Sephora filter; `renderAll()` redraws only the visible tab (`showView` redraws a tab when shown).
 - Tasks tab: sidebar (All / Urgent / This week = next 7 days incl. overdue / campaigns with open tasks) + list + General panel; the seam button merges General into the list (gooey SVG filter `#tk-goo` on `.tk-bg`, panel shapes synced by `syncTkBg`). Right-hand editor autosaves; Cmd/Shift-click picks several → bulk bar.
 - `favicon.svg` (also the header mark), `favicon-32.png`, `apple-touch-icon.png` (PNG fallbacks drawn with PowerShell System.Drawing): dark square, three phase circles in `#18c2b4`.
 
@@ -44,5 +44,6 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - After a pointer drag Firefox clicks the element under the pointer; clicks within 400ms of `dragEndedAt` are swallowed. Drag listeners live on `window`.
 - The in-app preview pane is a hidden `data:` page: no localStorage/hash, and dialog close events and view transitions are delayed there — test real behaviour in Firefox. To check motion, freeze frames: on load trigger the change, then `document.getAnimations().forEach(a => { a.pause(); a.currentTime = T })` and screenshot.
 - `.chip`, `.toggle`, `.zoom > button` act on pointerdown (quick clicks while the mouse moves were lost); the trusted click after is swallowed. Layout changes on blur go through `afterPointer` so the click lands first.
+- Dialog lists (Archive/Trash): rows carry `data-key`; wrap updates in `flipRows(list, update)`.
 - Board changes that move columns/tasks/tiles: wrap the update in `flipBoard(update)` (nested FLIP: all after-rects measured first, parent delta subtracted). Park/unpark of campaigns and subs: `morphPark`.
 - `timing()` / `isEnded()` crash on `general` (no dates): guard with `c !== general`.
