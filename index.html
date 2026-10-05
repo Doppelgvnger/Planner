@@ -834,6 +834,76 @@
     .mk-row input { grid-column: 1 / -1; }
   }
 
+  /* ---------- calendar tab ---------- */
+  .cal { position: relative; }
+  .cal-month { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .cal-wds, .cal-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .cal-wd { padding: 10px 10px 8px; font-size: 12px; font-weight: 500; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--line); }
+  .cal-day {
+    height: 118px; min-width: 0; padding: 6px 6px 4px; display: flex; flex-direction: column; gap: 3px; cursor: pointer;
+    border-right: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); transition: background .15s;
+  }
+  .cal-day:nth-child(7n) { border-right: 0; }
+  .cal-day:nth-last-child(-n+7) { border-bottom: 0; }
+  .cal-day.weekend { background: var(--weekend); }
+  .cal-day.out { background: var(--surface-2); }
+  .cal-day:hover { background: var(--bg); }
+  .cal-num { align-self: flex-start; min-width: 22px; padding: 1px 5px; border-radius: 999px; text-align: center; font-size: 12px; font-weight: 500; color: var(--ink-2); }
+  .cal-day.out .cal-num { color: var(--ink-3); }
+  .cal-day.today .cal-num, .cal-col.today .cal-col-num { background: var(--today); color: var(--on-today); font-weight: 600; }
+  .cal-items { display: flex; flex-direction: column; gap: 3px; min-height: 0; }
+  .cal-chip, .cal-card {
+    min-width: 0; border-left: 3px solid var(--c-edge); border-radius: 3px 6px 6px 3px; background: var(--c-bg); color: var(--c-ink);
+    cursor: grab; user-select: none; touch-action: none;
+  }
+  .cal-chip { display: flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 12px; line-height: 1.35; }
+  .cal-chip .tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cal-chip.gen, .cal-card.gen { border-left-style: dashed; background: var(--line-soft); color: var(--ink); }
+  .cal-chip.overdue .tx, .cal-card.overdue .cal-name { color: var(--over-ink); }
+  .cal-chip .tk-urg, .cal-card .tk-urg { margin-left: 0; flex: none; }
+  .cal-chip.extra { display: none; }
+  .cal-more { align-self: flex-start; border: 0; background: none; padding: 0 4px; font-size: 11.5px; font-weight: 500; color: var(--ink-3); cursor: pointer; }
+  .cal-more:hover { color: var(--accent); }
+  .cal-day.drop, .cal-col.drop { box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft); }
+  .cal-chip.dragging, .cal-card.dragging { opacity: .3; }
+  .cal-ghost { position: fixed; z-index: 1000; margin: 0; pointer-events: none; transition: transform .18s ease-out, box-shadow .18s ease-out; }
+  .cal-ghost.lifted { transform: rotate(1.5deg) scale(1.03); box-shadow: 0 16px 36px rgba(var(--sh), .24); }
+  .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+  .cal-col {
+    min-width: 0; min-height: 380px; padding: 10px; display: flex; flex-direction: column; gap: 6px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .cal-col.weekend { background: var(--surface-2); }
+  .cal-col-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; font-size: 12px; font-weight: 500; color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; }
+  .cal-col-num { min-width: 24px; padding: 1px 6px; border-radius: 999px; text-align: center; font-size: 14px; font-weight: 600; color: var(--ink); text-transform: none; letter-spacing: 0; }
+  .cal-card { display: grid; gap: 3px; padding: 7px 8px; font-size: 13px; line-height: 1.35; }
+  .cal-card-top { display: flex; align-items: flex-start; gap: 6px; }
+  .cal-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .cal-from { font-size: 11.5px; opacity: .75; }
+  .cal-col .t-add-btn { margin-top: auto; padding: 6px; font-size: 13px; }
+  .cal-input { width: 100%; border: 1px solid var(--accent); border-radius: 8px; padding: 6px 8px; background: var(--surface); font-size: 13px; outline: 2px solid var(--accent-soft); }
+  /* a day opened from the month: all its tasks plus a field to add one */
+  .cal-pop {
+    position: absolute; z-index: 20; width: 270px; max-height: 380px; overflow: auto; padding: 10px; display: grid; gap: 6px; align-content: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px rgba(var(--sh), .2);
+  }
+  .cal-pop-head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 600; }
+  .cal-pop .cal-chip { padding: 4px 8px; font-size: 13px; }
+  .cal-pop-empty { margin: 0; font-size: 12.5px; color: var(--ink-3); }
+  @media (max-width: 720px) {
+    .cal-day { height: 66px; padding: 4px; }
+    .cal-wd { padding: 8px 4px 6px; font-size: 10px; letter-spacing: .02em; }
+    /* phones: tasks are coloured dots */
+    .cal-day .cal-items { flex-direction: row; flex-wrap: wrap; gap: 3px; }
+    .cal-day .cal-chip { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: var(--c-edge); }
+    .cal-day .cal-chip.gen { background: var(--ctl-strong); }
+    .cal-day .cal-chip.extra { display: block; }
+    .cal-day .cal-chip > * { display: none; }
+    .cal-day .cal-more { display: none; }
+    .cal-week { grid-template-columns: minmax(0, 1fr); }
+    .cal-col { min-height: 0; }
+  }
+
   /* ---------- tasks tab ---------- */
   .tk-search {
     width: 240px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; background: var(--surface); font-size: 13px;
@@ -980,7 +1050,7 @@
 <header class="topbar">
   <div class="brand"><img class="brand-mark" src="favicon.svg" alt=""><span>Planner</span></div>
   <nav class="tabs" aria-label="Sections">
-    <button class="tab" disabled title="Coming soon">Calendar</button>
+    <button class="tab" data-view="calendar">Calendar</button>
     <button class="tab" data-view="campaigns">Campaigns</button>
     <button class="tab" data-view="timeline" aria-current="page">Timeline</button>
     <button class="tab" data-view="tasks">Tasks</button>
@@ -1065,6 +1135,31 @@
     <h2>Coming up <span>· next 30 days</span></h2>
     <ul class="up-list" id="upcoming"></ul>
   </section>
+</section>
+
+<section class="view" id="view-calendar" hidden>
+  <div class="toolbar">
+    <div>
+      <h1>Calendar</h1>
+      <p class="sub">Every task with a due date, day by day.</p>
+    </div>
+    <div class="controls">
+      <button class="btn icon" id="cal-prev" aria-label="Previous">‹</button>
+      <div class="range" id="cal-range"></div>
+      <button class="btn icon" id="cal-next" aria-label="Next">›</button>
+      <button class="btn" id="cal-today">Today</button>
+    </div>
+  </div>
+  <div class="viewbar">
+    <div class="filter dest-filter">
+      <span class="filter-label">Destination</span>
+    </div>
+    <div class="zoom" id="cal-mode" role="group" aria-label="Calendar view">
+      <button data-mode="month">Month</button>
+      <button data-mode="week">Week</button>
+    </div>
+  </div>
+  <div class="cal" id="cal"></div>
 </section>
 
 <section class="view" id="view-tasks" hidden>
@@ -2453,7 +2548,7 @@ function renderBoard() {
   if (quickAt) openQuickAdd(quickAt.cid, quickAt.sub);
 }
 // only the tab on screen is drawn; a tab is drawn fresh whenever it's shown (showView)
-const renderAll = () => ({ timeline: render, campaigns: renderBoard, tasks: renderTasks })[currentView]?.();
+const renderAll = () => ({ timeline: render, campaigns: renderBoard, tasks: renderTasks, calendar: renderCalendar })[currentView]?.();
 
 // ---------- tasks ----------
 const taskById = (cid, tid) => listById(cid).tasks.find(t => t.id === tid);
@@ -2582,7 +2677,8 @@ function settle(el, dx, dy) {
 // task changes on the board (done, urgent, archive, add, drag): the whole board FLIPs — tasks fall / spring into
 // place (quick: a short glide, while dragging), and columns, sub-campaign headers and separators move with them
 const withFlip = (update, quick = false) => flipBoard(update, () => null, null, { tasks: quick ? 'quick' : 'settle' });
-const commit = () => { save(); renderBoard(); };
+// after a task change: the board redraws, or the calendar (its tasks glide) when the task dialog was opened there
+const commit = () => { save(); if (currentView === 'calendar') calFlip(renderCalendar); else renderBoard(); };
 
 cboard.addEventListener('change', e => {
   if (!e.target.matches('.t-check')) return;
@@ -3186,7 +3282,7 @@ const boardKey = el => el.matches('.ccol') ? `c${el.dataset.id}` : el.matches('.
   : `p${el.dataset.sub || el.dataset.id}`;
 // opts.tasks: how tasks move — 'move' (the standard glide), 'settle' (fall and bounce / spring), 'quick' (dragging)
 function flipBoard(update, target = () => null, source = null, { tasks = 'move' } = {}) {
-  if (reduceMotion) { update(); return () => null; }
+  if (reduceMotion || !cboard.offsetParent) { update(); return () => null; } // (board not on screen: nothing to move)
   const before = new Map([...document.querySelectorAll(BOARD_SEL)].map(el => [boardKey(el), { el, r: el.getBoundingClientRect() }]));
   update();
   const skip = target();
@@ -3346,7 +3442,8 @@ const archivedOf = c => c.tasks.filter(t => t.archived);
 // keyed elements only animate their own move.
 function flipRows(list, update) {
   if (reduceMotion || !list.offsetParent) return update();
-  const before = new Map([...list.querySelectorAll('[data-key]')].map(el => [el.dataset.key, { el, r: el.getBoundingClientRect() }]));
+  // (only rows actually drawn: a hidden one has no place to glide from)
+  const before = new Map([...list.querySelectorAll('[data-key]')].filter(el => el.getClientRects().length).map(el => [el.dataset.key, { el, r: el.getBoundingClientRect() }]));
   const h0 = list.getBoundingClientRect().height;
   update();
   const h1 = list.getBoundingClientRect().height;
@@ -4193,6 +4290,257 @@ document.addEventListener('keydown', e => {
   renderTasks();
 });
 
+// ---------- calendar tab: dated tasks by day; Month (grid) or Week (columns) ----------
+const CAL_STORE = 'planner.calendar.v1';
+const calState = { mode: 'month', ...(() => { try { return JSON.parse(localStorage.getItem(CAL_STORE)) || {}; } catch (e) { return {}; } })() };
+let calAnchor = today; // a day inside the month / week shown
+const calEl = document.getElementById('cal');
+const mondayOf = d => addDays(d, -((d.getDay() + 6) % 7));
+const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// open, dated tasks per day (shown campaigns + General), urgent first
+function calTasks() {
+  const by = new Map();
+  for (const c of [...campaigns.filter(isShown), general]) {
+    for (const t of c.tasks) {
+      if (t.done || t.archived || !t.due) continue;
+      if (!by.has(t.due)) by.set(t.due, []);
+      by.get(t.due).push({ t, c });
+    }
+  }
+  for (const list of by.values()) list.sort((a, b) => b.t.urgent - a.t.urgent || a.t.createdAt - b.t.createdAt);
+  return by;
+}
+const calOverdue = t => t.due < toISO(today);
+// keyed: chips in the grid glide between days (an open day's copies aren't keyed, so they don't steal the glide)
+function calChipHTML({ t, c }, keyed = true, extra = false) {
+  const p = paint(c.color);
+  return `<div class="cal-chip ${p.cls}${extra ? ' extra' : ''}${c === general ? ' gen' : ''}${calOverdue(t) ? ' overdue' : ''}" style="${p.style}" data-tid="${t.id}" data-cid="${c.id}"${keyed ? ` data-key="${t.id}"` : ''} title="${esc(t.text)}">
+    ${t.urgent ? '<span class="tk-urg">!</span>' : ''}<span class="tx">${esc(t.text)}</span></div>`;
+}
+function calCardHTML({ t, c }) {
+  const p = paint(c.color), sub = c.subs.find(s => s.id === secOf(c, t));
+  return `<div class="cal-card ${p.cls}${c === general ? ' gen' : ''}${calOverdue(t) ? ' overdue' : ''}" style="${p.style}" data-tid="${t.id}" data-cid="${c.id}" data-key="${t.id}">
+    <div class="cal-card-top">${t.urgent ? '<span class="tk-urg">!</span>' : ''}<span class="cal-name">${esc(t.text)}</span>${subsBadge(t)}</div>
+    <div class="cal-from">${esc(c.name)}${sub ? ` › ${esc(sub.name)}` : ''}</div></div>`;
+}
+function renderCalendar() {
+  const by = calTasks(), t0 = toISO(today);
+  document.querySelectorAll('#cal-mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === calState.mode));
+  if (calState.mode === 'week') {
+    const mon = mondayOf(calAnchor), sun = addDays(mon, 6);
+    document.getElementById('cal-range').textContent = mon.getMonth() === sun.getMonth()
+      ? `${fmt(mon)} – ${sun.getDate()}, ${sun.getFullYear()}` : `${fmt(mon)} – ${fmt(sun)}, ${sun.getFullYear()}`;
+    calEl.innerHTML = `<div class="cal-week">${[...Array(7)].map((_, i) => {
+      const d = addDays(mon, i), iso = toISO(d), items = by.get(iso) || [];
+      return `<div class="cal-col${iso === t0 ? ' today' : ''}${i > 4 ? ' weekend' : ''}" data-date="${iso}">
+        <div class="cal-col-head">${WD[i]} <span class="cal-col-num">${d.getDate()}</span></div>
+        ${items.map(calCardHTML).join('')}
+        <button class="t-add-btn cal-add">+ Add</button></div>`;
+    }).join('')}</div>`;
+  } else {
+    const first = new Date(calAnchor.getFullYear(), calAnchor.getMonth(), 1), start = mondayOf(first);
+    document.getElementById('cal-range').textContent = first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    // always six weeks, so the grid keeps its height from month to month
+    calEl.innerHTML = `<div class="cal-month"><div class="cal-wds">${WD.map(w => `<div class="cal-wd">${w}</div>`).join('')}</div>
+      <div class="cal-days">${[...Array(42)].map((_, i) => {
+        const d = addDays(start, i), iso = toISO(d), items = by.get(iso) || [];
+        const shown = items.length > 3 ? items.slice(0, 2) : items; // the rest only as dots on phones
+        return `<div class="cal-day${d.getMonth() !== first.getMonth() ? ' out' : ''}${iso === t0 ? ' today' : ''}${i % 7 > 4 ? ' weekend' : ''}" data-date="${iso}">
+          <span class="cal-num">${d.getDate()}</span>
+          <div class="cal-items">${items.map((x, k) => calChipHTML(x, true, k >= shown.length)).join('')}</div>
+          ${items.length > shown.length ? `<button class="cal-more">+${items.length - shown.length} more</button>` : ''}</div>`;
+      }).join('')}</div></div>`;
+  }
+  if (calPop) openCalPop(calPop.date, false); // an open day stays open, refreshed
+}
+const saveCal = () => store(CAL_STORE, JSON.stringify({ mode: calState.mode }));
+// changes inside the calendar: kept tasks glide to their new day, new ones fade in, gone ones fade out (flipRows)
+const calFlip = update => flipRows(calEl, update);
+
+// ---------- a day opened from the month view: all its tasks, plus a field to add one ----------
+let calPop = null; // { date, el }
+function openCalPop(date, focus = true) {
+  const cell = calEl.querySelector(`.cal-day[data-date="${date}"]`);
+  const fresh = !calPop;
+  calPop?.el.remove();
+  if (!cell) { calPop = null; return; }
+  const items = calTasks().get(date) || [];
+  const el = document.createElement('div');
+  el.className = 'cal-pop';
+  el.innerHTML = `<div class="cal-pop-head"><span>${fromISO(date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+      <button class="ed-x cal-pop-x" aria-label="Close" title="Close">×</button></div>
+    ${items.map(x => calChipHTML(x, false)).join('') || '<p class="cal-pop-empty">Nothing due this day.</p>'}
+    <input class="cal-input" data-date="${date}" placeholder="Add a task for this day" autocomplete="off" aria-label="New task">`;
+  calEl.appendChild(el);
+  // over the day, kept inside the calendar
+  const box = calEl.getBoundingClientRect(), r = cell.getBoundingClientRect();
+  const left = Math.min(Math.max(0, r.left - box.left - 8), box.width - el.offsetWidth);
+  const top = Math.min(r.top - box.top - 8, Math.max(0, box.height - el.offsetHeight));
+  Object.assign(el.style, { left: `${left}px`, top: `${top}px`, transformOrigin: `${r.left - box.left - left + r.width / 2}px ${r.top - box.top - top + 20}px` });
+  calPop = { date, el };
+  if (fresh && !reduceMotion) el.animate([{ opacity: 0, transform: 'scale(.94)', offset: 0 }], MOTION.enter);
+  if (focus) el.querySelector('.cal-input').focus({ preventScroll: true });
+}
+function closeCalPop() {
+  if (!calPop) return;
+  const el = calPop.el;
+  calPop = null;
+  if (reduceMotion) return el.remove();
+  el.animate([{ opacity: 0, transform: 'scale(.96)' }], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => el.remove());
+}
+
+// ---------- adding: a field in the day; Enter adds (and stays for the next), clicking away adds, Esc drops ----------
+function calAdd(input) {
+  const text = input.value.trim(), date = input.dataset.date;
+  input.dataset.used = '1';
+  if (!text) return;
+  const t = normTask({ text, due: date }); // into General; the task dialog can move it to a campaign
+  placeTask(general, t);
+  save();
+  calFlip(renderCalendar);
+  // keep a field open on that day for the next one
+  if (calState.mode === 'week') openWeekAdd(date); else if (calPop) calPop.el.querySelector('.cal-input')?.focus({ preventScroll: true });
+}
+function openWeekAdd(date) {
+  const col = calEl.querySelector(`.cal-col[data-date="${date}"]`), btn = col?.querySelector('.cal-add');
+  if (!btn) return;
+  const input = document.createElement('input');
+  Object.assign(input, { className: 'cal-input', placeholder: 'Task name, then Enter', autocomplete: 'off' });
+  input.dataset.date = date;
+  btn.replaceWith(input);
+  input.focus({ preventScroll: true });
+}
+calEl.addEventListener('keydown', e => {
+  if (!e.target.matches('.cal-input') || e.isComposing) return;
+  if (e.key === 'Enter') { e.preventDefault(); if (e.target.value.trim()) calAdd(e.target); }
+  else if (e.key === 'Escape') {
+    e.stopPropagation();
+    e.target.dataset.used = '1';
+    if (calState.mode === 'week') renderCalendar(); else closeCalPop();
+  }
+});
+calEl.addEventListener('focusout', e => {
+  const input = e.target;
+  if (!input.matches('.cal-input') || input.dataset.used) return;
+  afterPointer(() => {
+    if (input.dataset.used || !input.isConnected) return;
+    if (input.value.trim()) { calAdd(input); if (calState.mode === 'week') renderCalendar(); }
+    else if (calState.mode === 'week') renderCalendar();
+  });
+});
+
+// ---------- clicks: a task opens its dialog; a day opens (month) / an "+ Add" adds (week) ----------
+calEl.addEventListener('click', e => {
+  if (performance.now() - dragEndedAt < 400) return; // the click that ends a drag
+  const item = e.target.closest('.cal-chip, .cal-card');
+  if (item) return openTask(item.dataset.cid, item.dataset.tid);
+  if (e.target.closest('.cal-pop-x')) return closeCalPop();
+  if (e.target.closest('.cal-pop')) return;
+  const add = e.target.closest('.cal-add');
+  if (add) return openWeekAdd(add.closest('.cal-col').dataset.date);
+  const day = e.target.closest('.cal-day');
+  if (day) { if (calPop?.date === day.dataset.date) closeCalPop(); else openCalPop(day.dataset.date); }
+});
+// clicking elsewhere or Esc closes an open day
+document.addEventListener('pointerdown', e => {
+  if (calPop && !e.target.closest('.cal-pop, .cal-day, dialog')) closeCalPop();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && calPop && !document.querySelector('dialog[open]')) closeCalPop();
+});
+
+// ---------- drag a task onto another day to change its due date ----------
+let calDrag = null;
+calEl.addEventListener('pointerdown', e => {
+  const item = e.target.closest('.cal-chip, .cal-card');
+  if (!item || e.button !== 0) return;
+  calDrag = { item, x0: e.clientX, y0: e.clientY, started: false };
+});
+window.addEventListener('pointermove', e => {
+  if (!calDrag) return;
+  const d = calDrag;
+  if (!d.started) {
+    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return; // a click, not a drag (yet)
+    const r = d.item.getBoundingClientRect();
+    d.ghost = d.item.cloneNode(true);
+    d.ghost.classList.add('cal-ghost');
+    Object.assign(d.ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
+    document.body.appendChild(d.ghost);
+    requestAnimationFrame(() => d.ghost.classList.add('lifted'));
+    d.item.classList.add('dragging');
+    Object.assign(d, { started: true, dx: e.clientX - r.left, dy: e.clientY - r.top });
+    closeCalPop();
+  }
+  d.ghost.style.left = `${e.clientX - d.dx}px`;
+  d.ghost.style.top = `${e.clientY - d.dy}px`;
+  const day = document.elementFromPoint(e.clientX, e.clientY)?.closest('#cal [data-date]');
+  if (day !== d.over) { d.over?.classList.remove('drop'); d.over = day; day?.classList.add('drop'); }
+});
+function endCalDrag() {
+  if (!calDrag) return;
+  const d = calDrag;
+  calDrag = null;
+  if (!d.started) return;
+  dragEndedAt = performance.now();
+  d.over?.classList.remove('drop');
+  const t = taskByTid(d.item.dataset.tid), date = d.over?.dataset.date;
+  const land = () => {
+    // the lifted card settles onto its new spot, then the real one shows
+    const spot = calEl.querySelector(`[data-key="${t.id}"]`);
+    if (!spot || reduceMotion) { d.ghost.remove(); return; }
+    spot.style.visibility = 'hidden';
+    const r = spot.getBoundingClientRect();
+    d.ghost.classList.remove('lifted');
+    d.ghost.animate([{ left: d.ghost.style.left, top: d.ghost.style.top, width: d.ghost.style.width }, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` }],
+      { duration: 260, easing: SPRING, fill: 'forwards' }).finished.then(() => { spot.style.visibility = ''; d.ghost.remove(); });
+  };
+  if (t && date && date !== t.due) {
+    t.due = date;
+    placeTask(campaignOfTask(t), t);
+    save();
+    calFlip(renderCalendar);
+  } else d.item.classList.remove('dragging');
+  land();
+}
+window.addEventListener('pointerup', endCalDrag);
+window.addEventListener('pointercancel', endCalDrag);
+
+// ---------- moving through time / switching the view ----------
+function calGo(dir) {
+  closeCalPop();
+  calAnchor = calState.mode === 'week' ? addDays(calAnchor, dir * 7) : new Date(calAnchor.getFullYear(), calAnchor.getMonth() + dir, 1);
+  renderCalendar();
+  if (!reduceMotion && dir) calEl.firstElementChild.animate([{ transform: `translateX(${dir * 40}px)`, opacity: .3 }, { transform: 'none', opacity: 1 }], { duration: 320, easing: MOTION.glide });
+}
+document.getElementById('cal-prev').addEventListener('click', () => calGo(-1));
+document.getElementById('cal-next').addEventListener('click', () => calGo(1));
+document.getElementById('cal-today').addEventListener('click', () => {
+  const same = calState.mode === 'week' ? toISO(mondayOf(calAnchor)) === toISO(mondayOf(today))
+    : calAnchor.getMonth() === today.getMonth() && calAnchor.getFullYear() === today.getFullYear();
+  if (same) return;
+  const dir = Math.sign(today - calAnchor);
+  calAnchor = today;
+  calGo(0);
+  if (!reduceMotion && dir) calEl.firstElementChild.animate([{ transform: `translateX(${dir * 40}px)`, opacity: .3 }, { transform: 'none', opacity: 1 }], { duration: 320, easing: MOTION.glide });
+});
+document.getElementById('cal-mode').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]');
+  if (!b || b.dataset.mode === calState.mode) return;
+  closeCalPop();
+  calState.mode = b.dataset.mode;
+  saveCal();
+  if (reduceMotion) return renderCalendar();
+  // morph: the old view stays on top and fades out while the new one fades in beneath it, each task gliding from its
+  // spot in the old view to its spot in the new one, and the calendar's height following (flipRows)
+  const old = calEl.firstElementChild, ghost = old.cloneNode(true);
+  ghost.querySelectorAll('[data-key]').forEach(x => x.removeAttribute('data-key'));
+  Object.assign(ghost.style, { position: 'absolute', left: '0px', top: '0px', width: `${old.getBoundingClientRect().width}px`, zIndex: '5', pointerEvents: 'none', margin: '0' });
+  calFlip(renderCalendar);
+  calEl.appendChild(ghost);
+  ghost.animate([{ opacity: 1 }, { opacity: 0 }], { ...MOTION.move, fill: 'forwards' }).finished.then(() => ghost.remove());
+  calEl.firstElementChild.animate([{ opacity: 0, offset: 0 }], MOTION.move);
+});
+
 // ---------- tabs: the open tab lives in the URL hash so a refresh keeps it ----------
 let currentView = null;
 function showView(view) {
@@ -4338,7 +4686,7 @@ addEventListener('focus', checkNewDay);
   setTimeout(() => { checkNewDay(); atMidnight(); }, new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) - n + 1000);
 })();
 
-showView(['campaigns', 'tasks'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
+showView(['campaigns', 'tasks', 'calendar'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
 </script>
 </body>
 </html>

@@ -13,7 +13,8 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 
 ## Layout
 - `dev/probe.js` — stutter detector for animations (dev only, not loaded by the app).
-- `index.html` — everything. Tabs: Calendar (placeholder), Campaigns, Timeline, Tasks (`showView`, open tab in URL hash). They share `campaigns`, the dialogs and the DTC/Sephora filter; `renderAll()` redraws only the visible tab (`showView` redraws a tab when shown).
+- `index.html` — everything. Tabs: Calendar, Campaigns, Timeline, Tasks (`showView`, open tab in URL hash). They share `campaigns`, the dialogs and the DTC/Sephora filter; `renderAll()` redraws only the visible tab (`showView` redraws a tab when shown).
+- Calendar tab: open dated tasks (shown campaigns + General, done hidden, no campaign bars) in Month (6-week grid, ≤3 chips then "+N more" → day popover with an add field) or Week (7 columns of cards, "+ Add"); click = task dialog, drag = new due date, added tasks go to General. `renderCalendar`, `calFlip` (= flipRows), `calState.mode` in `planner.calendar.v1`.
 - Tasks tab: sidebar (All / Urgent / This week = next 7 days incl. overdue / campaigns with open tasks) + list + General panel; the seam button merges General into the list (gooey SVG filter `#tk-goo` on `.tk-bg`, panel shapes synced by `syncTkBg`). Right-hand editor autosaves; Cmd/Shift-click picks several → bulk bar.
 - `favicon.svg` (also the header mark), `favicon-32.png`, `apple-touch-icon.png` (PNG fallbacks drawn with PowerShell System.Drawing): dark square, three phase circles in `#18c2b4`.
 
