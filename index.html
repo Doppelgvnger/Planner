@@ -2419,7 +2419,8 @@ function renderBoard() {
   syncScrollbar();
   if (quickAt) openQuickAdd(quickAt.cid, quickAt.sub);
 }
-const renderAll = () => { render(); renderBoard(); renderTasks(); };
+// only the tab on screen is drawn; a tab is drawn fresh whenever it's shown (showView)
+const renderAll = () => ({ timeline: render, campaigns: renderBoard, tasks: renderTasks })[currentView]?.();
 
 // ---------- tasks ----------
 const taskById = (cid, tid) => listById(cid).tasks.find(t => t.id === tid);
@@ -3094,12 +3095,46 @@ const arDlg = document.getElementById('archive-dlg'), arList = document.getEleme
 const arAll = document.getElementById('ar-all'), arDelSel = document.getElementById('ar-del-sel');
 const archivedOf = c => c.tasks.filter(t => t.archived);
 
+// a list in a dialog (Archive, Trash) changing: rows that stay glide, new ones fade in, removed ones fade out where
+// they were, and the list's height follows, so the dialog doesn't jump. Rows (and groups) carry data-key; nested
+// keyed elements only animate their own move.
+function flipRows(list, update) {
+  if (reduceMotion || !list.offsetParent) return update();
+  const before = new Map([...list.querySelectorAll('[data-key]')].map(el => [el.dataset.key, { el, r: el.getBoundingClientRect() }]));
+  const h0 = list.getBoundingClientRect().height;
+  update();
+  const h1 = list.getBoundingClientRect().height;
+  const after = [...list.querySelectorAll('[data-key]')].map(el => [el, el.getBoundingClientRect()]);
+  if (Math.abs(h1 - h0) >= 1) list.animate([{ height: `${h0}px` }, { height: `${h1}px` }], MOTION.move);
+  const moved = new Map(), seen = new Set();
+  for (const [el, a] of after) {
+    seen.add(el.dataset.key);
+    const b = before.get(el.dataset.key)?.r;
+    if (!b) { el.animate([{ opacity: 0, transform: 'translateY(6px)', offset: 0 }], MOTION.enter); continue; }
+    const abs = [b.left - a.left, b.top - a.top];
+    moved.set(el, abs);
+    let p = el.parentElement;
+    while (p && p !== list && !moved.has(p)) p = p.parentElement;
+    const [px, py] = moved.get(p) || [0, 0], dx = abs[0] - px, dy = abs[1] - py;
+    if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], MOTION.move);
+  }
+  // leaving rows: a stand-in fades out in place (inside the dialog, so it stays above the backdrop)
+  const host = list.closest('dialog') || document.body;
+  for (const [key, { el, r }] of before) {
+    if (seen.has(key) || el.isConnected) continue;
+    const groupKey = el.parentElement?.closest('[data-key]')?.dataset.key;
+    if (groupKey && !seen.has(groupKey)) continue; // its whole group leaves: the group fades instead
+    Object.assign(el.style, { position: 'fixed', left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, margin: '0', zIndex: '5', pointerEvents: 'none' });
+    host.appendChild(el);
+    el.animate([{ opacity: 0, transform: 'scale(.97)' }], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => el.remove());
+  }
+}
 function renderArchive() {
   arList.innerHTML = lists().filter(c => archivedOf(c).length).map(c => {
     const p = paint(c.color);
-    return `<div class="ar-group ${p.cls}" style="${p.style}">
+    return `<div class="ar-group ${p.cls}" style="${p.style}" data-key="g${c.id}">
       <div class="ar-head"><span class="dot"></span>${esc(c.name)}</div>
-      ${archivedOf(c).map(t => `<div class="ar-row">
+      ${archivedOf(c).map(t => `<div class="ar-row" data-key="t${t.id}">
         <input type="checkbox" id="ar-${t.id}" data-cid="${c.id}" data-tid="${t.id}">
         <label for="ar-${t.id}">${esc(t.text)}${c.subs.some(s => s.id === t.sub) ? `<span class="ar-sub"> · ${esc(c.subs.find(s => s.id === t.sub).name)}</span>` : ""}</label>
         <button type="button" class="link ar-restore" data-cid="${c.id}" data-tid="${t.id}">Restore</button>
@@ -3125,7 +3160,7 @@ function removeTasks(pairs) {
   }
   save();
   saveTrash();
-  renderArchive();
+  flipRows(arList, renderArchive);
   renderBoard();
 }
 arList.addEventListener('change', syncArchive);
@@ -3138,7 +3173,7 @@ arList.addEventListener('click', e => {
   if (!b) return;
   taskById(b.dataset.cid, b.dataset.tid).archived = false;
   save();
-  renderArchive();
+  flipRows(arList, renderArchive);
   renderBoard();
 });
 arDelSel.addEventListener('click', () =>
@@ -3172,7 +3207,7 @@ function renderTrash() {
       const btn = home ? `<button type="button" class="btn tr-restore" data-i="${i}">Restore</button>`
         : inTrash ? `<button type="button" class="btn tr-restore" data-i="${i}" title="Its campaign is in Trash too">Restore with campaign</button>`
         : `<button type="button" class="btn" disabled title="Its campaign was deleted forever">Restore</button>`;
-      return `<div class="tr-row ${p.cls}" style="${p.style}">
+      return `<div class="tr-row ${p.cls}" style="${p.style}" data-key="t${x.t.id}">
         <span class="dot"></span>
         <div><div class="tr-name">${esc(x.t.text)}</div>
           <div class="up-meta">in ${esc(x.cname)} · deleted ${fmt(new Date(x.at))}</div></div>
@@ -3181,7 +3216,7 @@ function renderTrash() {
     }
     const { c, at } = x, p = paint(c.color), { sp } = timing(c);
     const codes = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s => s.code).join(', ');
-    return `<div class="tr-row ${p.cls}" style="${p.style}">
+    return `<div class="tr-row ${p.cls}" style="${p.style}" data-key="c${c.id}">
       <span class="dot"></span>
       <div><div class="tr-name">${esc(c.name)}</div>
         <div class="up-meta">${codes} · ${fmt(fromISO(sp.start))} – ${fmt(fromISO(sp.end))} · ${plural(c.tasks.length, 'task')} · deleted ${fmt(new Date(at))}</div></div>
@@ -3212,7 +3247,7 @@ function restoreTask(i) {
 
 document.getElementById('tr-tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-tab]');
-  if (b) { trTab = b.dataset.tab; renderTrash(); }
+  if (b) { trTab = b.dataset.tab; flipRows(trList, renderTrash); }
 });
 trList.addEventListener('click', async e => {
   const restore = e.target.closest('.tr-restore'), del = e.target.closest('.tr-del');
@@ -3228,7 +3263,7 @@ trList.addEventListener('click', async e => {
     trash.splice(trash.indexOf(x), 1);
   } else return;
   saveTrash();
-  renderTrash();
+  flipRows(trList, renderTrash);
   renderAll();
 });
 document.getElementById('tr-empty').addEventListener('click', async () => {
@@ -3237,7 +3272,7 @@ document.getElementById('tr-empty').addEventListener('click', async () => {
   if (!await ask({ title: 'Empty Trash?', text: `${what} will be deleted forever. This can't be undone.`, ok: 'Empty Trash' })) return;
   trash = [];
   saveTrash();
-  renderTrash();
+  flipRows(trList, renderTrash);
   renderAll();
 });
 document.getElementById('tr-close').addEventListener('click', () => shut(trDlg));
@@ -3301,12 +3336,17 @@ const syncThemePick = () => document.querySelectorAll('[data-theme-pick]')
   .forEach(b => b.setAttribute('aria-pressed', (b.dataset.themePick === 'dark') === isDark()));
 document.querySelector('#settings-dlg .zoom').addEventListener('click', e => {
   const b = e.target.closest('[data-theme-pick]');
-  if (!b) return;
-  if (b.dataset.themePick === 'dark') document.documentElement.dataset.theme = 'dark';
-  else delete document.documentElement.dataset.theme;
-  store(THEME_STORE, b.dataset.themePick);
-  syncThemePick();
-  renderAll(); // custom campaign colours are computed per theme
+  if (!b || (b.dataset.themePick === 'dark') === isDark()) return;
+  const apply = () => {
+    if (b.dataset.themePick === 'dark') document.documentElement.dataset.theme = 'dark';
+    else delete document.documentElement.dataset.theme;
+    store(THEME_STORE, b.dataset.themePick);
+    syncThemePick();
+    renderAll(); // custom campaign colours are computed per theme
+  };
+  // the whole page crossfades into the other theme where the browser can (a skipped transition still applies it)
+  if (document.startViewTransition && !reduceMotion) document.startViewTransition(apply).ready.catch(() => {});
+  else apply();
 });
 syncThemePick();
 document.getElementById('open-settings').addEventListener('click', () => openDlg(document.getElementById('settings-dlg')));
@@ -3736,7 +3776,9 @@ const reposition = t => placeTask(campaignOfTask(t), t);
 $ed('name').addEventListener('input', e => {
   if (!e.target.value.trim()) return; // an emptied name comes back on leaving the field
   edTask.text = e.target.value.trim();
-  renderTasks();
+  // just the row's name changes: no need to redraw the lists on every keystroke
+  const row = tkWrap.querySelector(`.tk-row[data-tid="${edTask.id}"] .tk-text`);
+  if (row) row.textContent = edTask.text;
   saveSoon();
 });
 $ed('name').addEventListener('blur', e => { if (edTask) e.target.value = edTask.text; });
@@ -4005,7 +4047,17 @@ document.getElementById('zoom').addEventListener('click', e => {
   morphTimeline(() => { render(); scrollToToday(); });
   if (!reduceMotion) tl.querySelector('.tl-head > div:last-child').animate([{ opacity: .3 }, { opacity: 1 }], MOTION.enter);
 });
-window.addEventListener('resize', () => { render(); syncTkBg(false); });
+// at most once a frame while the window is being resized
+let resizeQueued = false;
+window.addEventListener('resize', () => {
+  if (resizeQueued) return;
+  resizeQueued = true;
+  requestAnimationFrame(() => {
+    resizeQueued = false;
+    if (currentView === 'timeline') render();
+    syncTkBg(false);
+  });
+});
 
 document.getElementById('save-warn-backup').addEventListener('click', () => { showBkMsg(''); openDlg(bkDlg); });
 
