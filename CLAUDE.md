@@ -18,7 +18,7 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 ## Data (localStorage, per browser + address; moved between them via Backup → Export/Import)
 - `planner.timeline.v1` campaigns: `{id,name,segments[],destinations[],start,end,color,overrides{seg:{start,end}},leadgen?,subs[],tasks[],parked?,compact?}`. Markets order = `SEGMENTS` (US, CA·EN, CA·FR, BR, MX). Color = preset name or hex (`paint`/`customVars`, theme-aware).
 - `leadgen {segments,start,end,overrides}`; `subs[{id,name,segments,start,end,overrides,parked?,compact?}]`; dates per market via `datesIn` / `lgIn` / `subIn`.
-- `tasks[{id,text,done,doneAt,urgent,archived,due,desc,segments,showSegs,subtasks,createdAt,sub?}]`; `t.sub` puts it in a sub-campaign's section (`secOf`).
+- `tasks[{id,text,done,doneAt,urgent,archived,due,desc,rich?,segments,showSegs,subtasks,createdAt,sub?}]`; `t.sub` puts it in a sub-campaign's section (`secOf`). `desc` is cleaned HTML when `rich` is true (else legacy plain text): show via `descHTML(t)`, read via `rtGet(el)`, clean with `cleanRich` (only b/i/u/s/br/div, `span.tc-*`, `mark.hl-*`, http(s) links). Fields: `richField(el, onChange)`.
 - `planner.general.v1`: tasks with no campaign. In code `general` is a campaign-shaped object (all markets, no subs) kept out of `campaigns`; use `lists()` / `listById()` wherever General counts too (trash, archive, backup `general`, Move to).
 - Also `planner.tasksview.v1` (`{sel,sort,merged,addTo}`), `planner.trash.v1`, `planner.colorder.v1`, `planner.dense.v1`, `planner.theme.v1`. Old records are filled in on load (`normCampaign`, `normTask`, `normTrashItem`); first visit starts empty.
 
