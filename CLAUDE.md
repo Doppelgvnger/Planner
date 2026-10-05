@@ -13,8 +13,9 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 
 ## Layout
 - `dev/probe.js` — stutter detector for animations (dev only, not loaded by the app).
-- `index.html` — everything. Tabs: Calendar, Campaigns, Timeline, Tasks (`showView`, open tab in URL hash). They share `campaigns`, the dialogs and the DTC/Sephora filter; `renderAll()` redraws only the visible tab (`showView` redraws a tab when shown).
+- `index.html` — everything. Tabs: Calendar, Campaigns, Timeline, Tasks, Notes (`showView`, open tab in URL hash). They share `campaigns`, the dialogs and the DTC/Sephora filter; `renderAll()` redraws only the visible tab (`showView` redraws a tab when shown).
 - Calendar tab: open dated tasks (shown campaigns + General, done hidden, no campaign bars) in Month (6-week grid, ≤3 chips then "+N more" → day popover with an add field) or Week (7 columns of cards, "+ Add"); click = task dialog, drag = new due date, added tasks go to General. `renderCalendar`, `calFlip` (= flipRows), `calState.mode` in `planner.calendar.v1`.
+- Notes tab: list (search, new, drag to reorder) + page (title + `richField(..., { fixedBar: true })`). `notes` in `planner.notes.v1` `[{id,title,body,createdAt,updatedAt}]` in list order; search highlight via `CSS.highlights` ('nt-find').
 - Tasks tab: sidebar (All / Urgent / This week = next 7 days incl. overdue / campaigns with open tasks) + list + General panel; the seam button merges General into the list (gooey SVG filter `#tk-goo` on `.tk-bg`, panel shapes synced by `syncTkBg`). Right-hand editor autosaves; Cmd/Shift-click picks several → bulk bar.
 - `favicon.svg` (also the header mark), `favicon-32.png`, `apple-touch-icon.png` (PNG fallbacks drawn with PowerShell System.Drawing): dark square, three phase circles in `#18c2b4`.
 
@@ -23,6 +24,7 @@ Campaign planner for the user's girlfriend (marketing project manager, uses it o
 - `leadgen {segments,start,end,overrides}`; `subs[{id,name,segments,start,end,overrides,parked?,compact?}]`; dates per market via `datesIn` / `lgIn` / `subIn`.
 - `tasks[{id,text,done,doneAt,urgent,archived,due,desc,rich?,segments,showSegs,subtasks,createdAt,sub?}]`; `t.sub` puts it in a sub-campaign's section (`secOf`). `desc` is cleaned HTML when `rich` is true (else legacy plain text): show via `descHTML(t)`, read via `rtGet(el)`, clean with `cleanRich` (only b/i/u/s/br/div, `span.tc-*`, `mark.hl-*`, http(s) links). Fields: `richField(el, onChange)`.
 - `planner.general.v1`: tasks with no campaign. In code `general` is a campaign-shaped object (all markets, no subs) kept out of `campaigns`; use `lists()` / `listById()` wherever General counts too (trash, archive, backup `general`, Move to).
+- Trash items: campaign (no type), `type:'task'`, `type:'note'` (`trashKind`).
 - Also `planner.tasksview.v1` (`{sel,sort,merged,addTo}`), `planner.trash.v1`, `planner.colorder.v1`, `planner.dense.v1`, `planner.theme.v1`. Old records are filled in on load (`normCampaign`, `normTask`, `normTrashItem`); first visit starts empty.
 
 ## Key helpers

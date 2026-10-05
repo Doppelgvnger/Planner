@@ -718,6 +718,8 @@
   .rt[contenteditable="true"] { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
   .rt:empty::before { content: attr(data-placeholder); color: var(--ink-3); pointer-events: none; }
   .rt a { color: var(--accent); }
+  .rt ul, .rt ol { margin: 4px 0; padding-left: 22px; }
+  .rt li + li { margin-top: 2px; }
   .rt mark { color: inherit; border-radius: 3px; padding: 0 1px; }
   .tc-red { color: var(--tc-red); } .tc-orange { color: var(--tc-orange); } .tc-green { color: var(--tc-green); }
   .tc-teal { color: var(--tc-teal); } .tc-blue { color: var(--tc-blue); } .tc-purple { color: var(--tc-purple); }
@@ -815,9 +817,11 @@
     :root { --label-w: 72px; --day-w: 30px; }
     /* four tabs: the logo and Backup / Settings share the first line, the tabs get their own */
     .topbar { padding: 12px 16px; gap: 8px 14px; flex-wrap: wrap; }
-    .topbar .tabs { order: 1; }
+    .topbar .tabs { order: 1; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .topbar .tabs::-webkit-scrollbar { display: none; }
+    .tab { flex: none; }
     .brand span { display: none; }
-    .tab { padding: 6px 10px; }
+    .tab { padding: 6px 7px; font-size: 13px; } /* five tabs fit across a phone */
     main { padding: 20px 16px; }
     .label .flag { display: none; }
     .mk-row { grid-template-columns: 44px 1fr 1fr 24px; gap: 6px; padding: 6px 4px; }
@@ -832,6 +836,49 @@
     .mk-row .code { grid-column: 1; grid-row: 1; }
     .mk-row .mk-reset { grid-column: 3; grid-row: 1; }
     .mk-row input { grid-column: 1 / -1; }
+  }
+
+  /* ---------- notes tab ---------- */
+  .nt-wrap { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start; }
+  .nt-side {
+    position: sticky; top: 84px; max-height: calc(100vh - 110px); overflow: auto; padding: 14px; display: grid; gap: 10px; align-content: start;
+    grid-template-columns: minmax(0, 1fr); /* a long search snippet must not widen the panel */
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .nt-side .tk-search { width: 100%; }
+  .nt-list { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3px; }
+  .nt-item { padding: 9px 10px; border: 1px solid transparent; border-radius: 10px; background: var(--surface); cursor: pointer; user-select: none; touch-action: none; }
+  .nt-item:hover { background: var(--bg); }
+  .nt-item.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .nt-row { display: flex; align-items: baseline; gap: 10px; }
+  .nt-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nt-name.untitled { color: var(--ink-3); font-weight: 500; }
+  .nt-date { flex: none; font-size: 12px; color: var(--ink-3); }
+  .nt-snip { margin-top: 3px; font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nt-item mark, .nt-snip mark { background: var(--hl-yellow); color: inherit; border-radius: 3px; }
+  .nt-item.placeholder { background: var(--accent-soft); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
+  .nt-item.placeholder > * { visibility: hidden; }
+  .nt-ghost { position: fixed; z-index: 1000; margin: 0; pointer-events: none; transition: transform .18s ease-out, box-shadow .18s ease-out; }
+  .nt-ghost.lifted { transform: rotate(1.5deg) scale(1.03); box-shadow: 0 16px 36px rgba(var(--sh), .22); }
+  .nt-ed {
+    min-height: 70vh; padding: 18px 24px 16px; display: grid; gap: 12px; align-content: start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .nt-ed[hidden] { display: none; }
+  .nt-title { min-width: 0; border: 0; border-bottom: 1.5px solid var(--line); padding: 4px 0 8px; background: none; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  .nt-title:focus { outline: none; border-color: var(--accent); }
+  .nt-ed .rt-bar { position: sticky; top: 76px; z-index: 2; justify-self: start; }
+  .rt.nt-body { min-height: 52vh; border: 0; padding: 4px 0; font-size: 15px; line-height: 1.6; background: none; }
+  .rt.nt-body:not([contenteditable="true"]):hover { background: none; }
+  .rt.nt-body[contenteditable="true"] { outline: none; }
+  ::highlight(nt-find) { background-color: var(--hl-yellow); color: inherit; }
+  .nt-foot { display: flex; align-items: center; gap: 12px; }
+  .nt-empty { place-content: center; justify-items: center; color: var(--ink-3); }
+  @media (max-width: 900px) {
+    .nt-wrap { grid-template-columns: minmax(0, 1fr); }
+    .nt-side { position: static; max-height: none; }
+    .nt-ed { min-height: 0; }
+    .rt.nt-body { min-height: 40vh; }
   }
 
   /* ---------- calendar tab ---------- */
@@ -1055,6 +1102,7 @@
     <button class="tab" data-view="campaigns">Campaigns</button>
     <button class="tab" data-view="timeline" aria-current="page">Timeline</button>
     <button class="tab" data-view="tasks">Tasks</button>
+    <button class="tab" data-view="notes">Notes</button>
   </nav>
   <div class="top-tools">
     <button class="link subtle" id="open-backup">Backup</button>
@@ -1161,6 +1209,36 @@
     </div>
   </div>
   <div class="cal" id="cal"></div>
+</section>
+
+<section class="view" id="view-notes" hidden>
+  <div class="toolbar">
+    <div>
+      <h1>Notes</h1>
+      <p class="sub">Anything worth writing down.</p>
+    </div>
+  </div>
+  <div class="nt-wrap">
+    <aside class="nt-side">
+      <input type="search" class="tk-search" id="nt-search" placeholder="Search notes" autocomplete="off">
+      <button class="btn" id="nt-new">+ New note</button>
+      <div class="nt-list" id="nt-list"></div>
+    </aside>
+    <div class="nt-ed" id="nt-ed" hidden>
+      <input class="nt-title" id="nt-title" placeholder="Title" autocomplete="off">
+      <div class="rt-field"><div class="rt nt-body" id="nt-body" data-placeholder="Start writing…"></div></div>
+      <div class="nt-foot">
+        <span class="td-meta" id="nt-meta"></span>
+        <span class="spacer"></span>
+        <span class="ed-saved" id="nt-saved">Saved</span>
+        <button type="button" class="btn danger" id="nt-del">Delete</button>
+      </div>
+    </div>
+    <div class="nt-ed nt-empty" id="nt-empty" hidden>
+      <p>Write your first note.</p>
+      <button class="btn primary" id="nt-new-2">+ New note</button>
+    </div>
+  </div>
 </section>
 
 <section class="view" id="view-tasks" hidden>
@@ -1377,6 +1455,7 @@
       <div class="zoom" id="tr-tabs" role="group" aria-label="Trash contents">
         <button data-tab="campaign" aria-pressed="true">Campaigns</button>
         <button data-tab="task" aria-pressed="false">Tasks</button>
+        <button data-tab="note" aria-pressed="false">Notes</button>
       </div>
     </div>
     <p class="tr-note" id="tr-note"></p>
@@ -1572,7 +1651,7 @@ const listById = id => lists().find(c => c.id === id);
 // deleted campaigns: [{ c: the whole campaign incl. tasks, at: deletedAt, pos: its index in the board order }]
 const TRASH_STORE = 'planner.trash.v1';
 // trashed campaigns may come from older versions too, so fill them in like live ones
-const normTrashItem = x => (x.type === 'task' ? x : { ...x, c: normCampaign(x.c) });
+const normTrashItem = x => (x.type ? x : { ...x, c: normCampaign(x.c) }); // tasks and notes are kept as they are
 let trash = loadTrash();
 function loadTrash() {
   try { return (JSON.parse(localStorage.getItem(TRASH_STORE)) || []).map(normTrashItem); } catch (e) { return []; }
@@ -1582,6 +1661,7 @@ function saveTrash() {
 }
 // items without a type predate task trash and are campaigns
 const isTaskItem = x => x.type === 'task';
+const trashKind = x => x.type || 'campaign'; // 'campaign' | 'task' | 'note'
 // a deleted task remembers its campaign so Restore can put it back there
 const trashTask = (t, c) => {
   const sub = c.subs.find(s => s.id === t.sub);
@@ -2549,7 +2629,7 @@ function renderBoard() {
   if (quickAt) openQuickAdd(quickAt.cid, quickAt.sub);
 }
 // only the tab on screen is drawn; a tab is drawn fresh whenever it's shown (showView)
-const renderAll = () => ({ timeline: render, campaigns: renderBoard, tasks: renderTasks, calendar: renderCalendar })[currentView]?.();
+const renderAll = () => ({ timeline: render, campaigns: renderBoard, tasks: renderTasks, calendar: renderCalendar, notes: renderNotes })[currentView]?.();
 
 // ---------- tasks ----------
 const taskById = (cid, tid) => listById(cid).tasks.find(t => t.id === tid);
@@ -2841,7 +2921,7 @@ const descHTML = t => (t.rich ? cleanRich(t.desc) : linkify(t.desc || '').replac
 function cleanRich(html) {
   const box = document.createElement('template');
   box.innerHTML = html || '';
-  const TAGS = { B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', S: 's', STRIKE: 's', DEL: 's', BR: 'br', DIV: 'div', P: 'div', SPAN: 'span', MARK: 'mark', A: 'a' };
+  const TAGS = { B: 'b', STRONG: 'b', I: 'i', EM: 'i', U: 'u', S: 's', STRIKE: 's', DEL: 's', BR: 'br', DIV: 'div', P: 'div', SPAN: 'span', MARK: 'mark', A: 'a', UL: 'ul', OL: 'ol', LI: 'li' };
   const walk = node => {
     for (const el of [...node.children]) {
       if (/^(SCRIPT|STYLE|TEMPLATE|IFRAME|OBJECT|SVG|MATH)$/i.test(el.tagName)) { el.remove(); continue; } // not text at all
@@ -2904,10 +2984,11 @@ function rtLinkify(el) {
 }
 // set up a field: show(html) fills it; onChange(html) on every edit; it edits on click (links still open) and
 // folds its formatting bar in while editing
-function richField(el, onChange) {
+// fixedBar: the bar is always there (a page for writing, like Notes) instead of folding in while editing
+function richField(el, onChange, { fixedBar = false } = {}) {
   const bar = document.createElement('div');
   bar.className = 'rt-bar';
-  bar.hidden = true;
+  bar.hidden = !fixedBar;
   bar.innerHTML = `<button type="button" data-cmd="bold" title="Bold (Cmd+B)" style="font-weight:700">B</button>
     <button type="button" data-cmd="italic" title="Italic (Cmd+I)" style="font-style:italic;font-family:Georgia,serif">I</button>
     <button type="button" data-cmd="underline" title="Underline (Cmd+U)" style="text-decoration:underline">U</button>
@@ -2915,6 +2996,9 @@ function richField(el, onChange) {
     <span class="rt-sep"></span>
     <button type="button" data-pal="tc" title="Text colour"><span class="rt-a">A</span></button>
     <button type="button" data-pal="hl" title="Highlighter"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9.5 2.5l4 4-6 6H4.5l-1-1v-3z"/><path d="M2 14.5h6" stroke-linecap="round"/></svg></button>
+    <span class="rt-sep"></span>
+    <button type="button" data-cmd="insertUnorderedList" title="Bullet list"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="3" cy="4" r=".9" fill="currentColor"/><circle cx="3" cy="8" r=".9" fill="currentColor"/><circle cx="3" cy="12" r=".9" fill="currentColor"/><path d="M6.5 4H14M6.5 8H14M6.5 12H14"/></svg></button>
+    <button type="button" data-cmd="insertOrderedList" title="Numbered list"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 4H14M6.5 8H14M6.5 12H14"/><text x="1" y="5.6" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="1" y="9.6" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="1" y="13.6" font-size="5" fill="currentColor" stroke="none" font-family="sans-serif">3</text></svg></button>
     <span class="rt-sep"></span>
     <button type="button" data-cmd="clear" title="Clear formatting"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 3.5h8M7 3.5L5 12.5M10 9l4 4M14 9l-4 4"/></svg></button>`;
   const pal = document.createElement('div');
@@ -2937,6 +3021,8 @@ function richField(el, onChange) {
   bar.addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
+    // (an always-there bar can be used before the text was clicked: start editing at the end)
+    if (!el.isContentEditable) { edit(); const s = getSelection(); s.selectAllChildren(el); s.collapseToEnd(); keep(); }
     restore();
     if (b.dataset.cmd === 'clear') {
       document.execCommand('removeFormat');
@@ -2985,7 +3071,7 @@ function richField(el, onChange) {
       s.removeAllRanges(); s.addRange(r);
     }
     try { document.execCommand('defaultParagraphSeparator', false, 'div'); } catch (e) {}
-    foldTo(bar, true);
+    if (!fixedBar) foldTo(bar, true);
   }
   el.addEventListener('input', typed);
   // pasted text comes in plain (no foreign fonts or sizes)
@@ -3007,7 +3093,7 @@ function richField(el, onChange) {
     afterPointer(() => {
       if (document.activeElement === el) return;
       el.contentEditable = 'false';
-      foldTo(bar, false);
+      if (!fixedBar) foldTo(bar, false);
       foldTo(pal, false);
     });
   });
@@ -3015,7 +3101,8 @@ function richField(el, onChange) {
     show(html) {
       el.contentEditable = 'false';
       el.innerHTML = html;
-      bar.hidden = pal.hidden = true;
+      bar.hidden = !fixedBar;
+      pal.hidden = true;
     },
   };
 }
@@ -3455,6 +3542,8 @@ function flipRows(list, update) {
     seen.add(el.dataset.key);
     const b = before.get(el.dataset.key)?.r;
     if (!b) { el.animate([{ opacity: 0, transform: 'translateY(6px)', offset: 0 }], MOTION.enter); continue; }
+    // got taller (e.g. a search snippet line appeared): the new part is revealed downwards (a clip: layout untouched)
+    if (a.height - b.height >= 1) el.animate([{ clipPath: `inset(0 0 ${a.height - b.height}px 0)` }, { clipPath: 'inset(0 0 0 0)' }], MOTION.move);
     const abs = [b.left - a.left, b.top - a.top];
     moved.set(el, abs);
     let p = el.parentElement;
@@ -3533,19 +3622,29 @@ document.getElementById('open-archive').addEventListener('click', () => { render
 const trDlg = document.getElementById('trash-dlg'), trList = document.getElementById('tr-list');
 let trTab = 'campaign';
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-const trashedCampaignIdx = cid => trash.findIndex(x => !isTaskItem(x) && x.c.id === cid);
+const trashedCampaignIdx = cid => trash.findIndex(x => trashKind(x) === 'campaign' && x.c.id === cid);
+const TRASH_TABS = { campaign: ['Campaigns', 'campaigns', 'Deleted campaigns, together with their tasks. Restore puts one back where it was.'],
+  task: ['Tasks', 'tasks', 'Deleted tasks. Restore puts a task back into its campaign.'],
+  note: ['Notes', 'notes', 'Deleted notes. Restore puts a note back where it was in the list.'] };
 
 function renderTrash() {
-  const nC = trash.filter(x => !isTaskItem(x)).length, nT = trash.length - nC;
   document.querySelectorAll('#tr-tabs button').forEach(b => {
+    const n = trash.filter(x => trashKind(x) === b.dataset.tab).length;
     b.setAttribute('aria-pressed', b.dataset.tab === trTab);
-    b.textContent = `${b.dataset.tab === 'task' ? 'Tasks' : 'Campaigns'}${(b.dataset.tab === 'task' ? nT : nC) ? ` (${b.dataset.tab === 'task' ? nT : nC})` : ''}`;
+    b.textContent = `${TRASH_TABS[b.dataset.tab][0]}${n ? ` (${n})` : ''}`;
   });
-  document.getElementById('tr-note').textContent = trTab === 'task'
-    ? 'Deleted tasks. Restore puts a task back into its campaign.'
-    : 'Deleted campaigns, together with their tasks. Restore puts one back where it was.';
-  const rows = trash.map((x, i) => ({ x, i })).filter(({ x }) => isTaskItem(x) === (trTab === 'task'));
+  document.getElementById('tr-note').textContent = TRASH_TABS[trTab][2];
+  const rows = trash.map((x, i) => ({ x, i })).filter(({ x }) => trashKind(x) === trTab);
   trList.innerHTML = rows.map(({ x, i }) => {
+    if (trashKind(x) === 'note') {
+      return `<div class="tr-row" data-key="n${x.n.id}">
+        <span class="dot" style="background:var(--ctl-strong)"></span>
+        <div><div class="tr-name">${esc(x.n.title.trim() || 'Untitled')}</div>
+          <div class="up-meta">created ${noteDate(x.n.createdAt)} · deleted ${fmt(new Date(x.at))}</div></div>
+        <button type="button" class="btn tr-restore" data-i="${i}">Restore</button>
+        <button type="button" class="t-btn tr-del" data-i="${i}" title="Delete forever">×</button>
+      </div>`;
+    }
     if (isTaskItem(x)) {
       const p = paint(x.color), home = lists().some(c => c.id === x.cid), inTrash = trashedCampaignIdx(x.cid) !== -1;
       const btn = home ? `<button type="button" class="btn tr-restore" data-i="${i}">Restore</button>`
@@ -3567,7 +3666,7 @@ function renderTrash() {
       <button type="button" class="btn tr-restore" data-i="${i}">Restore</button>
       <button type="button" class="t-btn tr-del" data-i="${i}" title="Delete forever">×</button>
     </div>`;
-  }).join('') || `<p class="empty">No deleted ${trTab === 'task' ? 'tasks' : 'campaigns'}.</p>`;
+  }).join('') || `<p class="empty">No deleted ${TRASH_TABS[trTab][1]}.</p>`;
   document.getElementById('tr-empty').disabled = !trash.length;
 }
 
@@ -3596,12 +3695,14 @@ document.getElementById('tr-tabs').addEventListener('click', e => {
 trList.addEventListener('click', async e => {
   const restore = e.target.closest('.tr-restore'), del = e.target.closest('.tr-del');
   if (restore) {
-    const i = Number(restore.dataset.i);
-    if (isTaskItem(trash[i])) restoreTask(i); else restoreCampaign(i);
+    const i = Number(restore.dataset.i), kind = trashKind(trash[i]);
+    if (kind === 'task') restoreTask(i); else if (kind === 'note') restoreNote(i); else restoreCampaign(i);
   } else if (del) {
     const x = trash[Number(del.dataset.i)];
-    const ok = await ask(isTaskItem(x)
+    const kind = trashKind(x);
+    const ok = await ask(kind === 'task'
       ? { title: 'Delete task forever?', text: `“${x.t.text}” will be gone for good. This can't be undone.` }
+      : kind === 'note' ? { title: 'Delete note forever?', text: `“${x.n.title.trim() || 'Untitled'}” will be gone for good. This can't be undone.` }
       : { title: 'Delete campaign forever?', text: `“${x.c.name}” and its ${plural(x.c.tasks.length, 'task')} will be gone for good. This can't be undone.` });
     if (!ok) return;
     trash.splice(trash.indexOf(x), 1);
@@ -3611,8 +3712,8 @@ trList.addEventListener('click', async e => {
   renderAll();
 });
 document.getElementById('tr-empty').addEventListener('click', async () => {
-  const nC = trash.filter(x => !isTaskItem(x)).length, nT = trash.length - nC;
-  const what = [nC && plural(nC, 'campaign'), nT && plural(nT, 'task')].filter(Boolean).join(' and ');
+  const n = k => trash.filter(x => trashKind(x) === k).length;
+  const what = [n('campaign') && plural(n('campaign'), 'campaign'), n('task') && plural(n('task'), 'task'), n('note') && plural(n('note'), 'note')].filter(Boolean).join(' and ');
   if (!await ask({ title: 'Empty Trash?', text: `${what} will be deleted forever. This can't be undone.`, ok: 'Empty Trash' })) return;
   trash = [];
   saveTrash();
@@ -3622,7 +3723,7 @@ document.getElementById('tr-empty').addEventListener('click', async () => {
 document.getElementById('tr-close').addEventListener('click', () => shut(trDlg));
 document.getElementById('open-trash').addEventListener('click', () => {
   // open on whichever kind there is, campaigns first
-  trTab = trash.some(x => !isTaskItem(x)) || !trash.length ? 'campaign' : 'task';
+  trTab = ['campaign', 'task', 'note'].find(k => trash.some(x => trashKind(x) === k)) || 'campaign';
   renderTrash();
   openDlg(trDlg);
 });
@@ -3633,7 +3734,7 @@ const showBkMsg = (text, bad = false) => { bkMsg.textContent = text; bkMsg.class
 const countTasks = list => list.reduce((n, c) => n + c.tasks.length, 0);
 
 document.getElementById('bk-export').addEventListener('click', () => {
-  const backup = { app: 'planner', version: 1, exportedAt: new Date().toISOString(), campaigns, general: general.tasks, trash, colOrder, dense };
+  const backup = { app: 'planner', version: 1, exportedAt: new Date().toISOString(), campaigns, general: general.tasks, notes, trash, colOrder, dense };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
   a.download = `planner-backup-${toISO(new Date())}.json`;
@@ -3660,6 +3761,8 @@ bkFile.addEventListener('change', async () => {
   if (!ok) return;
   campaigns = b.campaigns.map(normCampaign);
   general.tasks = (b.general || []).map(normTask); // backups from before General have none
+  notes = (b.notes || []).map(normNote); // nor notes
+  saveNotes();
   trash = (b.trash || []).map(normTrashItem);
   colOrder = Array.isArray(b.colOrder) ? b.colOrder : [];
   dense = !!b.dense;
@@ -4577,6 +4680,206 @@ document.getElementById('cal-mode').addEventListener('click', e => {
   calEl.firstElementChild.animate([{ opacity: 0, offset: 0 }], MOTION.move);
 });
 
+// ---------- notes tab: a list (search, new, drag to reorder) and a page to write on ----------
+const NOTES_STORE = 'planner.notes.v1';
+const normNote = n => ({ id: uid(), title: '', body: '', createdAt: Date.now(), updatedAt: Date.now(), ...n });
+function loadNotes() {
+  try { return (JSON.parse(localStorage.getItem(NOTES_STORE)) || []).map(normNote); } catch (e) { return []; }
+}
+let notes = loadNotes(); // in list order: newest first, unless dragged
+const saveNotes = () => store(NOTES_STORE, JSON.stringify(notes));
+let noteSel = null, ntShown = null, ntQuery = '', ntTimer = null;
+const ntList = document.getElementById('nt-list'), ntEd = document.getElementById('nt-ed'), ntEmpty = document.getElementById('nt-empty');
+const ntTitle = document.getElementById('nt-title'), ntBody = document.getElementById('nt-body');
+const noteDate = ts => {
+  const d = new Date(ts);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) });
+};
+// the note's plain text, with a space where lines / list items break (so words from two lines don't run together)
+const noteText = n => { const t = document.createElement('template'); t.innerHTML = n.body.replace(/<(br|\/div|\/li|\/p)\b[^>]*>/gi, ' $&'); return t.content.textContent; };
+const noteMatches = n => !ntQuery || `${n.title}\n${noteText(n)}`.toLowerCase().includes(ntQuery);
+// the search term marked in a piece of text (escaped first)
+const markHits = text => {
+  if (!ntQuery) return esc(text);
+  const low = text.toLowerCase();
+  let out = '', i = 0;
+  for (let k; (k = low.indexOf(ntQuery, i)) !== -1; i = k + ntQuery.length) out += esc(text.slice(i, k)) + `<mark>${esc(text.slice(k, k + ntQuery.length))}</mark>`;
+  return out + esc(text.slice(i));
+};
+function noteItemHTML(n) {
+  let snip = '';
+  if (ntQuery) {
+    const body = noteText(n), k = body.toLowerCase().indexOf(ntQuery);
+    if (k !== -1) snip = (k > 20 ? '…' : '') + markHits(body.slice(Math.max(0, k - 20), k + ntQuery.length + 50));
+  }
+  const title = n.title.trim();
+  return `<div class="nt-item${n.id === noteSel ? ' on' : ''}" data-id="${n.id}" data-key="${n.id}">
+    <div class="nt-row"><span class="nt-name${title ? '' : ' untitled'}">${title ? markHits(title) : 'Untitled'}</span><span class="nt-date">${noteDate(n.createdAt)}</span></div>
+    ${snip ? `<div class="nt-snip">${snip}</div>` : ''}</div>`;
+}
+function renderNotes() {
+  const shown = notes.filter(noteMatches);
+  // keep the open note while it's in the list; otherwise open the first one shown
+  if (!notes.some(n => n.id === noteSel) || (ntQuery && !shown.some(n => n.id === noteSel))) noteSel = (shown[0] || (ntQuery ? null : notes[0]))?.id || null;
+  ntList.innerHTML = shown.map(noteItemHTML).join('')
+    || `<p class="tk-empty">${ntQuery ? `No notes match “${esc(ntQuery)}”.` : 'No notes yet.'}</p>`;
+  const n = notes.find(x => x.id === noteSel);
+  ntEd.hidden = !n;
+  ntEmpty.hidden = !!n || !!ntQuery;
+  if (n && ntShown !== n.id) fillNote(n);
+  if (!n) ntShown = null;
+  markFinds();
+}
+function fillNote(n) {
+  const was = ntShown;
+  ntShown = n.id;
+  ntTitle.value = n.title;
+  ntDesc.show(cleanRich(n.body));
+  const when = ts => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  document.getElementById('nt-meta').textContent = `Created ${when(n.createdAt)}${n.updatedAt - n.createdAt > 60000 ? ` · Edited ${when(n.updatedAt)}` : ''}`;
+  // switching notes: the page blends to the new one
+  if (was && !reduceMotion) for (const el of ntEd.children) el.animate([{ opacity: .25, offset: 0 }], { duration: 200, easing: 'ease-out' });
+}
+// every match of the search marked in the open note (a highlight over the text; the note itself isn't changed)
+function markFinds() {
+  if (!window.CSS?.highlights) return;
+  CSS.highlights.delete('nt-find');
+  if (!ntQuery || ntEd.hidden) return;
+  const ranges = [], walker = document.createTreeWalker(ntBody, NodeFilter.SHOW_TEXT);
+  for (let node; (node = walker.nextNode());) {
+    const low = node.data.toLowerCase();
+    for (let k = low.indexOf(ntQuery); k !== -1; k = low.indexOf(ntQuery, k + ntQuery.length)) {
+      const r = new Range(); r.setStart(node, k); r.setEnd(node, k + ntQuery.length); ranges.push(r);
+    }
+  }
+  if (ranges.length) CSS.highlights.set('nt-find', new Highlight(...ranges));
+}
+const noteNow = () => notes.find(n => n.id === noteSel);
+function noteChanged() {
+  const n = noteNow();
+  if (!n) return;
+  n.updatedAt = Date.now();
+  clearTimeout(ntTimer);
+  ntTimer = setTimeout(() => { ntTimer = null; saveNotes(); }, 300);
+  const s = document.getElementById('nt-saved');
+  s.classList.add('on');
+  requestAnimationFrame(() => requestAnimationFrame(() => s.classList.remove('on')));
+}
+addEventListener('pagehide', () => { if (ntTimer) saveNotes(); });
+const ntDesc = richField(ntBody, html => {
+  const n = noteNow();
+  if (!n || n.body === html) return;
+  n.body = html;
+  noteChanged();
+  markFinds();
+}, { fixedBar: true });
+ntTitle.addEventListener('input', () => {
+  const n = noteNow();
+  if (!n) return;
+  n.title = ntTitle.value;
+  noteChanged();
+  // just its name in the list changes
+  const name = ntList.querySelector(`.nt-item[data-id="${n.id}"] .nt-name`);
+  if (name) { name.innerHTML = n.title.trim() ? markHits(n.title.trim()) : 'Untitled'; name.classList.toggle('untitled', !n.title.trim()); }
+});
+ntTitle.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ntBody.focus(); } });
+function newNote() {
+  const n = normNote({});
+  notes.unshift(n);
+  noteSel = n.id;
+  saveNotes();
+  if (ntQuery) { ntQuery = ''; document.getElementById('nt-search').value = ''; }
+  flipRows(ntList, renderNotes);
+  ntTitle.focus({ preventScroll: true });
+}
+document.getElementById('nt-new').addEventListener('click', newNote);
+document.getElementById('nt-new-2').addEventListener('click', newNote);
+document.getElementById('nt-del').addEventListener('click', () => {
+  // no question asked: it goes to Trash and can be restored from there
+  const i = notes.findIndex(n => n.id === noteSel);
+  if (i === -1) return;
+  const [n] = notes.splice(i, 1);
+  trash.unshift({ type: 'note', n, at: Date.now(), pos: i });
+  saveTrash();
+  saveNotes();
+  noteSel = (notes[i] || notes[i - 1])?.id || null;
+  flipRows(ntList, renderNotes);
+});
+function restoreNote(i) {
+  const [{ n, pos }] = trash.splice(i, 1);
+  notes.splice(Math.min(pos ?? 0, notes.length), 0, n);
+  saveNotes();
+}
+document.getElementById('nt-search').addEventListener('input', e => {
+  ntQuery = e.target.value.trim().toLowerCase();
+  flipRows(ntList, renderNotes);
+});
+ntList.addEventListener('click', e => {
+  const item = e.target.closest('.nt-item');
+  if (!item || performance.now() - dragEndedAt < 400 || item.dataset.id === noteSel) return;
+  noteSel = item.dataset.id;
+  ntList.querySelectorAll('.nt-item').forEach(x => x.classList.toggle('on', x === item));
+  renderNotes();
+});
+
+// drag a note up / down the list to reorder (not while searching: the list is filtered then)
+let ntDrag = null;
+ntList.addEventListener('pointerdown', e => {
+  const item = e.target.closest('.nt-item');
+  if (!item || e.button !== 0 || ntQuery) return;
+  ntDrag = { item, x0: e.clientX, y0: e.clientY, started: false };
+});
+window.addEventListener('pointermove', e => {
+  if (!ntDrag) return;
+  const d = ntDrag;
+  if (!d.started) {
+    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return;
+    const r = d.item.getBoundingClientRect();
+    d.ghost = d.item.cloneNode(true);
+    d.ghost.classList.add('nt-ghost');
+    Object.assign(d.ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
+    document.body.appendChild(d.ghost);
+    requestAnimationFrame(() => d.ghost.classList.add('lifted'));
+    d.item.classList.add('placeholder');
+    Object.assign(d, { started: true, dy: e.clientY - r.top, dx: e.clientX - r.left });
+  }
+  d.ghost.style.left = `${e.clientX - d.dx}px`;
+  d.ghost.style.top = `${e.clientY - d.dy}px`;
+  const items = [...ntList.querySelectorAll('.nt-item:not(.placeholder)')];
+  const before = items.find(el => { const r = el.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; }) || null;
+  if (d.item.nextElementSibling !== before && d.item !== before) {
+    // the others make room with a short glide
+    const rects = new Map(items.map(el => [el, el.getBoundingClientRect().top]));
+    ntList.insertBefore(d.item, before);
+    if (!reduceMotion) for (const el of items) {
+      const dy = rects.get(el) - el.getBoundingClientRect().top;
+      if (Math.abs(dy) >= 1) el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
+    }
+  }
+});
+function endNoteDrag() {
+  if (!ntDrag) return;
+  const d = ntDrag;
+  ntDrag = null;
+  if (!d.started) return;
+  dragEndedAt = performance.now();
+  const finish = () => {
+    d.ghost.remove();
+    const order = [...ntList.querySelectorAll('.nt-item')].map(el => el.dataset.id);
+    notes.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    saveNotes();
+    renderNotes();
+  };
+  if (reduceMotion) return finish();
+  // the lifted note settles into its slot
+  const to = d.item.getBoundingClientRect();
+  d.ghost.classList.remove('lifted');
+  d.ghost.animate([{ left: d.ghost.style.left, top: d.ghost.style.top }, { left: `${to.left}px`, top: `${to.top}px` }], { duration: 260, easing: SPRING, fill: 'forwards' })
+    .finished.then(finish);
+}
+window.addEventListener('pointerup', endNoteDrag);
+window.addEventListener('pointercancel', endNoteDrag);
+
 // ---------- tabs: the open tab lives in the URL hash so a refresh keeps it ----------
 let currentView = null;
 function showView(view) {
@@ -4701,6 +5004,7 @@ function syncFromOtherTab() {
   else renderAll();
 }
 addEventListener('storage', e => {
+  if (e.key === NOTES_STORE) { notes = loadNotes(); ntShown = null; if (currentView === 'notes') renderNotes(); return; }
   if (e.key === null || [STORE, GENERAL_STORE, TRASH_STORE, ORDER_STORE].includes(e.key)) syncFromOtherTab();
 });
 
@@ -4722,7 +5026,7 @@ addEventListener('focus', checkNewDay);
   setTimeout(() => { checkNewDay(); atMidnight(); }, new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) - n + 1000);
 })();
 
-showView(['campaigns', 'tasks', 'calendar'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
+showView(['campaigns', 'tasks', 'calendar', 'notes'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
 </script>
 </body>
 </html>
