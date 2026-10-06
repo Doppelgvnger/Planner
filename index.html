@@ -4089,8 +4089,9 @@ function navHTML(sel, label, n, c = null) {
 }
 function sideHTML() {
   const open = tkPool().filter(x => !x.t.done), n = sel => open.filter(x => inView(sel, x)).length;
-  // only campaigns with something left to do (and the one being looked at, so it doesn't vanish under the pointer)
-  const camps = tkCampaigns().filter(c => n(c.id) || tkv.sel === c.id);
+  // campaigns with something left to do, plus running ones with nothing yet (so a first task can be added there);
+  // parked and ended ones only while they still have tasks (and the one being looked at, so it doesn't vanish under the pointer)
+  const camps = tkCampaigns().filter(c => n(c.id) || (!c.parked && !isEnded(c)) || tkv.sel === c.id);
   return navHTML('all', 'All tasks', n('all')) + navHTML('urgent', 'Urgent', n('urgent')) + navHTML('week', 'This week', n('week'))
     + (camps.length || tkv.merged ? '<div class="tk-side-label">Campaigns</div>' : '')
     + camps.map(c => navHTML(c.id, esc(c.name), n(c.id), c)).join('')
