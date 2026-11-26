@@ -32,6 +32,7 @@
     --today: #18c2b4;
     --on-today: #063a35;
     --danger: #d64a6a;
+    --dest-dtc: #0c8a80; --dest-sephora: #d6407e; /* the dots a short Timeline bar shows instead of its destination pill */
     --danger-hover: #c23c5c;
     --on-danger: #ffffff;
     --ctl: #c3c7da;
@@ -92,6 +93,7 @@
     --today: #18c2b4;
     --on-today: #052b27;
     --danger: #ff6b88;
+    --dest-dtc: #18c2b4; --dest-sephora: #ff7aa8;
     --danger-hover: #ff859c;
     --on-danger: #3a0a14;
     --ctl: #4a4f63;
@@ -245,9 +247,20 @@
   .bar.cut-left { border-top-left-radius: 0; border-bottom-left-radius: 0; }
   .bar.cut-right { border-top-right-radius: 0; border-bottom-right-radius: 0; }
   /* sticky so the name stays readable when the bar starts off-screen to the left */
-  .bar-text { position: sticky; left: calc(var(--label-w) + 10px); display: flex; align-items: baseline; gap: 8px; }
-  .bar-name { font-weight: 600; font-size: 13px; }
-  .bar-dates { font-size: 12px; opacity: .7; }
+  .bar-text { position: sticky; left: calc(var(--label-w) + 10px); display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  /* a short bar gives up room in steps (fitBars): long pill → "DTC+S" → dots → the name trails off (→ no dots); the dates always stay */
+  .bar-name { font-weight: 600; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .bar-dates { font-size: 12px; opacity: .7; flex: none; }
+  .bar-dest .ds, .bar-dots { display: none; }
+  .bar.fit-short .bar-dest .dl { display: none; }
+  .bar.fit-short .bar-dest .ds { display: inline; }
+  .bar.fit-dots .bar-dest { display: none; }
+  .bar.fit-dots .bar-dots { display: inline-flex; }
+  .bar.fit-bare .bar-dest, .bar.fit-bare .bar-dots { display: none; }
+  .bar-dots { gap: 3px; align-self: center; flex: none; }
+  .bar-dots i { width: 7px; height: 7px; border-radius: 50%; }
+  .bar-dots .d-dtc { background: var(--dest-dtc); }
+  .bar-dots .d-sephora { background: var(--dest-sephora); }
   .ghost {
     z-index: 2; pointer-events: none;
     background: var(--accent-soft); border: 1.5px dashed var(--accent); color: var(--accent);
@@ -285,8 +298,11 @@
   .bar.sub.lift:hover { box-shadow: 0 2px 8px rgba(var(--sh), .25); }
   .bar.sub .bar-name { font-size: 10.5px; }
   .bar.sub .bar-dates { font-size: 10px; }
+  /* the band on the campaign's bottom edge takes the bar's own corners where it meets them */
+  .bar.sub.bl { border-bottom-left-radius: 8px; }
+  .bar.sub.br { border-bottom-right-radius: 8px; }
 
-  .bar-dest { font-size: 10px; font-weight: 600; letter-spacing: .02em; padding: 1px 6px; border-radius: 999px; background: rgba(var(--hi), .65); }
+  .bar-dest { align-self: center; flex: none; font-size: 10px; font-weight: 600; line-height: 14px; letter-spacing: .02em; padding: 1px 6px; border-radius: 999px; background: rgba(var(--hi), .65); }
 
   /* ---------- view bar: destination filter + zoom ---------- */
   .viewbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -2042,23 +2058,24 @@ function render() {
   }
 
   // kind: 'main' campaign bar, 'lg' lead gen (hatched, same line), 'sub' sub-campaign (thinner, under the campaign)
-  const bar = (c, d, top, kind, sub, nSubs = 0) => {
+  const bar = (c, d, top, kind, sub, nSubs = 0, corners = '') => {
     const s = diffDays(vs, fromISO(d.start)), e = diffDays(vs, fromISO(d.end));
     if (e < 0 || s > days - 1) return '';
     const from = Math.max(0, s), to = Math.min(days - 1, e);
     const p = paint(c.color);
     const moved = d !== (kind === 'lg' ? c.leadgen : kind === 'sub' ? sub : c);
-    const cls = `bar${kind === 'main' ? (nSubs ? ' has-subs' : '') : ` ${kind}`} ${p.cls}${moved ? ' moved' : ''}${s < 0 ? ' cut-left' : ''}${e > days - 1 ? ' cut-right' : ''}`;
-    const dates = `${fmt(fromISO(d.start))} – ${fmt(fromISO(d.end))}`;
+    const cls = `bar${kind === 'main' ? (nSubs ? ' has-subs' : '') : ` ${kind}`}${corners} ${p.cls}${moved ? ' moved' : ''}${s < 0 ? ' cut-left' : ''}${e > days - 1 ? ' cut-right' : ''}`;
+    const dates = spanText(d.start, d.end);
     const dest = destNames(c.destinations);
+    const destShort = c.destinations.length > 1 ? DESTS.filter(x => c.destinations.includes(x.id)).map((x, i) => i ? x.name[0] : x.name).join('+') : dest;
     const name = kind === 'lg' ? `Lead gen · ${esc(c.name)}` : kind === 'sub' ? `${esc(c.name)} › ${esc(sub.name)}` : esc(c.name);
     const title = `${name} · ${dest} · ${dates}${moved ? ' · moved for this market' : ''}`;
     const text = kind === 'lg' ? `<span class="bar-name">Lead gen</span><span class="bar-dates">${dates}</span>`
       : kind === 'sub' ? `<span class="bar-name">↳ ${esc(sub.name)}</span><span class="bar-dates">${dates}</span>`
-      : `<span class="bar-name">${esc(c.name)}</span><span class="bar-dest">${dest}</span><span class="bar-dates">${dates}</span>`;
+      : `<span class="bar-name">${esc(c.name)}</span><span class="bar-dest"><span class="dl">${dest}</span><span class="ds">${destShort}</span></span><span class="bar-dots">${c.destinations.map(x => `<i class="d-${x}"></i>`).join('')}</span><span class="bar-dates">${dates}</span>`;
     const data = kind === 'lg' ? ' data-lg="1"' : kind === 'sub' ? ` data-sub="${sub.id}"` : '';
     return `<button class="${cls}" data-id="${c.id}"${data} title="${title}"
-      style="${p.style};left:${from * w + 2}px;width:${Math.max(4, (to - from + 1) * w - 4)}px;top:${top}px${nSubs ? `;height:${28 + nSubs * SUB_H}px` : ""}">
+      style="${p.style};left:${from * w + 2}px;width:${Math.max(4, (to - from + 1) * w - 4)}px;top:${top}px${nSubs ? `;height:${22 + nSubs * SUB_H}px` : ""}">
       <span class="bar-text">${text}</span></button>`;
   };
 
@@ -2075,7 +2092,11 @@ function render() {
       const top = ROW_PAD / 2 + laneTop[lane] + 4;
       if (lg) bars += bar(c, lg, top, 'lg');
       bars += bar(c, d, top, 'main', null, subLanes);
-      subs.forEach(x => { bars += bar(c, x.d, top + 24 + x.lane * SUB_H, 'sub', x.sub); });
+      // (the bar ends exactly under its last line of bands, so a band there sits on its bottom edge)
+      subs.forEach(x => {
+        const low = x.lane === subLanes - 1, corners = (low && x.d.start === d.start ? ' bl' : '') + (low && x.d.end === d.end ? ' br' : '');
+        bars += bar(c, x.d, top + 24 + x.lane * SUB_H, 'sub', x.sub, 0, corners);
+      });
     }
     const height = Math.max(LANE_H, laneH.reduce((a, h) => a + h, 0)) + ROW_PAD;
     rows += `<div class="row">
@@ -2095,8 +2116,32 @@ function render() {
     </div>
     <div class="tl-body"><div class="cols">${cols}</div>${todayLine}${rows}</div>`;
 
+  fitBars();
   renderUpcoming();
   syncTlScrollbar();
+}
+// "Nov 10–17" within one month, "Oct 28 – Nov 4" across two
+function spanText(a, b) {
+  const s = fromISO(a), e = fromISO(b);
+  if (a === b) return fmt(s);
+  return s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear() ? `${fmt(s)}–${e.getDate()}` : `${fmt(s)} – ${fmt(e)}`;
+}
+// a bar whose text doesn't fit steps down until it does (see .fit-* in the CSS); past the last step the name trails off
+function fitBars() {
+  for (const b of tl.querySelectorAll('.bar')) {
+    const text = b.querySelector('.bar-text'), cs = getComputedStyle(b), room = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const need = () => {
+      const kids = [...text.children].filter(k => k.offsetWidth || k.classList.contains('bar-name'));
+      return kids.reduce((n, k) => n + (k.classList.contains('bar-name') ? k.scrollWidth : k.offsetWidth), 0) + parseFloat(getComputedStyle(text).columnGap) * (kids.length - 1);
+    };
+    for (const step of b.querySelector('.bar-dest') ? ['fit-short', 'fit-dots', 'fit-bare'] : []) {
+      if (need() <= room) break;
+      // (bare: not even the name's first letters fit next to the dots, so the dots make way for the dates)
+      if (step === 'fit-bare' && need() - text.querySelector('.bar-name').scrollWidth <= room) break;
+      b.classList.remove('fit-short', 'fit-dots');
+      b.classList.add(step);
+    }
+  }
 }
 
 function renderUpcoming() {
