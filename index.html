@@ -32,7 +32,7 @@
     --today: #18c2b4;
     --on-today: #063a35;
     --danger: #d64a6a;
-    --dest-dtc: #0c8a80; --dest-sephora: #d6407e; /* the dots a short Timeline bar shows instead of its destination pill */
+    --dest-dtc: #4b2a8c; --dest-sephora: #111111; /* the dots a short Timeline bar shows instead of its destination pill */
     --danger-hover: #c23c5c;
     --on-danger: #ffffff;
     --ctl: #c3c7da;
@@ -93,7 +93,7 @@
     --today: #18c2b4;
     --on-today: #052b27;
     --danger: #ff6b88;
-    --dest-dtc: #18c2b4; --dest-sephora: #ff7aa8;
+    --dest-dtc: #8f6ef0; --dest-sephora: #000000;
     --danger-hover: #ff859c;
     --on-danger: #3a0a14;
     --ctl: #4a4f63;
@@ -261,6 +261,7 @@
   .bar-dots i { width: 7px; height: 7px; border-radius: 50%; }
   .bar-dots .d-dtc { background: var(--dest-dtc); }
   .bar-dots .d-sephora { background: var(--dest-sephora); }
+  :root[data-theme="dark"] .bar-dots .d-sephora { box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); } /* black on a dark bar */
   .ghost {
     z-index: 2; pointer-events: none;
     background: var(--accent-soft); border: 1.5px dashed var(--accent); color: var(--accent);
