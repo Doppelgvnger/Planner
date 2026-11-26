@@ -515,6 +515,46 @@
   /* ---------- campaigns board ---------- */
   .view[hidden] { display: none; }
   .board-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+
+  /* ---------- past campaigns: every ended one (parked or not), by year (folding) and quarter of its last day ---------- */
+  /* (the toolbar stays exactly as it is in both modes, so the switch's pill never has to chase a moved button) */
+  .past { display: none; }
+  #view-campaigns.past-mode .past { display: block; }
+  #view-campaigns.past-mode .board-wrap, #view-campaigns.past-mode .hscroll { display: none !important; }
+  .past-search { display: block; margin: 0 0 4px auto; width: 240px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 13px; }
+  .past-search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .py + .py { border-top: 1px solid var(--line); }
+  .py-head {
+    display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 14px 0 12px; border: 0; background: none;
+    color: var(--ink); font-size: 20px; font-weight: 600; text-align: left; cursor: pointer;
+  }
+  .py-chev { display: inline-block; width: 12px; font-size: 11px; color: var(--ink-3); transition: transform .25s var(--ease-spring); }
+  .py-head[aria-expanded="true"] .py-chev { transform: rotate(90deg); }
+  .py-n { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+  .py-body { display: grid; gap: 14px; padding-bottom: 18px; }
+  .py-body[hidden] { display: none; }
+  .pq { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; }
+  .pq-label { padding-top: 10px; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  .pq-label small { display: block; font-weight: 500; }
+  .pq-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+  .past-card {
+    display: grid; gap: 2px; align-content: start; padding: 10px 12px 10px 14px; border: 0; border-radius: 12px; text-align: left; cursor: pointer;
+    background: var(--surface); color: var(--ink); box-shadow: inset 3px 0 0 var(--c-edge), var(--shadow);
+    transition: transform .22s var(--ease-spring); will-change: transform;
+  }
+  .past-card:hover { transform: translateY(-2px); }
+  .pc-name { font-weight: 600; overflow-wrap: anywhere; }
+  .pc-meta { font-size: 12px; color: var(--ink-2); }
+  .pc-tasks { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--ink-3); }
+  .pc-bar { flex: 1; height: 4px; border-radius: 2px; background: var(--well); overflow: hidden; }
+  .pc-bar i { display: block; height: 100%; background: var(--mint-edge); }
+  .pc-tag { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--well); color: var(--ink-3); font-size: 10px; font-weight: 600; vertical-align: 1px; }
+  .past-empty { padding: 24px 0; color: var(--ink-3); }
+  @media (max-width: 720px) {
+    .pq { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+    .pq-label { padding: 0; }
+    .past-search { width: 100%; }
+  }
   .link.subtle { color: var(--ink-3); }
   /* native scrollbar hidden; the board uses the bigger bar pinned to the bottom of the screen (.hscroll) */
   .cboard {
@@ -1284,10 +1324,13 @@
     </div>
     <div class="board-tools">
       <button class="link" id="reset-order" hidden>Reset order</button>
-      <button class="toggle" id="show-ended" aria-pressed="false">Show ended</button>
       <div class="zoom" id="density" role="group" aria-label="Board density">
         <button data-dense="0" aria-pressed="true">Detailed</button>
         <button data-dense="1" aria-pressed="false">Compact</button>
+      </div>
+      <div class="zoom" id="camp-mode" role="group" aria-label="Which campaigns">
+        <button data-mode="current" aria-pressed="true">Current</button>
+        <button data-mode="past" aria-pressed="false">Past</button>
       </div>
       <button class="link subtle" id="open-archive">Archive</button>
       <button class="link subtle" id="open-trash">Trash</button>
@@ -1298,6 +1341,10 @@
     <div class="cboard" id="cboard"></div>
   </div>
   <div class="hscroll" id="hscroll" hidden><div class="hscroll-thumb"></div></div>
+  <div class="past" id="past-view">
+    <input class="past-search" id="past-search" type="search" placeholder="Search past campaigns" autocomplete="off" aria-label="Search past campaigns">
+    <div id="past"></div>
+  </div>
 </section>
 
 <section class="view" id="view-timeline">
@@ -2685,7 +2732,7 @@ function loadOrder() {
 function saveOrder() {
   store(ORDER_STORE, JSON.stringify(colOrder));
 }
-let showEnded = false;
+let campMode = 'current'; // 'current': the board; 'past': ended campaigns by year and quarter
 const DENSE_STORE = 'planner.dense.v1';
 let dense = (() => { try { return localStorage.getItem(DENSE_STORE) === '1'; } catch (e) { return false; } })();
 const cboard = document.getElementById('cboard');
@@ -2848,20 +2895,22 @@ function renderBoard() {
   const ended = campaigns.filter(c => isEnded(c) && isShown(c) && !c.parked)
     .sort((a, b) => timing(b).last.localeCompare(timing(a).last));
   // the rail holds parked campaigns and parked sub-campaigns of the campaigns on the board, oldest first
-  const onBoard = [...active, ...(showEnded ? ended : [])];
+  const onBoard = active;
   const tiles = [
     ...parked.map(c => ({ at: c.parked, html: tileHTML(c) })),
     ...onBoard.flatMap(c => c.subs.filter(s => s.parked).map(s => ({ at: s.parked, html: subTileHTML(c, s) }))),
   ].sort((a, b) => a.at - b.at);
   park.hidden = !tiles.length;
   park.innerHTML = tiles.length ? `<div class="park-label">Parked</div>${tiles.map(x => x.html).join('')}` : '';
-  const cols = [...active.map(c => columnHTML(c, false)), ...(showEnded ? ended.map(c => columnHTML(c, true)) : [])];
+  const cols = active.map(c => columnHTML(c, false));
   cboard.innerHTML = cols.join('') || `<p class="col-empty">${parked.length && !ended.length
     ? 'Every running campaign is parked.'
     : ended.length
-    ? 'No running or upcoming campaigns. Turn on “Show ended” to see past ones.'
+    ? 'No running or upcoming campaigns. Past ones are under “Past”.'
     : 'No campaigns yet. Create one with “+ New campaign”.'}</p>`;
-  document.getElementById('show-ended').textContent = `Show ended (${ended.length})`;
+  const past = campaigns.filter(c => isEnded(c) && isShown(c)).length;
+  document.querySelector('#camp-mode [data-mode="past"]').textContent = past ? `Past (${past})` : 'Past';
+  renderPast();
   document.getElementById('reset-order').hidden = !colOrder.length;
   const archived = lists().reduce((n, c) => n + c.tasks.filter(t => t.archived).length, 0);
   document.getElementById('open-archive').textContent = archived ? `Archive (${archived})` : 'Archive';
@@ -3755,10 +3804,61 @@ cboard.addEventListener('click', e => {
   if (performance.now() - dragEndedAt < 400) { e.stopPropagation(); e.preventDefault(); }
 }, true);
 
-document.getElementById('show-ended').addEventListener('click', e => {
-  showEnded = !showEnded;
-  e.currentTarget.setAttribute('aria-pressed', showEnded);
-  flipBoard(renderBoard); // ended columns fade in at the end / fade out
+// ---------- past campaigns ----------
+const PAST_STORE = 'planner.past.v1';
+const pastEl = document.getElementById('past'), pastView = document.getElementById('past-view');
+// years unfolded by hand; until one is, the newest year with past campaigns is open
+let pastOpen = (() => { try { return new Set(JSON.parse(localStorage.getItem(PAST_STORE)).open); } catch (e) { return null; } })();
+let pastQuery = '';
+const QUARTERS = ['Jan–Mar', 'Apr–Jun', 'Jul–Sep', 'Oct–Dec'];
+function pastCardHTML(c) {
+  const p = paint(c.color), done = c.tasks.filter(t => t.done).length, n = c.tasks.length;
+  const markets = SEGMENTS.filter(s => c.segments.includes(s.id)).map(s => s.code).join(', ');
+  const tasks = n ? `<span class="pc-bar"><i style="width:${Math.round(done / n * 100)}%"></i></span>${done}/${plural(n, 'task')}` : 'No tasks';
+  return `<button class="past-card ${p.cls}" style="${p.style}" data-id="${c.id}">
+    <span class="pc-name">${esc(c.name)}${c.parked ? '<span class="pc-tag">parked</span>' : ''}</span>
+    <span class="pc-meta">${[destNames(c.destinations), markets, spanText(c.start, c.end)].filter(Boolean).join(' · ')}</span>
+    <span class="pc-tasks">${tasks}</span></button>`;
+}
+function renderPast() {
+  const list = campaigns.filter(c => isEnded(c) && isShown(c) && (!pastQuery || c.name.toLowerCase().includes(pastQuery)))
+    .map(c => ({ c, last: timing(c).last })).sort((a, b) => b.last.localeCompare(a.last));
+  if (!list.length) {
+    pastEl.innerHTML = `<p class="past-empty">${pastQuery ? `No past campaigns match “${esc(pastQuery)}”.` : 'No campaigns have ended yet.'}</p>`;
+    return;
+  }
+  const years = [...new Set(list.map(x => x.last.slice(0, 4)))];
+  const open = pastOpen || new Set([years[0]]);
+  pastEl.innerHTML = years.map(y => {
+    const inYear = list.filter(x => x.last.startsWith(y)), shown = !!pastQuery || open.has(y);
+    const quarters = [4, 3, 2, 1].map(q => {
+      const cards = inYear.filter(x => Math.ceil(+x.last.slice(5, 7) / 3) === q);
+      return cards.length ? `<div class="pq"><div class="pq-label">Q${q}<small>${QUARTERS[q - 1]}</small></div><div class="pq-cards">${cards.map(x => pastCardHTML(x.c)).join('')}</div></div>` : '';
+    }).join('');
+    return `<section class="py"><button class="py-head" data-year="${y}" aria-expanded="${shown}"><span class="py-chev">▶</span>${y}<span class="py-n">${plural(inYear.length, 'campaign')}</span></button>
+      <div class="py-body"${shown ? '' : ' hidden'}>${quarters}</div></section>`;
+  }).join('');
+}
+// a year folds open / shut (while searching, every year with a match is open)
+pastEl.addEventListener('click', e => {
+  const head = e.target.closest('.py-head');
+  if (!head || pastQuery) return;
+  const y = head.dataset.year, show = head.getAttribute('aria-expanded') !== 'true';
+  pastOpen = pastOpen || new Set([...pastEl.querySelectorAll('.py-head[aria-expanded="true"]')].map(h => h.dataset.year));
+  pastOpen[show ? 'add' : 'delete'](y);
+  store(PAST_STORE, JSON.stringify({ open: [...pastOpen] }));
+  head.setAttribute('aria-expanded', show);
+  foldTo(head.nextElementSibling, show);
+});
+document.getElementById('past-search').addEventListener('input', e => { pastQuery = e.target.value.trim().toLowerCase(); renderPast(); });
+document.getElementById('camp-mode').addEventListener('click', e => {
+  const b = e.target.closest('[data-mode]');
+  if (!b || b.dataset.mode === campMode) return;
+  campMode = b.dataset.mode;
+  document.querySelectorAll('#camp-mode [data-mode]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.getElementById('view-campaigns').classList.toggle('past-mode', campMode === 'past');
+  if (!reduceMotion) (campMode === 'past' ? pastView : document.querySelector('.board-wrap')).animate([{ opacity: 0, transform: 'translateY(6px)', offset: 0 }], MOTION.enter);
+  if (campMode === 'current') syncScrollbar();
 });
 document.getElementById('reset-order').addEventListener('click', () => { colOrder = []; saveOrder(); flipBoard(renderBoard); });
 
@@ -5178,7 +5278,7 @@ document.querySelector('.tabs').addEventListener('click', e => {
 
 // ---------- wiring ----------
 document.addEventListener('click', e => {
-  const el = e.target.closest('.bar, .up-item, .col-head, .tile, .sub-sec-head');
+  const el = e.target.closest('.bar, .up-item, .col-head, .tile, .sub-sec-head, .past-card');
   if (el) openDialog(el.dataset.id, null, el.closest('.track')?.dataset.seg, !!el.dataset.lg, el.dataset.sub || null);
 });
 document.querySelectorAll('.add-campaign').forEach(b => b.addEventListener('click', () => openDialog(null)));
