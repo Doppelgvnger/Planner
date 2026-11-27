@@ -248,7 +248,8 @@
   .bar.cut-right { border-top-right-radius: 0; border-bottom-right-radius: 0; }
   /* sticky so the name stays readable when the bar starts off-screen to the left */
   .bar-text { position: sticky; left: calc(var(--label-w) + 10px); display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-  /* a short bar gives up room in steps (fitBars): long pill → "DTC+S" → dots → the name trails off (→ no dots); the dates always stay */
+  /* a short bar gives up room in steps (fitBars): long pill → "DTC+S" → dots → the name trails off (→ no dots); the dates stay,
+     except over 6 months, where they go before the name does */
   .bar-name { font-weight: 600; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .bar-dates { font-size: 12px; opacity: .7; flex: none; }
   .bar-dest .ds, .bar-dots { display: none; }
@@ -257,6 +258,7 @@
   .bar.fit-dots .bar-dest { display: none; }
   .bar.fit-dots .bar-dots { display: inline-flex; }
   .bar.fit-bare .bar-dest, .bar.fit-bare .bar-dots { display: none; }
+  .bar.fit-nodate .bar-dates { display: none; } /* 6 months: the name matters more (dates in the tooltip) */
   .bar-dots { gap: 3px; align-self: center; flex: none; }
   .bar-dots i { width: 7px; height: 7px; border-radius: 50%; }
   .bar-dots .d-dtc { background: var(--dest-dtc); }
@@ -2176,17 +2178,20 @@ function spanText(a, b) {
 }
 // a bar whose text doesn't fit steps down until it does (see .fit-* in the CSS); past the last step the name trails off
 function fitBars() {
+  const sixMonths = monthsShown === 6;
   for (const b of tl.querySelectorAll('.bar')) {
     const text = b.querySelector('.bar-text'), cs = getComputedStyle(b), room = b.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const need = () => {
       const kids = [...text.children].filter(k => k.offsetWidth || k.classList.contains('bar-name'));
       return kids.reduce((n, k) => n + (k.classList.contains('bar-name') ? k.scrollWidth : k.offsetWidth), 0) + parseFloat(getComputedStyle(text).columnGap) * (kids.length - 1);
     };
-    for (const step of b.querySelector('.bar-dest') ? ['fit-short', 'fit-dots', 'fit-bare'] : []) {
+    // over 6 months the name wins: after the pill and the dots, the dates go too
+    const steps = [...(b.querySelector('.bar-dest') ? ['fit-short', 'fit-dots', 'fit-bare'] : []), ...(sixMonths ? ['fit-nodate'] : [])];
+    for (const step of steps) {
       if (need() <= room) break;
       // (bare: not even the name's first letters fit next to the dots, so the dots make way for the dates)
-      if (step === 'fit-bare' && need() - text.querySelector('.bar-name').scrollWidth <= room) break;
-      b.classList.remove('fit-short', 'fit-dots');
+      if (step === 'fit-bare' && !sixMonths && need() - text.querySelector('.bar-name').scrollWidth <= room) break;
+      if (step !== 'fit-nodate') b.classList.remove('fit-short', 'fit-dots');
       b.classList.add(step);
     }
   }
