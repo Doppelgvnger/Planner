@@ -4300,7 +4300,10 @@ document.getElementById('open-settings').addEventListener('click', () => { rende
 const saveSetup = () => store(SETUP_STORE, JSON.stringify(setup));
 // country flags for the picker and the "add a market" list (names from the browser); then globes and other symbols
 const flagOf = cc => String.fromCodePoint(...[...cc].map(ch => 0x1f1a5 + ch.charCodeAt(0)));
-const regionName = (() => { try { const dn = new Intl.DisplayNames(['en'], { type: 'region' }); return cc => dn.of(cc); } catch (e) { return cc => cc; } })();
+// country names come from the browser, which uses formal ones ("Hong Kong SAR China", "Congo - Kinshasa"); the
+// everyday name where that's what people say
+const NAME_FIX = { HK: 'Hong Kong', MO: 'Macau', MM: 'Myanmar', CD: 'DR Congo', CG: 'Congo', PS: 'Palestine', CI: 'Ivory Coast', CZ: 'Czechia', TL: 'East Timor', VA: 'Vatican City', FK: 'Falkland Islands' };
+const regionName = (() => { try { const dn = new Intl.DisplayNames(['en'], { type: 'region' }); return cc => NAME_FIX[cc] || dn.of(cc); } catch (e) { return cc => NAME_FIX[cc] || cc; } })();
 // every country and territory the browser knows by name (each has a flag emoji), A to Z by name
 const COUNTRIES = (() => {
   const all = [];
