@@ -413,7 +413,9 @@
   .dlg-head { top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -24px; padding-block: 18px 12px; border-bottom: 1px solid var(--line); }
   .dlg-head #dlg-title { padding-right: 0; }
   .dlg-head .dlg-x { position: static; margin: 0 -8px 0 0; flex: none; }
-  .dlg-foot { bottom: 0; margin-bottom: -24px; padding-block: 14px 18px; border-top: 1px solid var(--line); }
+  .dlg-foot { bottom: 0; display: grid; gap: 12px; margin-bottom: -24px; padding-block: 12px 18px; border-top: 1px solid var(--line); }
+  .foot-row { display: flex; align-items: center; gap: 12px; }
+  .foot-label { font-size: 13px; font-weight: 500; color: var(--ink-2); }
   #dlg { width: min(520px, calc(100vw - 32px)); } /* room for per-market date pairs inside sub-campaign cards */
   .field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
   .field input {
@@ -1802,28 +1804,29 @@
       <div class="fs-head"><span>Sub-campaigns</span><button type="button" class="link" id="sub-add">+ Add sub-campaign</button></div>
       <div class="sub-list" id="sub-list"></div>
     </div>
-    <fieldset>
-      <legend>Color</legend>
-      <div class="swatches" id="swatches"></div>
-      <div class="cw" id="cw" hidden>
-        <div class="cw-wheel" id="cw-wheel"><canvas id="cw-canvas"></canvas><div class="cw-marker" id="cw-marker"></div></div>
-        <div class="cw-side">
-          <label class="field">Brightness <input type="range" id="cw-v" min="0" max="100"></label>
-          <label class="field">Hex <input class="cw-hex" id="cw-hex" maxlength="7" spellcheck="false" autocomplete="off"></label>
-          <div class="cw-preview" id="cw-preview">Campaign</div>
-          <div class="cw-actions">
-            <button type="button" class="btn" id="cw-cancel">Cancel</button>
-            <button type="button" class="btn primary" id="cw-ok">Add color</button>
+    <p class="err" id="err"></p>
+    <div class="dlg-foot">
+      <fieldset class="foot-color" aria-label="Color">
+        <div class="foot-row"><span class="foot-label">Color</span><div class="swatches" id="swatches"></div></div>
+        <div class="cw" id="cw" hidden>
+          <div class="cw-wheel" id="cw-wheel"><canvas id="cw-canvas"></canvas><div class="cw-marker" id="cw-marker"></div></div>
+          <div class="cw-side">
+            <label class="field">Brightness <input type="range" id="cw-v" min="0" max="100"></label>
+            <label class="field">Hex <input class="cw-hex" id="cw-hex" maxlength="7" spellcheck="false" autocomplete="off"></label>
+            <div class="cw-preview" id="cw-preview">Campaign</div>
+            <div class="cw-actions">
+              <button type="button" class="btn" id="cw-cancel">Cancel</button>
+              <button type="button" class="btn primary" id="cw-ok">Add color</button>
+            </div>
           </div>
         </div>
+      </fieldset>
+      <div class="actions">
+        <button type="button" class="btn danger" id="del">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancel">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
       </div>
-    </fieldset>
-    <p class="err" id="err"></p>
-    <div class="actions dlg-foot">
-      <button type="button" class="btn danger" id="del">Delete</button>
-      <span class="spacer"></span>
-      <button type="button" class="btn" id="cancel">Cancel</button>
-      <button type="submit" class="btn primary">Save</button>
     </div>
   </form>
 </dialog>
