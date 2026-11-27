@@ -1154,11 +1154,16 @@
   .tk-tag { font-size: 10px; font-weight: 600; color: var(--ink-3); background: var(--line-soft); border-radius: 5px; padding: 0 5px; }
   .tk-side-label { margin: 10px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 
-  .tk-col { min-width: 0; display: grid; gap: 10px; align-content: start; }
+  .tk-col { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; }
   .tk-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 30px; }
   .tk-head h2 { margin: 0; min-width: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tk-head .zoom button { padding: 3px 10px; font-size: 12px; }
   .tk-head .zoom[hidden] { display: none; }
+  .tk-addbar .tk-create { flex: none; padding: 4px 11px; font-size: 12px; }
+  .tk-row.placeholder { background: var(--accent-soft); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
+  .tk-row.placeholder > * { visibility: hidden; }
+  .tk-ghost { position: fixed; z-index: 1000; margin: 0; pointer-events: none; background: var(--surface); border-radius: 10px; transition: transform .18s ease-out, box-shadow .18s ease-out; }
+  .tk-ghost.lifted { transform: rotate(1deg) scale(1.02); box-shadow: 0 16px 36px rgba(var(--sh), .22); }
   .tk-addbar { display: flex; align-items: center; gap: 6px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 2px 4px 2px 10px; }
   .tk-addbar:focus-within { border-style: solid; border-color: var(--accent); }
   .tk-add { flex: 1; min-width: 0; border: 0; background: none; padding: 6px 0; font-size: 13.5px; }
@@ -1578,6 +1583,7 @@
         <div class="tk-addbar">
           <input class="tk-add" id="tk-add" placeholder="+ Add a task" autocomplete="off">
           <select class="tk-addto" id="tk-addto" aria-label="Add to campaign" hidden></select>
+          <button type="button" class="btn tk-create" id="tk-create" title="Add a task with a due date, description, subtasks…">Create task</button>
         </div>
         <div class="tk-list" id="tk-list"></div>
       </div>
@@ -1820,7 +1826,7 @@
         </div>
       </div>
       <div class="chips onb-chips" id="onb-dests"></div>
-      <div class="onb-own"><input id="onb-own" placeholder="Your own, e.g. Ulta" maxlength="30" autocomplete="off" aria-label="Your own"><button type="button" class="btn" id="onb-own-add">Add</button></div>
+      <div class="onb-own"><input id="onb-own" placeholder="Your own, e.g. Nordstrom" maxlength="30" autocomplete="off" aria-label="Your own"><button type="button" class="btn" id="onb-own-add">Add</button></div>
       <span class="onb-hint" id="onb-dest-hint"></span>
       <div class="onb-why"><div class="onb-demo" id="onb-demo"></div><span>Every campaign shows where it goes live, and the filter at the top of each tab can show just one of them.</span></div>
     </section>
@@ -3018,6 +3024,12 @@ function orderedTasks(c, sec = null) {
   const live = c.tasks.filter(t => !t.archived && (sec === null || secOf(c, t) === sec));
   return { open: live.filter(t => !t.done), done: live.filter(t => t.done).sort((a, b) => a.doneAt - b.doneAt) };
 }
+// a task added on the Tasks tab: on top of its section's open tasks
+function placeTop(c, t) {
+  const rest = c.tasks.filter(x => x !== t), first = rest.find(x => !x.done && !x.archived && secOf(c, x) === secOf(c, t));
+  rest.splice(first ? rest.indexOf(first) : rest.length, 0, t);
+  c.tasks = rest;
+}
 // put a task where it belongs: urgent on top, otherwise by due date (no date = last). Dragging can override it later.
 function placeTask(c, t) {
   // only tasks of the same section (campaign or one sub-campaign) decide where it goes
@@ -3295,7 +3307,7 @@ function settle(el, dx, dy) {
 // place (quick: a short glide, while dragging), and columns, sub-campaign headers and separators move with them
 const withFlip = (update, quick = false) => flipBoard(update, () => null, null, { tasks: quick ? 'quick' : 'settle' });
 // after a task change: the board redraws, or the calendar (its tasks glide) when the task dialog was opened there
-const commit = () => { save(); if (currentView === 'calendar') calFlip(renderCalendar); else renderBoard(); };
+const commit = () => { save(); if (currentView === 'calendar') calFlip(renderCalendar); else if (currentView === 'tasks') tkFlip(renderTasks); else renderBoard(); };
 
 cboard.addEventListener('change', e => {
   if (!e.target.matches('.t-check')) return;
@@ -3643,8 +3655,10 @@ function richField(el, onChange, { fixedBar = false } = {}) {
   };
 }
 
-function openTask(cid, tid, sub = '') {
+let tdTop = false; // a new task from the Tasks tab goes on top of its list
+function openTask(cid, tid, sub = '', top = false) {
   const c = listById(cid);
+  tdTop = top;
   tdTask = tid ? c.tasks.find(t => t.id === tid) : null;
   tdDraft = tdTask
     ? { ...tdTask, segments: [...tdTask.segments], subtasks: tdTask.subtasks.map(s => ({ ...s })) }
@@ -3746,7 +3760,7 @@ tdForm.addEventListener('submit', e => {
     if (!t.sub) delete t.sub;
     if (src && src !== dst) src.tasks = src.tasks.filter(x => x !== t);
     // re-place only when something that decides the position changed, so a dragged order survives edits
-    if (!tdTask || src !== dst || prev.sub !== (t.sub || '') || prev.due !== t.due || prev.urgent !== t.urgent || (prev.done && !t.done)) placeTask(dst, t);
+    if (!tdTask || src !== dst || prev.sub !== (t.sub || '') || prev.due !== t.due || prev.urgent !== t.urgent || (prev.done && !t.done)) (!tdTask && tdTop ? placeTop : placeTask)(dst, t);
     commit();
   });
 });
@@ -4615,7 +4629,7 @@ function onbDests() {
   }).join('');
   // a live sample of what the choice looks like on a campaign
   const ds = onb.dests.length ? onb.dests : [{ name: 'DTC', color: DEST_COLORS[0] }];
-  onbEl('demo').innerHTML = `<span class="bar c-rose" style="top:0;width:230px"><span class="bar-text"><span class="bar-name">Spring Launch</span><span class="bar-dest">${esc(ds.map(d => d.name).join(' + '))}</span></span></span>
+  onbEl('demo').innerHTML = `<span class="bar c-rose" style="top:0;width:230px"><span class="bar-text"><span class="bar-name">Spring Launch</span><span class="bar-dest">${esc(ds.length > 2 ? ds.map((d, i) => (i ? d.name[0] : d.name)).join('+') : ds.map(d => d.name).join(' + '))}</span></span></span>
     <span class="bar c-mint" style="top:34px;width:120px"><span class="bar-text"><span class="bar-name">Flash</span><span class="bar-dots" style="display:inline-flex">${ds.map(d => `<i style="--dot:${d.color}"></i>`).join('')}</span></span></span>`;
   document.querySelectorAll('#onb-word [data-word]').forEach(b => b.setAttribute('aria-pressed', b.dataset.word === onb.word));
 }
@@ -4909,7 +4923,7 @@ function mainListHTML() {
       return (sec ? `<div class="tk-sub-head" data-fk="s:${sec}">↳ ${esc(one.subs.find(s => s.id === sec).name)}</div>` : '') + rows.join('');
     }).join('');
   } else if (tkv.sort === 'campaign') {
-    html = [...tkCampaigns(), general].map(c => ({ c, xs: open.filter(x => x.c === c).sort(byDue) })).filter(g => g.xs.length)
+    html = [...tkCampaigns(), general].map(c => ({ c, xs: open.filter(x => x.c === c).sort((a, b) => c.tasks.indexOf(a.t) - c.tasks.indexOf(b.t)) })).filter(g => g.xs.length)
       .map(({ c, xs }) => {
         const p = paint(c.color);
         return `<div class="tk-group ${p.cls}" style="${p.style}" data-fk="g:${c.id}"><span class="dot"></span>${esc(c.name)}<span class="tk-n">${xs.length}</span></div>`
@@ -4920,7 +4934,7 @@ function mainListHTML() {
 }
 function genListHTML() {
   const items = general.tasks.filter(t => !t.archived).map(t => ({ t, c: general })).filter(matches);
-  const open = items.filter(x => !x.t.done).sort(byDue), done = items.filter(x => x.t.done).sort((a, b) => a.t.doneAt - b.t.doneAt);
+  const open = items.filter(x => !x.t.done), done = items.filter(x => x.t.done).sort((a, b) => a.t.doneAt - b.t.doneAt); // (General's own order)
   return (open.map(x => rowHTML(x)).join('') || emptyHTML(done.length ? 'All done here.' : 'Tasks that belong to no campaign go here.'))
     + doneHTML('R', done, () => '');
 }
@@ -5123,7 +5137,7 @@ function quickAdd(input, dst) {
   const main = input === tkAdd;
   const t = normTask({ text, urgent: main && tkv.sel === 'urgent', due: main && tkv.sel === 'week' ? toISO(today) : '' });
   input.value = '';
-  tkFlip(() => { placeTask(dst, t); tkCommit(); });
+  tkFlip(() => { placeTop(dst, t); tkCommit(); });
 }
 tkAdd.addEventListener('keydown', e => {
   if (e.key !== 'Enter' || e.isComposing) return;
@@ -5136,6 +5150,76 @@ $tk('tk-gen-add').addEventListener('keydown', e => {
   quickAdd(e.target, general);
 });
 tkAddTo.addEventListener('change', () => { tkv.addTo = tkAddTo.value; saveTkv(); });
+$tk('tk-create').addEventListener('click', () => openTask(!isMulti() ? tkv.sel : tkv.merged || !tkAddTo.value ? 'general' : tkAddTo.value, null, '', true));
+
+// drag a task up / down among its neighbours (same campaign, same section) to reorder; the order is the campaign's own,
+// shared with the Campaigns tab. Not while searching or sorted by due date (that order isn't the user's).
+let tkDrag = null;
+const tkGroupOf = row => { const t = taskByTid(row.dataset.tid), c = t && campaignOfTask(t); return c ? `${c.id}|${secOf(c, t)}` : ''; };
+tkWrap.addEventListener('pointerdown', e => {
+  const row = e.target.closest('.tk-row');
+  if (!row || e.button !== 0 || row.classList.contains('done') || e.target.closest('.t-check, input, button') || tkQuery || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  const list = row.parentElement;
+  if (list.id === 'tk-list' && isMulti() && tkv.sort !== 'campaign') return;
+  tkDrag = { row, list, group: tkGroupOf(row), x0: e.clientX, y0: e.clientY, started: false };
+});
+window.addEventListener('pointermove', e => {
+  if (!tkDrag) return;
+  const d = tkDrag;
+  if (!d.started) {
+    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 6) return;
+    const r = d.row.getBoundingClientRect();
+    d.ghost = d.row.cloneNode(true);
+    d.ghost.classList.add('tk-ghost');
+    Object.assign(d.ghost.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
+    document.body.appendChild(d.ghost);
+    requestAnimationFrame(() => d.ghost.classList.add('lifted'));
+    d.row.classList.add('placeholder');
+    getSelection()?.removeAllRanges();
+    document.body.style.userSelect = 'none';
+    Object.assign(d, { started: true, dy: e.clientY - r.top, dx: e.clientX - r.left });
+  }
+  e.preventDefault();
+  d.ghost.style.left = `${e.clientX - d.dx}px`;
+  d.ghost.style.top = `${e.clientY - d.dy}px`;
+  // only its own group's rows make room; it can't leave the group
+  const sibs = [...d.list.querySelectorAll('.tk-row:not(.done):not(.placeholder)')].filter(el => tkGroupOf(el) === d.group);
+  if (!sibs.length) return;
+  const before = sibs.find(el => { const r = el.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; });
+  const target = before || sibs[sibs.length - 1].nextElementSibling;
+  if (target === d.row || d.row.nextElementSibling === target) return;
+  const rects = new Map(sibs.map(el => [el, el.getBoundingClientRect().top]));
+  d.list.insertBefore(d.row, target);
+  if (!reduceMotion) for (const el of sibs) {
+    const dy = Math.round(rects.get(el) - el.getBoundingClientRect().top);
+    if (dy) el.animate(pixelPath(0, dy, 180), 180);
+  }
+});
+function endTaskDrag() {
+  if (!tkDrag) return;
+  const d = tkDrag;
+  tkDrag = null;
+  if (!d.started) return;
+  dragEndedAt = performance.now();
+  document.body.style.userSelect = '';
+  const finish = () => {
+    d.ghost.remove();
+    // the group's tasks take their new order in the slots they held in the campaign's list
+    const c = campaignOfTask(taskByTid(d.row.dataset.tid));
+    const order = [...d.list.querySelectorAll('.tk-row')].filter(el => tkGroupOf(el) === d.group && !el.classList.contains('done')).map(el => taskByTid(el.dataset.tid));
+    const slots = order.map(t => c.tasks.indexOf(t)).sort((a, b) => a - b);
+    slots.forEach((at, i) => { c.tasks[at] = order[i]; });
+    save();
+    renderTasks();
+  };
+  if (reduceMotion) return finish();
+  const to = d.row.getBoundingClientRect();
+  d.ghost.classList.remove('lifted');
+  d.ghost.animate([{ left: d.ghost.style.left, top: d.ghost.style.top }, { left: `${Math.round(to.left)}px`, top: `${Math.round(to.top)}px` }], { duration: 260, easing: SPRING, fill: 'forwards' })
+    .finished.then(finish);
+}
+window.addEventListener('pointerup', endTaskDrag);
+window.addEventListener('pointercancel', endTaskDrag);
 
 // ---------- the editor: changes land right away ----------
 let saveTimer = null;
