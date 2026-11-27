@@ -875,13 +875,15 @@
   .set-quick button:hover { border-color: var(--accent); color: var(--accent); }
   /* the emoji / colour picker, under the button that opened it */
   .set-pop {
-    position: absolute; z-index: 6; display: grid; grid-template-columns: repeat(10, 32px); gap: 2px; max-height: 240px; overflow-y: auto;
+    position: absolute; z-index: 6; display: grid; grid-template-columns: repeat(10, 32px); grid-auto-rows: max-content; align-content: start; gap: 2px; height: 280px; overflow-y: auto;
     padding: 8px; border-radius: 12px; background: var(--surface); box-shadow: 0 12px 32px rgba(var(--sh), .22); border: 1px solid var(--line);
   }
   .set-pop[hidden] { display: none; }
+  .set-pop .set-find { grid-column: 1 / -1; position: sticky; top: -8px; z-index: 1; margin: -8px -8px 6px; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line); border-radius: 12px 12px 0 0; background: var(--surface); color: var(--ink); font-size: 13px; outline: none; }
+  .set-pop button[hidden] { display: none; }
   .set-pop button { width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; cursor: pointer; font-size: 19px; padding: 0; }
   .set-pop button:hover { background: var(--line-soft); }
-  .set-pop.colors { grid-template-columns: repeat(8, 32px); }
+  .set-pop.colors { grid-template-columns: repeat(8, 32px); height: auto; }
   .set-pop.colors i { display: block; width: 18px; height: 18px; margin: auto; border-radius: 50%; background: var(--dot); }
   .pet-btn[hidden] { display: none; }
   .bk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -4297,10 +4299,29 @@ document.getElementById('open-settings').addEventListener('click', () => { rende
 // ---------- setup: the user's markets, destinations (and what to call them), Mochi on / off ----------
 const saveSetup = () => store(SETUP_STORE, JSON.stringify(setup));
 // country flags for the picker and the "add a market" list (names from the browser); then globes and other symbols
-const COUNTRIES = 'US CA GB IE FR DE IT ES PT NL BE LU CH AT SE NO DK FI IS PL CZ SK HU RO BG GR HR SI RS UA TR IL AE SA QA KW EG MA ZA NG KE IN PK CN JP KR TW HK SG MY TH VN PH ID AU NZ MX BR AR CL CO PE UY EC CR PA DO PR'.split(' ');
 const flagOf = cc => String.fromCodePoint(...[...cc].map(ch => 0x1f1a5 + ch.charCodeAt(0)));
 const regionName = (() => { try { const dn = new Intl.DisplayNames(['en'], { type: 'region' }); return cc => dn.of(cc); } catch (e) { return cc => cc; } })();
-const ICONS = ['🌍', '🌎', '🌏', '🌐', '🗺️', '🇪🇺', '🇺🇳', ...COUNTRIES.map(flagOf), '🏴', '🏳️', '🏬', '🏪', '🛒', '📦', '🏢', '🚚', '✈️', '💻', '📱', '⭐', '💄', '🌸', '🌴', '❄️'];
+// every country and territory the browser knows by name (each has a flag emoji), A to Z by name
+const COUNTRIES = (() => {
+  const all = [];
+  for (let a = 65; a <= 90; a++) for (let b = 65; b <= 90; b++) {
+    const cc = String.fromCharCode(a, b), n = regionName(cc);
+    // (skip codes with no name, the pseudo / "outlying" groupings, and EU / UN, which sit with the symbols)
+    // (skip old codes of countries that no longer exist, which have no flag emoji; Kosovo is the one X code with a flag)
+    if ((n && n !== cc && !/^[QX]|^(EU|UN|EZ|ZZ|DY|HV|BU|ZR|AN|FX|DD|SU|CS|YU|TP|UK|NH|VD|YD|RH|CQ)$/.test(cc) && !/unknown|pseudo|outlying/i.test(n)) || cc === 'XK') all.push(cc);
+  }
+  return all.sort((x, y) => regionName(x).localeCompare(regionName(y)));
+})();
+// the icon picker: symbols first, then every flag; `n` is what the search looks through
+const ICONS = [
+  ['🌍', 'globe world global europe africa'], ['🌎', 'globe world global americas'], ['🌏', 'globe world global asia australia'],
+  ['🌐', 'globe world global internet web'], ['🗺️', 'map world'], ['🇪🇺', 'european union eu europe flag'], ['🇺🇳', 'united nations un flag'],
+  ['🏬', 'store shop department mall retail'], ['🏪', 'store shop convenience retail'], ['🛒', 'cart shopping ecommerce'], ['📦', 'box package shipping'],
+  ['🏢', 'office building company'], ['🚚', 'truck delivery shipping'], ['✈️', 'plane travel airport duty free'], ['💻', 'laptop online web'],
+  ['📱', 'phone mobile app'], ['⭐', 'star'], ['💄', 'beauty makeup lipstick'], ['🌸', 'flower spring'], ['🌴', 'palm tropical'], ['❄️', 'snow winter'],
+  ['🏴', 'black flag'], ['🏳️', 'white flag'],
+  ...COUNTRIES.map(cc => [flagOf(cc), `${regionName(cc)} ${cc} flag`]),
+].map(([v, n]) => ({ v, n: n.toLowerCase() }));
 const DEST_COLORS = ['#4b2a8c', '#111111', '#0c8a80', '#2c6fc2', '#d6407e', '#e0802a', '#e0b12a', '#3fb883', '#8b85f0', '#9aa0bb'];
 const DEST_PRESETS = ['DTC', 'Amazon', 'Sephora', 'Pharmacy'];
 const setPop = document.getElementById('set-pop');
@@ -4423,12 +4444,14 @@ setDlg.addEventListener('click', async e => {
     if (!setPop.hidden && setPop.target?.id === row.dataset.key) { setPop.hidden = true; return; }
     setPop.target = { kind, id: row.dataset.key };
     setPop.className = `set-pop${kind === 'dest' ? ' colors' : ''}`;
-    setPop.innerHTML = kind === 'seg' ? ICONS.map(v => `<button type="button" class="flag" data-v="${v}">${v}</button>`).join('')
+    setPop.innerHTML = kind === 'seg' ? '<input class="set-find" type="search" placeholder="Search: Japan, globe, store…" aria-label="Search icons" autocomplete="off">'
+      + ICONS.map(x => `<button type="button" class="flag" data-v="${x.v}" data-n="${esc(x.n)}" title="${esc(x.n.replace(/ [a-z]{2} flag$/, '').replace(/^./, c => c.toUpperCase()))}">${x.v}</button>`).join('')
       : DEST_COLORS.map(v => `<button type="button" data-v="${v}" title="${v}"><i style="--dot:${v}"></i></button>`).join('');
     const wrap = setDlg.querySelector('.ar-wrap').getBoundingClientRect(), r = pick.getBoundingClientRect();
     Object.assign(setPop.style, { left: `${r.left - wrap.left}px`, top: `${r.bottom - wrap.top + 6}px` });
     setPop.hidden = false;
     setPop.animate([{ opacity: 0, transform: 'translateY(-4px)', offset: 0 }], MOTION.enter);
+    setPop.querySelector('.set-find')?.focus({ preventScroll: true });
     return;
   }
   if (!e.target.closest('#set-pop')) setPop.hidden = true;
@@ -4443,6 +4466,16 @@ document.getElementById('set-seg-add').addEventListener('change', e => {
   if (v === '*custom') document.querySelector(`#set-segs [data-key="${x.id}"] .set-code`).select();
   saveSetup();
   applySetup(true);
+});
+// the icon search: every word typed has to appear in the name (a country's name or its two-letter code)
+setPop.addEventListener('input', e => {
+  if (!e.target.matches('.set-find')) return;
+  const words = e.target.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  for (const b of setPop.querySelectorAll('[data-n]')) b.hidden = !words.every(w => b.dataset.n.split(' ').some(part => part.startsWith(w)));
+});
+setPop.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('.set-find')) { e.preventDefault(); setPop.querySelector('[data-n]:not([hidden])')?.click(); }
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setPop.hidden = true; }
 });
 document.getElementById('set-pet').addEventListener('change', e => { setup.pet = e.target.checked; saveSetup(); applySetup(true); });
 document.getElementById('set-close').addEventListener('click', () => shut(document.getElementById('settings-dlg')));
