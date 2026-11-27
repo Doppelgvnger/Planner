@@ -2265,12 +2265,20 @@ function morphTimeline(update) {
   for (const b of tl.querySelectorAll('.bar')) {
     const key = barKey(b), o = bars.get(key), n = box(b);
     kept.add(key);
-    if (!o) { b.animate([{ opacity: 0, transform: 'scale(.97)', offset: 0 }], MOTION.enter); continue; } // (offset 0: a lone keyframe would be the end)
-    const dx = o.left + shift - n.left, dy = o.top - n.top;
+    if (!o) { b.animate([{ opacity: 0, offset: 0 }], MOTION.enter); continue; } // (offset 0: a lone keyframe would be the end)
+    const dx = o.left + shift - n.left, dy = o.top - n.top, resize = o.width !== n.width || o.height !== n.height;
+    if (!dx && !dy && !resize) continue;
+    // the text is sticky (it stays readable when the bar starts off-screen), and a sticky element is drawn on a layer
+    // of its own that the browser places separately from the moving bar: mid-move it shivered and its letters looked
+    // bolder. So while the bar moves, the text is pinned where the sticky offset puts it now, then handed back.
+    const text = b.querySelector('.bar-text'), stuck = text.getBoundingClientRect().left - b.getBoundingClientRect().left - parseFloat(getComputedStyle(b).paddingLeft);
+    Object.assign(text.style, { position: 'relative', left: `${Math.max(0, Math.round(stuck))}px` });
     // the move is a transform (the bar is on its own layer, so its text glides with it instead of snapping to whole
     // pixels every frame); only a real change of size is animated as a size
-    if (dx || dy) b.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], MOTION.move);
-    if (o.width !== n.width || o.height !== n.height) b.animate([{ width: `${o.width}px`, height: `${o.height}px` }, { width: `${n.width}px`, height: `${n.height}px` }], MOTION.move);
+    const runs = [];
+    if (dx || dy) runs.push(b.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], MOTION.move));
+    if (resize) runs.push(b.animate([{ width: `${o.width}px`, height: `${o.height}px` }, { width: `${n.width}px`, height: `${n.height}px` }], MOTION.move));
+    Promise.all(runs.map(a => a.finished)).finally(() => { text.style.position = text.style.left = ''; });
   }
   // bars that are gone (filtered out, deleted): a stand-in fades out where it was
   for (const [key, o] of bars) {
@@ -2282,7 +2290,7 @@ function morphTimeline(update) {
     ghost.classList.add('gone');
     Object.assign(ghost.style, { left: `${o.left + shift}px`, top: `${o.top}px`, pointerEvents: 'none' });
     track.appendChild(ghost);
-    ghost.animate([{ opacity: 1 }, { opacity: 0, transform: 'scale(.97)' }], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => ghost.remove());
+    ghost.animate([{ opacity: 1 }, { opacity: 0 }], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => ghost.remove());
   }
 }
 // slide: another stretch of time comes in from the side it lies on (dir 1 = later, from the right; -1 = earlier).
