@@ -233,7 +233,9 @@
     border: 0; cursor: pointer; z-index: 2;
     background: var(--c-bg); color: var(--c-ink);
     box-shadow: 0 1px 2px rgba(var(--sh), .06);
-    transition: transform .22s var(--ease-spring), box-shadow .22s;
+    /* the lift goes in whole pixels (0, -1, -2, -3): between pixels the browser resamples the text, which reads as
+       letters going soft and bold for the length of the hover */
+    transition: transform .2s steps(4, jump-none), box-shadow .22s;
     /* always on its own layer: otherwise the browser moves it to one only while it animates, which redraws the
        coloured edge thinner for the duration and snaps it back at the end */
     will-change: transform;
@@ -2247,6 +2249,31 @@ function scrollToToday() {
 // ---------- timeline motion ----------
 // morph: bars that are still there glide to their new place and size (zoom, edits, filter), new bars fade in,
 // rows grow / shrink smoothly. Positions are compensated for a scroll jump made by the update.
+// cubic-bezier(a, b, c, d) from the CSS motion variables as a JS easing function (progress 0..1 → 0..1)
+function bezierEase(css) {
+  const [x1, y1, x2, y2] = css.match(/-?[\d.]+/g).map(Number);
+  const at = (t, a, b) => ((1 - 3 * b + 3 * a) * t + (3 * b - 6 * a)) * t * t + 3 * a * t;
+  return x => {
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const dx = at(t, x1, x2) - x, d = (3 * (1 - 3 * x2 + 3 * x1) * t + 2 * (3 * x2 - 6 * x1)) * t + 3 * x1;
+      if (Math.abs(dx) < 1e-5 || !d) break;
+      t -= dx / d;
+    }
+    return at(Math.min(1, Math.max(0, t)), y1, y2);
+  };
+}
+// a move from (dx, dy) back to its place in whole pixels: the glide curve sampled every frame and rounded, each value
+// held until the next. A layer drawn between pixels has its text resampled (soft, bolder letters that sharpen again
+// when it lands); in whole pixels the text stays crisp and steps together with the bar's edges.
+function pixelPath(dx, dy, duration) {
+  const ease = pixelPath.ease || (pixelPath.ease = bezierEase(MOTION.glide)), n = Math.max(2, Math.round(duration / 16)), frames = [];
+  for (let i = 0; i <= n; i++) {
+    const q = 1 - ease(i / n);
+    frames.push({ transform: `translate(${Math.round(dx * q)}px, ${Math.round(dy * q)}px)`, offset: i / n, easing: 'steps(1, end)' });
+  }
+  return frames;
+}
 const barKey = b => `${b.closest('.track').dataset.seg}|${b.dataset.id}|${b.dataset.lg ? 'lg' : b.dataset.sub || 'main'}`;
 function morphTimeline(update) {
   if (reduceMotion || document.getElementById('view-timeline').hidden) return update();
@@ -2276,7 +2303,7 @@ function morphTimeline(update) {
     // the move is a transform (the bar is on its own layer, so its text glides with it instead of snapping to whole
     // pixels every frame); only a real change of size is animated as a size
     const runs = [];
-    if (dx || dy) runs.push(b.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], MOTION.move));
+    if (dx || dy) runs.push(b.animate(pixelPath(dx, dy, MOTION.move.duration), MOTION.move.duration));
     if (resize) runs.push(b.animate([{ width: `${o.width}px`, height: `${o.height}px` }, { width: `${n.width}px`, height: `${n.height}px` }], MOTION.move));
     Promise.all(runs.map(a => a.finished)).finally(() => { text.style.position = text.style.left = ''; });
   }
