@@ -808,6 +808,17 @@
   .rt-pal { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
   .rt-sw { width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--line-strong); cursor: pointer; }
   .rt-sw.none { background: var(--surface) linear-gradient(135deg, transparent 45%, var(--danger) 45% 55%, transparent 55%); }
+  .rt-sw.add { display: grid; place-items: center; border-style: dashed; background: none; color: var(--ink-3); font-size: 15px; line-height: 1; }
+  .rt-cw { position: relative; flex-basis: 100%; display: flex; gap: 14px; align-items: center; padding: 4px 0 2px; }
+  .rt-cw[hidden] { display: none; }
+  .rt-cw-wheel { width: 120px; height: 120px; flex: none; border-radius: 50%; cursor: crosshair; touch-action: none; }
+  .rt-cw-mark { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); pointer-events: none; transform: translateY(4px); }
+  .rt-cw-side { flex: 1; min-width: 0; display: grid; gap: 10px; }
+  .rt-cw-v { position: relative; height: 12px; border-radius: 6px; cursor: pointer; touch-action: none; }
+  .rt-cw-v i { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); pointer-events: none; }
+  .rt-cw-pv { font-weight: 600; font-size: 14px; }
+  .rt-cw-pv span { padding: 0 2px; border-radius: 3px; }
+  .rt-cw-ok { justify-self: start; padding: 5px 14px; font-size: 13px; }
   .subs { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
   .subtask { display: grid; grid-template-columns: 16px 1fr 22px; gap: 10px; align-items: center; padding: 3px 4px; border-radius: 8px; }
   .subtask:hover { background: var(--bg); }
@@ -2639,15 +2650,16 @@ function hexToHsv(hex) {
   return { h: (h + 360) % 360, s: v ? d / v : 0, v };
 }
 
-function drawWheel() {
-  const n = Math.round(CW_SIZE * (window.devicePixelRatio || 1)), R = n / 2;
-  cwCanvas.width = cwCanvas.height = n;
-  const ctx = cwCanvas.getContext('2d'), img = ctx.createImageData(n, n);
+const drawWheel = () => paintWheel(cwCanvas, CW_SIZE, hsv.v);
+function paintWheel(canvas, size, v) {
+  const n = Math.round(size * (window.devicePixelRatio || 1)), R = n / 2;
+  canvas.width = canvas.height = n;
+  const ctx = canvas.getContext('2d'), img = ctx.createImageData(n, n);
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
     const dx = x + .5 - R, dy = y + .5 - R, dist = Math.hypot(dx, dy);
     const alpha = Math.min(1, R - dist); // 1px soft edge
     if (alpha <= 0) continue;
-    const [r, g, b] = hsvToRgb((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360, dist / R, hsv.v);
+    const [r, g, b] = hsvToRgb((Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360, dist / R, v);
     const i = (y * n + x) * 4;
     img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = alpha * 255;
   }
@@ -3490,11 +3502,21 @@ const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)\]'"]/g, u =>
 
 // ---------- rich descriptions: bold, italic, underline, strikethrough, text colour, highlighter ----------
 // Stored as small, cleaned HTML (t.desc with t.rich = true); older plain-text descriptions are shown as text.
-// Colours are class names (tc-* / hl-*), so they follow the light / dark theme.
+// Colours are class names (tc-* / hl-*), so they follow the light / dark theme; a colour picked on the wheel is an
+// inline hex (span color / mark background-color) and stays the same in both themes.
 const TEXT_COLORS = ['red', 'orange', 'green', 'teal', 'blue', 'purple'];
 const HIGHLIGHTS = ['yellow', 'green', 'pink', 'blue'];
 // the browser's colour commands write inline colours; these stand-in values are turned into classes right after
 const stand = (kind, i) => `rgb(${kind === 'tc' ? 1 : 2}, 1, ${i + 1})`; // i = -1… for "no colour": rgb(x, 1, 99)
+// a CSS colour value (#hex or rgb()) as #rrggbb, or null
+function cssHex(v) {
+  if (!v) return null;
+  let m = /^#([0-9a-f]{6})$/i.exec(v.trim());
+  if (m) return `#${m[1].toLowerCase()}`;
+  m = /^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/.exec(v.trim());
+  return m ? '#' + m.slice(1).map(x => Number(x).toString(16).padStart(2, '0')).join('') : null;
+}
+const isStand = v => /rgb\([12], 1, \d+\)/.test(v || '');
 const descHTML = t => (t.rich ? cleanRich(t.desc) : linkify(t.desc || '').replace(/\n/g, '<br>'));
 // keep only the formatting we offer; everything else becomes plain text
 function cleanRich(html) {
@@ -3508,10 +3530,12 @@ function cleanRich(html) {
       const tag = TAGS[el.tagName];
       const cls = [...el.classList].find(c => /^(tc|hl)-[a-z]+$/.test(c));
       const href = el.getAttribute('href');
-      const keep = tag && (tag !== 'span' && tag !== 'mark' || cls) && (tag !== 'a' || /^https?:\/\//.test(href || ''));
+      const st = el.style, custom = tag === 'span' ? cssHex(st?.color) : tag === 'mark' ? cssHex(st?.backgroundColor) : null;
+      const keep = tag && (tag !== 'span' && tag !== 'mark' || cls || custom) && (tag !== 'a' || /^https?:\/\//.test(href || ''));
       if (!keep) { el.replaceWith(...el.childNodes); continue; }
       const out = document.createElement(tag);
       if (cls && (tag === 'span' || tag === 'mark')) out.className = cls;
+      else if (custom) out.setAttribute('style', `${tag === 'span' ? 'color' : 'background-color'}: ${custom}`);
       if (tag === 'a') Object.assign(out, { href, target: '_blank', rel: 'noopener' });
       out.append(...el.childNodes);
       el.replaceWith(out);
@@ -3535,15 +3559,18 @@ function rtNormalize(el) {
     f.removeAttribute('color');
   }
   for (const n of el.querySelectorAll('[style]')) {
+    // already one of ours: a span with just a picked text colour, a mark with just a picked highlight
+    if (n.style.length === 1 && ((n.tagName === 'SPAN' && n.style.color && !isStand(n.style.color)) || (n.tagName === 'MARK' && n.style.backgroundColor && !isStand(n.style.backgroundColor)))) continue;
     const fg = toClass(n.style.color, 'tc'), bg = toClass(n.style.backgroundColor, 'hl');
+    const fgC = fg === undefined ? cssHex(n.style.color) : null, bgC = bg === undefined ? cssHex(n.style.backgroundColor) : null;
     let inner = [...n.childNodes];
     // an explicit "no colour" also clears that kind of colour inside
-    if (fg === null) n.querySelectorAll('[class^="tc-"]').forEach(x => x.replaceWith(...x.childNodes));
-    if (bg === null) n.querySelectorAll('[class^="hl-"]').forEach(x => x.replaceWith(...x.childNodes));
+    if (fg === null) n.querySelectorAll('[class^="tc-"], span[style*="color"]').forEach(x => x.replaceWith(...x.childNodes));
+    if (bg === null) n.querySelectorAll('[class^="hl-"], mark[style]').forEach(x => x.replaceWith(...x.childNodes));
     inner = [...n.childNodes];
     let wrap = null;
-    if (bg) { wrap = document.createElement('mark'); wrap.className = bg; wrap.append(...inner); inner = [wrap]; }
-    if (fg) { const sp = document.createElement('span'); sp.className = fg; sp.append(...inner); inner = [sp]; }
+    if (bg || bgC) { wrap = document.createElement('mark'); if (bg) wrap.className = bg; else wrap.setAttribute('style', `background-color: ${bgC}`); wrap.append(...inner); inner = [wrap]; }
+    if (fg || fgC) { const sp = document.createElement('span'); if (fg) sp.className = fg; else sp.setAttribute('style', `color: ${fgC}`); sp.append(...inner); inner = [sp]; }
     if (n.tagName === 'SPAN' || n.tagName === 'FONT') n.replaceWith(...inner);
     else { n.removeAttribute('style'); n.replaceChildren(...inner); }
   }
@@ -3561,6 +3588,9 @@ function rtLinkify(el) {
     n.replaceWith(...span.childNodes);
   }
 }
+// colours picked on the wheel lately (text and highlight separately), offered next to the presets
+const RT_RECENT = 'planner.rtcolors.v1';
+const rtRecent = () => { try { return { tc: [], hl: [], ...JSON.parse(localStorage.getItem(RT_RECENT)) }; } catch (e) { return { tc: [], hl: [] }; } };
 // set up a field: show(html) fills it; onChange(html) on every edit; it edits on click (links still open) and
 // folds its formatting bar in while editing
 // fixedBar: the bar is always there (a page for writing, like Notes) instead of folding in while editing
@@ -3607,7 +3637,7 @@ function richField(el, onChange, { fixedBar = false } = {}) {
       document.execCommand('removeFormat');
       // our colour wrappers inside the selection go too
       const r = saved;
-      if (r) el.querySelectorAll('span[class^="tc-"], mark').forEach(x => { if (r.intersectsNode(x)) x.replaceWith(...x.childNodes); });
+      if (r) el.querySelectorAll('span[class^="tc-"], span[style], mark').forEach(x => { if (r.intersectsNode(x)) x.replaceWith(...x.childNodes); });
       foldTo(pal, false);
       return changed();
     }
@@ -3617,19 +3647,77 @@ function richField(el, onChange, { fixedBar = false } = {}) {
     pal.dataset.kind = kind;
     const names = kind === 'tc' ? TEXT_COLORS : HIGHLIGHTS;
     pal.innerHTML = names.map((n, i) => `<button type="button" class="rt-sw" data-i="${i}" title="${n}" style="background:var(--${kind}-${n})"></button>`).join('')
-      + `<button type="button" class="rt-sw none" data-i="98" title="No ${kind === 'tc' ? 'colour' : 'highlight'}"></button>`;
+      + rtRecent()[kind].map(h => `<button type="button" class="rt-sw" data-hex="${h}" title="${h}" style="background:${h}"></button>`).join('')
+      + `<button type="button" class="rt-sw none" data-i="98" title="No ${kind === 'tc' ? 'colour' : 'highlight'}"></button>`
+      + `<button type="button" class="rt-sw add" title="Pick any colour">+</button>`
+      + `<div class="rt-cw" hidden><canvas class="rt-cw-wheel"></canvas><span class="rt-cw-mark"></span>
+          <div class="rt-cw-side"><div class="rt-cw-v" title="Brightness"><i></i></div>
+          <div class="rt-cw-pv">${kind === 'tc' ? 'Sample text' : '<span>Sample text</span>'}</div>
+          <button type="button" class="btn primary rt-cw-ok">Apply</button></div></div>`;
     foldTo(pal, true);
   });
-  pal.addEventListener('click', e => {
-    const b = e.target.closest('.rt-sw');
-    if (!b) return;
+  const applyColor = value => {
     restore();
     const kind = pal.dataset.kind;
     document.execCommand('styleWithCSS', false, true);
-    document.execCommand(kind === 'tc' ? 'foreColor' : 'hiliteColor', false, stand(kind, Number(b.dataset.i)));
+    document.execCommand(kind === 'tc' ? 'foreColor' : 'hiliteColor', false, value);
     document.execCommand('styleWithCSS', false, false);
     foldTo(pal, false);
     changed();
+  };
+  // the wheel: hue = angle, saturation = distance from the centre, brightness = the bar under it
+  let cwh = null;
+  const cwShow = () => {
+    const box = pal.querySelector('.rt-cw'), hex = hsvToHex(cwh.h, cwh.s, cwh.v), R = 60, a = cwh.h * Math.PI / 180;
+    Object.assign(box.querySelector('.rt-cw-mark').style, { left: `${R + Math.cos(a) * cwh.s * R}px`, top: `${R + Math.sin(a) * cwh.s * R}px`, background: hex });
+    const bar = box.querySelector('.rt-cw-v');
+    bar.style.background = `linear-gradient(to right, #000, ${hsvToHex(cwh.h, cwh.s, 1)})`;
+    bar.querySelector('i').style.left = `${cwh.v * 100}%`;
+    const pv = box.querySelector('.rt-cw-pv');
+    if (pal.dataset.kind === 'tc') pv.style.color = hex; else pv.querySelector('span').style.background = hex;
+  };
+  const cwPaint = () => paintWheel(pal.querySelector('.rt-cw-wheel'), 120, cwh.v);
+  let cwDrag = null;
+  pal.addEventListener('pointerdown', e => {
+    const wheel = e.target.closest('.rt-cw-wheel, .rt-cw-mark'), bar = e.target.closest('.rt-cw-v');
+    if (!wheel && !bar) return;
+    cwDrag = wheel ? 'wheel' : 'bar';
+    try { pal.setPointerCapture(e.pointerId); } catch (err) {}
+    cwMove(e);
+  });
+  const cwMove = e => {
+    if (!cwDrag) return;
+    if (cwDrag === 'wheel') {
+      const r = pal.querySelector('.rt-cw-wheel').getBoundingClientRect(), dx = e.clientX - r.left - 60, dy = e.clientY - r.top - 60;
+      cwh.h = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      cwh.s = Math.min(1, Math.hypot(dx, dy) / 60);
+    } else {
+      const r = pal.querySelector('.rt-cw-v').getBoundingClientRect();
+      cwh.v = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      cwPaint();
+    }
+    cwShow();
+  };
+  pal.addEventListener('pointermove', cwMove);
+  pal.addEventListener('pointerup', () => { cwDrag = null; });
+  pal.addEventListener('click', e => {
+    if (e.target.closest('.rt-sw.add')) {
+      const box = pal.querySelector('.rt-cw');
+      if (!box.hidden) return foldTo(box, false);
+      cwh = hexToHsv(rtRecent()[pal.dataset.kind][0] || (pal.dataset.kind === 'tc' ? '#c2334d' : '#fde68a'));
+      cwPaint();
+      cwShow();
+      return foldTo(box, true);
+    }
+    if (e.target.closest('.rt-cw-ok')) {
+      const hex = hsvToHex(cwh.h, cwh.s, cwh.v), kind = pal.dataset.kind, recent = rtRecent();
+      recent[kind] = [hex, ...recent[kind].filter(x => x !== hex)].slice(0, 6);
+      store(RT_RECENT, JSON.stringify(recent));
+      return applyColor(hex);
+    }
+    const b = e.target.closest('.rt-sw');
+    if (!b) return;
+    applyColor(b.dataset.hex || stand(pal.dataset.kind, Number(b.dataset.i)));
   });
   // editing: on a click that isn't on a link, the caret lands where you clicked
   el.addEventListener('mousedown', e => {
