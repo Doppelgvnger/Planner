@@ -850,6 +850,52 @@
   .top-tools { margin-left: auto; display: flex; gap: 18px; }
   .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 500; }
   #settings-dlg { width: min(560px, calc(100vw - 32px)); }
+
+  /* ---------- first visit: three steps (markets, destinations, example or blank) ---------- */
+  /* a fixed height, so stepping between pages never moves the dialog; what's longer scrolls inside */
+  #onb-dlg { width: min(580px, calc(100vw - 32px)); height: min(640px, calc(100vh - 32px)); overflow: hidden; }
+  .onb { height: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; padding: 26px 28px 20px; }
+  .onb-steps { display: flex; gap: 6px; flex: none; }
+  .onb-steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--line); transition: background .3s; }
+  .onb-steps i.on { background: var(--accent); }
+  .onb-step { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; margin: 0 -4px; padding: 0 4px 4px; }
+  .onb-step[hidden] { display: none; }
+  .onb-step h2 { font-size: 22px; letter-spacing: -.01em; }
+  .onb-lead { margin: -4px 0 0; color: var(--ink-2); line-height: 1.5; }
+  .onb-search { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; background: var(--surface); color: var(--ink); font-size: 14px; }
+  .onb-search:focus, .onb-own input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .onb-chips .chip span .flag { font-size: 15px; margin-right: 2px; }
+  .onb-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 13px; font-weight: 500; cursor: pointer; }
+  .onb-chip:hover { border-color: var(--line-strong); }
+  .onb-chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .onb-chip.add { border-style: dashed; color: var(--ink-3); }
+  .onb-chip .flag { font-size: 15px; }
+  .onb-chip .d { width: 10px; height: 10px; border-radius: 50%; background: var(--dot); }
+  .onb-picked-head { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--ink-3); margin-top: 4px; }
+  .onb-hint { font-size: 12px; color: var(--danger); }
+  .onb-word { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-3); }
+  .onb-own { display: flex; gap: 6px; }
+  .onb-own input { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--surface); color: var(--ink); font-size: 13px; }
+  .onb-why { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; background: var(--bg); color: var(--ink-2); font-size: 12.5px; line-height: 1.45; }
+  .onb-demo { position: relative; flex: none; width: 230px; height: 62px; }
+  .onb-demo .bar { position: absolute; left: 0; height: 26px; pointer-events: none; }
+  .onb-demo .bar-text { position: static; }
+  :root[data-theme="dark"] .onb-chip .d, :root[data-theme="dark"] .set-dot i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .45); }
+  .onb-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .onb-choice { display: grid; gap: 6px; align-content: start; padding: 12px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+  .onb-choice[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .onb-choice b { font-size: 14px; }
+  .onb-choice > span:last-child { font-size: 12px; color: var(--ink-2); line-height: 1.45; }
+  .onb-pv { position: relative; height: 84px; border-radius: 9px; background: var(--bg); overflow: hidden; }
+  .onb-pv i { position: absolute; height: 10px; border-radius: 4px; }
+  .onb-actions { flex: none; display: flex; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+  @media (max-width: 520px) { .onb-choices { grid-template-columns: 1fr; } .onb-why { flex-direction: column; align-items: flex-start; } }
+  .ex-banner {
+    display: flex; align-items: center; gap: 10px; margin: 14px clamp(16px, 2.5vw, 56px) 0; padding: 8px 10px 8px 14px; border-radius: 12px;
+    background: var(--butter-bg); color: var(--butter-ink); font-size: 13px; font-weight: 500;
+  }
+  .ex-banner[hidden] { display: none; }
+  .ex-banner .btn { padding: 4px 11px; font-size: 12px; background: var(--surface); border-color: var(--butter-edge); color: var(--butter-ink); }
   #settings-dlg .ar-wrap { position: relative; }
   .set-sec { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
   .set-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -862,6 +908,8 @@
   .set-item input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
   .set-icon { width: 34px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
   .set-icon:hover { border-color: var(--line-strong); }
+  .set-icon.none { font-family: inherit; font-size: 15px; color: var(--ink-3); border-style: dashed; }
+  .set-pop .set-none { font-family: inherit; font-size: 16px; color: var(--ink-3); }
   .set-dot { width: 34px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; display: grid; place-items: center; padding: 0; }
   .set-dot i { width: 14px; height: 14px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 1px rgba(var(--sh), .15); }
   .set-tools { display: flex; gap: 2px; }
@@ -1353,6 +1401,10 @@
     <button type="button" class="pet-btn" id="open-pet" aria-label="Your pet"><i class="pet-cnt" id="pet-cnt" hidden></i></button>
   </div>
 </header>
+<div class="ex-banner" id="ex-banner" hidden>
+  <span>✨ You're looking at an example planner.</span><span class="spacer"></span>
+  <button type="button" class="btn" id="ex-clear">Clear examples</button>
+</div>
 <div class="save-warn" id="save-warn" role="alert" hidden>
   Changes can't be saved in this browser right now (its storage is full or blocked).
   <button class="link" id="save-warn-backup">Export a backup</button>
@@ -1746,6 +1798,53 @@
   <div class="pet-bubble" id="pet-bubble" aria-live="polite"></div>
 </dialog>
 
+<dialog id="onb-dlg" aria-labelledby="onb-title">
+  <div class="onb">
+    <div class="onb-steps"><i class="on"></i><i></i><i></i></div>
+    <section class="onb-step" data-step="1">
+      <h2 id="onb-title">Where do your campaigns run?</h2>
+      <p class="onb-lead">Each market becomes a row on your Timeline. Pick yours; you can change them any time in Settings.</p>
+      <input class="onb-search" id="onb-find" type="search" placeholder="Search a country…" autocomplete="off" aria-label="Search a country">
+      <div class="chips onb-chips" id="onb-countries"></div>
+      <div class="onb-picked-head"><span>Your markets, in this order</span><span class="onb-hint" id="onb-seg-hint"></span></div>
+      <div class="set-list onb-picked" id="onb-segs"></div>
+    </section>
+    <section class="onb-step" data-step="2" hidden>
+      <h2>Where do they go live?</h2>
+      <p class="onb-lead">Your own site, a retailer, a marketplace. A campaign can go live in several.</p>
+      <div class="onb-word"><span>Call them</span>
+        <div class="zoom" id="onb-word" role="group" aria-label="Call them">
+          <button data-word="Destination" aria-pressed="true">Destination</button>
+          <button data-word="Channel" aria-pressed="false">Channel</button>
+          <button data-word="Retailer" aria-pressed="false">Retailer</button>
+        </div>
+      </div>
+      <div class="chips onb-chips" id="onb-dests"></div>
+      <div class="onb-own"><input id="onb-own" placeholder="Your own, e.g. Ulta" maxlength="30" autocomplete="off" aria-label="Your own"><button type="button" class="btn" id="onb-own-add">Add</button></div>
+      <span class="onb-hint" id="onb-dest-hint"></span>
+      <div class="onb-why"><div class="onb-demo" id="onb-demo"></div><span>Every campaign shows where it goes live, and the filter at the top of each tab can show just one of them.</span></div>
+    </section>
+    <section class="onb-step" data-step="3" hidden>
+      <h2>How would you like to start?</h2>
+      <p class="onb-lead">You can clear the examples with one click whenever you're ready.</p>
+      <div class="onb-choices">
+        <button type="button" class="onb-choice" data-start="example" aria-pressed="true">
+          <span class="onb-pv"><i style="left:8%;top:14%;width:55%;background:var(--rose-bg)"></i><i style="left:30%;top:36%;width:32%;background:var(--lavender-bg)"></i><i style="left:12%;top:58%;width:22%;background:var(--mint-bg)"></i><i style="left:46%;top:78%;width:28%;background:var(--butter-bg)"></i></span>
+          <b>Show me an example</b><span>A few sample campaigns, tasks and a note on your markets, showing what each part does.</span>
+        </button>
+        <button type="button" class="onb-choice" data-start="blank" aria-pressed="false">
+          <span class="onb-pv"></span><b>Start blank</b><span>An empty planner, ready for your first campaign.</span>
+        </button>
+      </div>
+    </section>
+    <div class="onb-actions">
+      <button type="button" class="link subtle" id="onb-back">Skip setup</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" id="onb-next">Next</button>
+    </div>
+  </div>
+</dialog>
+
 <dialog id="backup-dlg">
   <div class="ar-wrap">
     <button type="button" class="dlg-x" aria-label="Close" title="Close">×</button>
@@ -1908,6 +2007,8 @@ const SETUP_DEFAULT = {
   destLabel: 'Destination', // or 'Channel' / 'Retailer'
   pet: true,
 };
+// a browser with nothing of a planner in it yet: the first visit, which starts with the setup steps
+const FIRST_VISIT = !['planner.setup.v1', 'planner.timeline.v1', 'planner.general.v1', 'planner.notes.v1'].some(k => { try { return localStorage.getItem(k) !== null; } catch (e) { return true; } });
 const setup = (() => {
   const d = JSON.parse(JSON.stringify(SETUP_DEFAULT));
   try { return { ...d, ...JSON.parse(localStorage.getItem(SETUP_STORE)) }; } catch (e) { return d; }
@@ -2237,7 +2338,7 @@ function render() {
     }
     const height = Math.max(LANE_H, laneH.reduce((a, h) => a + h, 0)) + ROW_PAD;
     rows += `<div class="row">
-      <div class="label" title="${seg.name}"><span class="code">${seg.code}</span><span class="flag">${seg.flag}</span></div>
+      <div class="label" title="${seg.name}"><span class="code">${seg.code}</span>${seg.flag ? `<span class="flag">${seg.flag}</span>` : ''}</div>
       <div class="track" data-seg="${seg.id}" style="height:${height}px">${bars}</div>
     </div>`;
   }
@@ -4325,8 +4426,10 @@ const ICONS = [
   ['🏴', 'black flag'], ['🏳️', 'white flag'],
   ...COUNTRIES.map(cc => [flagOf(cc), `${regionName(cc)} ${cc} flag`]),
 ].map(([v, n]) => ({ v, n: n.toLowerCase() }));
-const DEST_COLORS = ['#4b2a8c', '#111111', '#0c8a80', '#2c6fc2', '#d6407e', '#e0802a', '#e0b12a', '#3fb883', '#8b85f0', '#9aa0bb'];
+const DEST_COLORS = ['#4b2a8c', '#e0802a', '#111111', '#0c8a80', '#2c6fc2', '#d6407e', '#e0b12a', '#3fb883', '#8b85f0', '#9aa0bb'];
 const DEST_PRESETS = ['DTC', 'Amazon', 'Sephora', 'Pharmacy'];
+const PRESET_COLOR = { DTC: '#4b2a8c', Amazon: '#e0802a', Sephora: '#111111', Pharmacy: '#0c8a80' };
+const freeColor = list => DEST_COLORS.find(c => !list.some(d => d.color === c)) || '#9aa0bb';
 const setPop = document.getElementById('set-pop');
 const segIdFor = code => { let id = code.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'm'; while (SEGMENTS.some(s => s.id === id)) id += '-' + Math.random().toString(36).slice(2, 4); return id; };
 
@@ -4336,7 +4439,7 @@ function setItemHTML(x, i, list, kind) {
     <button type="button" data-move="1" title="Move down"${i < list.length - 1 ? '' : ' disabled'}>↓</button>
     <button type="button" class="set-del" title="Remove"${list.length > 1 ? '' : ' disabled'}>×</button></span>`;
   return kind === 'seg'
-    ? `<div class="set-item" data-key="${x.id}"><button type="button" class="set-icon flag" title="Pick an icon">${x.flag || '🌐'}</button>
+    ? `<div class="set-item" data-key="${x.id}"><button type="button" class="set-icon flag${x.flag ? '' : ' none'}" title="Pick an icon (optional)">${x.flag || '+'}</button>
         <input class="set-code" value="${esc(x.code)}" maxlength="8" aria-label="Short code" placeholder="Code">
         <input class="set-name" value="${esc(x.name)}" maxlength="40" aria-label="Name" placeholder="Name">${tools}</div>`
     : `<div class="set-item dest" data-key="${x.id}"><button type="button" class="set-dot" title="Pick a colour"><i style="--dot:${x.color}"></i></button>
@@ -4422,7 +4525,7 @@ setDlg.addEventListener('click', async e => {
   const quick = e.target.closest('#set-dest-add [data-name]');
   if (quick) {
     const name = quick.dataset.name, id = uid();
-    flipRows(document.getElementById('set-dests'), () => { DESTS.push({ id, name: name || 'New', color: DEST_COLORS.find(c => !DESTS.some(d => d.color === c)) || '#9aa0bb' }); renderSetup(); });
+    flipRows(document.getElementById('set-dests'), () => { DESTS.push({ id, name: name || 'New', color: PRESET_COLOR[name] || freeColor(DESTS) }); renderSetup(); });
     destFilter.add(id);
     saveSetup();
     applySetup(true);
@@ -4448,7 +4551,7 @@ setDlg.addEventListener('click', async e => {
     setPop.target = { kind, id: row.dataset.key };
     setPop.className = `set-pop${kind === 'dest' ? ' colors' : ''}`;
     setPop.innerHTML = kind === 'seg' ? '<input class="set-find" type="search" placeholder="Search: Japan, globe, store…" aria-label="Search icons" autocomplete="off">'
-      + ICONS.map(x => `<button type="button" class="flag" data-v="${x.v}" data-n="${esc(x.n)}" title="${esc(x.n.replace(/ [a-z]{2} flag$/, '').replace(/^./, c => c.toUpperCase()))}">${x.v}</button>`).join('')
+      + '<button type="button" class="set-none" data-v="" data-n="none no icon empty" title="No icon">∅</button>' + ICONS.map(x => `<button type="button" class="flag" data-v="${x.v}" data-n="${esc(x.n)}" title="${esc(x.n.replace(/ [a-z]{2} flag$/, '').replace(/^./, c => c.toUpperCase()))}">${x.v}</button>`).join('')
       : DEST_COLORS.map(v => `<button type="button" data-v="${v}" title="${v}"><i style="--dot:${v}"></i></button>`).join('');
     const wrap = setDlg.querySelector('.ar-wrap').getBoundingClientRect(), r = pick.getBoundingClientRect();
     Object.assign(setPop.style, { left: `${r.left - wrap.left}px`, top: `${r.bottom - wrap.top + 6}px` });
@@ -4482,6 +4585,196 @@ setPop.addEventListener('keydown', e => {
 });
 document.getElementById('set-pet').addEventListener('change', e => { setup.pet = e.target.checked; saveSetup(); applySetup(true); });
 document.getElementById('set-close').addEventListener('click', () => shut(document.getElementById('settings-dlg')));
+
+// ---------- first visit: set up markets and destinations, then an example planner or a blank one ----------
+const onbDlg = document.getElementById('onb-dlg');
+const POPULAR = ['US', 'CA', 'GB', 'MX', 'BR', 'FR', 'DE', 'ES', 'IT', 'AU', 'JP', 'CN'];
+const onb = { step: 1, segs: [], dests: [], word: 'Destination', start: 'example' };
+const onbEl = id => document.getElementById(`onb-${id}`);
+function onbCountries() {
+  const q = onbEl('find').value.trim().toLowerCase();
+  const list = q ? COUNTRIES.filter(cc => regionName(cc).toLowerCase().split(/[\s-]+/).some(w => w.startsWith(q)) || cc.toLowerCase() === q).slice(0, 14) : POPULAR;
+  const picked = new Set(onb.segs.map(x => x.cc));
+  onbEl('countries').innerHTML = (q ? '' : `<button type="button" class="onb-chip" data-cc="GLOBAL" aria-pressed="${picked.has('GLOBAL')}"><span class="flag">🌐</span> Global</button>`)
+    + list.map(cc => `<button type="button" class="onb-chip" data-cc="${cc}" aria-pressed="${picked.has(cc)}"><span class="flag">${flagOf(cc)}</span> ${esc(regionName(cc))}</button>`).join('')
+    + '<button type="button" class="onb-chip add" data-cc="">+ Your own</button>';
+}
+function onbSegs() {
+  onbEl('segs').innerHTML = onb.segs.map((x, i, list) => `<div class="set-item" data-key="${x.id}">
+    <span class="set-icon flag${x.flag ? '' : ' none'}" style="display:grid;place-items:center">${x.flag || '–'}</span>
+    <input class="set-code" value="${esc(x.code)}" maxlength="8" aria-label="Short code" placeholder="Code">
+    <input class="set-name" value="${esc(x.name)}" maxlength="40" aria-label="Name" placeholder="Name">
+    <span class="set-tools"><button type="button" data-move="-1" title="Move up"${i ? '' : ' disabled'}>↑</button><button type="button" data-move="1" title="Move down"${i < list.length - 1 ? '' : ' disabled'}>↓</button><button type="button" class="set-del" title="Remove">×</button></span></div>`).join('')
+    || '<p class="empty" style="margin:4px 0">Nothing picked yet.</p>';
+}
+function onbDests() {
+  const names = DEST_PRESETS.concat(onb.dests.map(d => d.name).filter(n => !DEST_PRESETS.includes(n)));
+  onbEl('dests').innerHTML = names.map(n => {
+    const d = onb.dests.find(x => x.name === n), color = d?.color || PRESET_COLOR[n] || '#9aa0bb';
+    return `<button type="button" class="onb-chip" data-name="${esc(n)}" aria-pressed="${!!d}"><span class="d" style="--dot:${color}"></span> ${esc(n)}</button>`;
+  }).join('');
+  // a live sample of what the choice looks like on a campaign
+  const ds = onb.dests.length ? onb.dests : [{ name: 'DTC', color: DEST_COLORS[0] }];
+  onbEl('demo').innerHTML = `<span class="bar c-rose" style="top:0;width:230px"><span class="bar-text"><span class="bar-name">Spring Launch</span><span class="bar-dest">${esc(ds.map(d => d.name).join(' + '))}</span></span></span>
+    <span class="bar c-mint" style="top:34px;width:120px"><span class="bar-text"><span class="bar-name">Flash</span><span class="bar-dots" style="display:inline-flex">${ds.map(d => `<i style="--dot:${d.color}"></i>`).join('')}</span></span></span>`;
+  document.querySelectorAll('#onb-word [data-word]').forEach(b => b.setAttribute('aria-pressed', b.dataset.word === onb.word));
+}
+function onbShow(step) {
+  const from = onbDlg.querySelector(`.onb-step[data-step="${onb.step}"]`), to = onbDlg.querySelector(`.onb-step[data-step="${step}"]`);
+  onb.step = step;
+  from.hidden = true;
+  to.hidden = false;
+  if (!reduceMotion) to.animate([{ opacity: 0, offset: 0 }], MOTION.enter); // (a fade, no slide: text that slides goes soft)
+  onbDlg.querySelectorAll('.onb-steps i').forEach((x, i) => x.classList.toggle('on', i < step));
+  onbEl('back').textContent = step === 1 ? 'Skip setup' : 'Back';
+  onbEl('next').textContent = step === 3 ? "Let's go" : 'Next';
+  if (step === 1) onbEl('find').focus({ preventScroll: true });
+}
+function onbStart() {
+  onbCountries();
+  onbSegs();
+  onbDests();
+  openDlg(onbDlg);
+  onbEl('find').focus({ preventScroll: true });
+}
+onbDlg.addEventListener('cancel', e => e.preventDefault()); // (it's a choice: Skip setup is the way out)
+onbEl('find').addEventListener('input', onbCountries);
+onbEl('find').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); onbEl('countries').querySelector('[data-cc]:not(.add)')?.click(); onbEl('find').select(); } });
+onbDlg.addEventListener('click', e => {
+  const chip = e.target.closest('#onb-countries [data-cc]');
+  if (chip) {
+    const cc = chip.dataset.cc, had = onb.segs.find(x => x.cc === cc && cc);
+    flipRows(onbEl('segs'), () => {
+      if (had) onb.segs.splice(onb.segs.indexOf(had), 1);
+      else if (!cc) onb.segs.push({ cc: '', id: '', code: 'NEW', name: 'New market', flag: '' });
+      else onb.segs.push(cc === 'GLOBAL' ? { cc, code: 'GL', name: 'Global', flag: '🌐' } : { cc, code: cc, name: regionName(cc), flag: flagOf(cc) });
+      onb.segs.forEach((x, i) => { x.id = x.id || `o${i}${Date.now().toString(36)}`; });
+      onbSegs();
+    });
+    onbCountries();
+    onbEl('seg-hint').textContent = '';
+    if (!cc) onbEl('segs').querySelector('.set-item:last-child .set-code')?.select();
+    return;
+  }
+  const row = e.target.closest('#onb-segs .set-item'), move = e.target.closest('[data-move]'), del = e.target.closest('.set-del');
+  if (row && (move || del)) {
+    const i = onb.segs.findIndex(x => x.id === row.dataset.key);
+    flipRows(onbEl('segs'), () => { if (del) onb.segs.splice(i, 1); else { const j = i + +move.dataset.move; [onb.segs[i], onb.segs[j]] = [onb.segs[j], onb.segs[i]]; } onbSegs(); });
+    onbCountries();
+    return;
+  }
+  const dest = e.target.closest('#onb-dests [data-name]');
+  if (dest) {
+    const n = dest.dataset.name, had = onb.dests.find(x => x.name === n);
+    if (had) onb.dests.splice(onb.dests.indexOf(had), 1);
+    else onb.dests.push({ name: n, color: PRESET_COLOR[n] || freeColor(onb.dests) });
+    onbEl('dest-hint').textContent = '';
+    return onbDests();
+  }
+  const word = e.target.closest('#onb-word [data-word]');
+  if (word) { onb.word = word.dataset.word; return onbDests(); }
+  const choice = e.target.closest('[data-start]');
+  if (choice) { onb.start = choice.dataset.start; onbDlg.querySelectorAll('[data-start]').forEach(b => b.setAttribute('aria-pressed', b === choice)); }
+});
+onbDlg.addEventListener('input', e => {
+  const row = e.target.closest('#onb-segs .set-item');
+  if (!row) return;
+  const x = onb.segs.find(y => y.id === row.dataset.key);
+  if (e.target.classList.contains('set-code')) x.code = e.target.value.trim();
+  if (e.target.classList.contains('set-name')) x.name = e.target.value.trim();
+});
+function onbAddOwn() {
+  const n = onbEl('own').value.trim();
+  if (!n) return onbEl('own').focus();
+  if (!onb.dests.some(d => d.name.toLowerCase() === n.toLowerCase())) onb.dests.push({ name: n, color: freeColor(onb.dests) });
+  onbEl('own').value = '';
+  onbEl('dest-hint').textContent = '';
+  onbDests();
+}
+onbEl('own-add').addEventListener('click', onbAddOwn);
+onbEl('own').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); onbAddOwn(); } });
+onbEl('back').addEventListener('click', () => {
+  if (onb.step > 1) return onbShow(onb.step - 1);
+  // skip: a neutral setup (one Global market, DTC) and a blank planner; Settings can change it later
+  onbFinish([{ code: 'GL', name: 'Global', flag: '🌐' }], [{ name: 'DTC', color: DEST_COLORS[0] }], 'Destination', false);
+});
+onbEl('next').addEventListener('click', () => {
+  if (onb.step === 1) {
+    if (!onb.segs.length) { onbEl('seg-hint').textContent = 'Pick at least one market'; return; }
+    return onbShow(2);
+  }
+  if (onb.step === 2) {
+    if (!onb.dests.length) { onbEl('dest-hint').textContent = `Pick at least one ${onb.word.toLowerCase()}`; return; }
+    return onbShow(3);
+  }
+  onbFinish(onb.segs, onb.dests, onb.word, onb.start === 'example');
+});
+function onbFinish(segs, dests, word, example) {
+  SEGMENTS.splice(0, SEGMENTS.length);
+  for (const x of segs) {
+    const code = x.code || x.name.slice(0, 2).toUpperCase() || 'MK';
+    SEGMENTS.push({ id: segIdFor(code), code, name: x.name || code, flag: x.flag || '' });
+  }
+  DESTS.splice(0, DESTS.length, ...dests.map(d => ({ id: uid(), name: d.name, color: d.color })));
+  destFilter.clear();
+  DESTS.forEach(d => destFilter.add(d.id));
+  Object.assign(setup, { destLabel: word, pet: true });
+  saveSetup();
+  if (example) seedExample();
+  applySetup(true);
+  syncExBanner();
+  shut(onbDlg);
+}
+// the example planner: a handful of campaigns around today on the user's own markets, each showing a feature
+function seedExample() {
+  const seg = SEGMENTS.map(x => x.id), dst = DESTS.map(x => x.id), day = n => toISO(addDays(today, n)), now = Date.now();
+  const task = (text, extra = {}) => normTask({ id: uid(), text, example: true, createdAt: now, ...extra });
+  campaigns.push(
+    { id: uid(), example: true, name: 'Spring Launch', color: 'rose', segments: seg, destinations: dst, start: day(-10), end: day(20),
+      overrides: seg.length > 1 ? { [seg[seg.length - 1]]: { start: day(-7), end: day(20) } } : {},
+      leadgen: { segments: seg.slice(0, 2), start: day(-20), end: day(-11), overrides: {} },
+      subs: [{ id: uid(), name: 'Influencer push', segments: [seg[0]], start: day(-2), end: day(8), overrides: {} }],
+      tasks: [task('Brief the agency', { done: true, doneAt: now }), task('Approve the key visual', { urgent: true, due: day(1) }),
+        task('Translate the copy', { due: day(3), subtasks: [{ id: uid(), text: 'Send the copy deck', done: true }, { id: uid(), text: 'Review the translations', done: false }] }),
+        task('Book the photo shoot', { due: day(6) })] },
+    { id: uid(), example: true, name: 'Summer Sale', color: 'mint', segments: seg, destinations: dst.slice(0, 1), start: day(25), end: day(45), overrides: {}, leadgen: null, subs: [],
+      tasks: [task('Lock the offer', { due: day(12) }), task('Plan the email calendar', { due: day(18) })] },
+    { id: uid(), example: true, name: 'Flash Weekend', color: 'butter', segments: seg.slice(0, 1), destinations: dst.slice(-1), start: day(12), end: day(14), overrides: {}, leadgen: null, subs: [], tasks: [] },
+    { id: uid(), example: true, name: 'Retailer Pop-up', color: 'lavender', segments: seg.slice(-1), destinations: dst.slice(-1), start: day(30), end: day(40), overrides: {}, leadgen: null, subs: [], tasks: [], parked: now },
+    { id: uid(), example: true, name: 'Winter Recap', color: 'sky', segments: seg, destinations: dst, start: day(-70), end: day(-45), overrides: {}, leadgen: null, subs: [],
+      tasks: [task('Final report', { done: true, doneAt: now }), task('Share learnings', { done: true, doneAt: now })] },
+  );
+  general.tasks.push(task('Weekly status report', { urgent: true, due: day(0) }), task('Plan next quarter', { due: day(5) }), task('Clean up the shared drive'));
+  notes.unshift(normNote({ id: uid(), example: true, title: 'Start here', body:
+    '<div>A quick tour of what this planner does. The campaigns, tasks and this note are examples: <b>Clear examples</b> in the yellow bar removes them all.</div>'
+    + '<ul><li><b>Timeline</b>: one row per market. Drag across a row to add a campaign; click one to edit it.</li>'
+    + '<li>Inside a campaign: <b>lead gen</b> (the hatched bar before it), <b>sub-campaigns</b> (the band under it) and <b>dates per market</b> (Spring Launch starts later in one market).</li>'
+    + `<li>The <b>${esc(setup.destLabel)}</b> filter at the top shows campaigns by where they go live.</li>`
+    + '<li><b>Campaigns</b>: a column per campaign with its tasks. Park the ones you\'re not working on; ended ones move to <b>Past</b>.</li>'
+    + '<li><b>Tasks</b>: every task in one place. Urgent, due dates, subtasks; <b>General</b> holds tasks with no campaign.</li>'
+    + '<li><b>Calendar</b>: your tasks by due date. <b>Notes</b>: pages like this one.</li>'
+    + '<li>The little face in the top bar is <b>Mochi</b>: finished tasks feed it (you can switch it off in Settings).</li></ul>'
+    + '<div><mark class="hl-yellow">Everything is saved in this browser only.</mark> Use <b>Backup</b> to keep a copy or move to another computer.</div>' }));
+  pet.seen = [...new Set([...pet.seen, ...doneIds()])]; // (the example's finished tasks aren't snacks)
+  savePet();
+  save();
+  saveNotes();
+}
+const hasExample = () => campaigns.some(c => c.example) || general.tasks.some(t => t.example) || notes.some(n => n.example);
+function syncExBanner() { foldTo(document.getElementById('ex-banner'), hasExample()); }
+document.getElementById('ex-clear').addEventListener('click', async () => {
+  if (!await ask({ title: 'Clear the examples?', text: 'The sample campaigns, their tasks and the Start here note are removed, including anything you added to them. Your markets and settings stay.', ok: 'Clear examples' })) return;
+  campaigns = campaigns.filter(c => !c.example);
+  general.tasks = general.tasks.filter(t => !t.example);
+  notes = notes.filter(n => !n.example);
+  colOrder = colOrder.filter(id => campaigns.some(c => c.id === id));
+  save();
+  saveNotes();
+  saveOrder();
+  ntShown = null;
+  renderAll();
+  syncExBanner();
+});
 
 // ---------- closing dialogs: click outside, the ×, or Esc ----------
 // The campaign and task forms remember how they looked when opened; closing an edited one asks Save / Discard.
@@ -6413,6 +6706,8 @@ addEventListener('focus', checkNewDay);
 })();
 
 showView(['campaigns', 'tasks', 'calendar', 'notes'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
+document.getElementById('ex-banner').hidden = !hasExample();
+if (FIRST_VISIT) onbStart();
 </script>
 </body>
 </html>
