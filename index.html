@@ -382,6 +382,10 @@
     box-shadow: 0 24px 64px rgba(var(--sh), .22); color: var(--ink); background: var(--surface);
   }
   dialog::backdrop { background: rgba(var(--sh), .28); backdrop-filter: blur(2px); }
+  /* while a dialog is open the page behind it stays put (the gutter keeps the width the same with or without a scrollbar) */
+  html { scrollbar-gutter: stable; }
+  html:has(dialog[open]) { overflow: hidden; }
+  dialog { overscroll-behavior: contain; }
   /* every dialog rises in and sinks out with its backdrop (openDlg / shut) */
   dialog[open] { animation: dlg-in var(--dur-enter) ease-out; }
   dialog[open]::backdrop { animation: dlg-fade-in var(--dur-enter) ease-out; }
@@ -404,6 +408,12 @@
   }
   .dlg-x:hover { background: var(--line-soft); color: var(--ink); }
   #dlg-title { padding-right: 36px; }
+  /* the campaign dialog keeps its title (with ×) and its buttons in view while the form scrolls between them */
+  .dlg-head, .dlg-foot { position: sticky; z-index: 4; background: var(--surface); margin-inline: -24px; padding-inline: 24px; }
+  .dlg-head { top: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: -24px; padding-block: 18px 12px; border-bottom: 1px solid var(--line); }
+  .dlg-head #dlg-title { padding-right: 0; }
+  .dlg-head .dlg-x { position: static; margin: 0 -8px 0 0; flex: none; }
+  .dlg-foot { bottom: 0; margin-bottom: -24px; padding-block: 14px 18px; border-top: 1px solid var(--line); }
   #dlg { width: min(520px, calc(100vw - 32px)); } /* room for per-market date pairs inside sub-campaign cards */
   .field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
   .field input {
@@ -1747,8 +1757,10 @@
 
 <dialog id="dlg">
   <form id="form" novalidate>
-    <button type="button" class="dlg-x" aria-label="Close" title="Close">×</button>
-    <h2 id="dlg-title">New campaign</h2>
+    <div class="dlg-head">
+      <h2 id="dlg-title">New campaign</h2>
+      <button type="button" class="dlg-x" aria-label="Close" title="Close">×</button>
+    </div>
     <label class="field">Campaign name
       <input name="name" autocomplete="off" placeholder="e.g. Black Friday">
     </label>
@@ -1807,7 +1819,7 @@
       </div>
     </fieldset>
     <p class="err" id="err"></p>
-    <div class="actions">
+    <div class="actions dlg-foot">
       <button type="button" class="btn danger" id="del">Delete</button>
       <span class="spacer"></span>
       <button type="button" class="btn" id="cancel">Cancel</button>
@@ -2643,9 +2655,8 @@ function openDialog(id, preset, seg = null, fromLg = false, subId = null) {
 
   err.textContent = '';
   openDlg(dlg);
-  if (fromLg) document.getElementById('lg-box').scrollIntoView({ block: 'center' });
-  else if (subId) subList.querySelector('.sub-card.focus')?.scrollIntoView({ block: 'center' });
-  else if (!id) form.name.focus();
+  dlg.scrollTop = 0; // always opens at the top, whichever bar was clicked
+  if (!id) form.name.focus();
   syncSelAll();
   dlgSnap = campaignSnap(); // what "unchanged" looks like, for closing by clicking outside
 }
