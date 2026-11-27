@@ -1159,7 +1159,6 @@
   .tk-head h2 { margin: 0; min-width: 0; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tk-head .zoom button { padding: 3px 10px; font-size: 12px; }
   .tk-head .zoom[hidden] { display: none; }
-  .tk-addbar .tk-create { flex: none; padding: 4px 11px; font-size: 12px; }
   .tk-row.placeholder { background: var(--accent-soft); outline: 1.5px dashed var(--accent); outline-offset: -1.5px; }
   .tk-row.placeholder > * { visibility: hidden; }
   .tk-ghost { position: fixed; z-index: 1000; margin: 0; pointer-events: none; background: var(--surface); border-radius: 10px; transition: transform .18s ease-out, box-shadow .18s ease-out; }
@@ -1555,6 +1554,9 @@
       <h1>Tasks</h1>
       <p class="sub">Every to-do from every campaign, plus General ones that belong to none.</p>
     </div>
+    <div class="controls">
+      <button type="button" class="btn primary" id="tk-create" title="A task with a due date, description, subtasks…">+ New task</button>
+    </div>
   </div>
   <div class="viewbar">
     <div class="filter dest-filter">
@@ -1583,7 +1585,6 @@
         <div class="tk-addbar">
           <input class="tk-add" id="tk-add" placeholder="+ Add a task" autocomplete="off">
           <select class="tk-addto" id="tk-addto" aria-label="Add to campaign" hidden></select>
-          <button type="button" class="btn tk-create" id="tk-create" title="Add a task with a due date, description, subtasks…">Create task</button>
         </div>
         <div class="tk-list" id="tk-list"></div>
       </div>
