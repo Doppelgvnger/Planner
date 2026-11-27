@@ -32,7 +32,6 @@
     --today: #18c2b4;
     --on-today: #063a35;
     --danger: #d64a6a;
-    --dest-dtc: #4b2a8c; --dest-sephora: #111111; /* the dots a short Timeline bar shows instead of its destination pill */
     --danger-hover: #c23c5c;
     --on-danger: #ffffff;
     --ctl: #c3c7da;
@@ -93,7 +92,6 @@
     --today: #18c2b4;
     --on-today: #052b27;
     --danger: #ff6b88;
-    --dest-dtc: #8f6ef0; --dest-sephora: #000000;
     --danger-hover: #ff859c;
     --on-danger: #3a0a14;
     --ctl: #4a4f63;
@@ -263,9 +261,8 @@
   .bar.fit-nodate .bar-dates { display: none; } /* 6 months: the name matters more (dates in the tooltip) */
   .bar-dots { gap: 3px; align-self: center; flex: none; }
   .bar-dots i { width: 7px; height: 7px; border-radius: 50%; }
-  .bar-dots .d-dtc { background: var(--dest-dtc); }
-  .bar-dots .d-sephora { background: var(--dest-sephora); }
-  :root[data-theme="dark"] .bar-dots .d-sephora { box-shadow: 0 0 0 1px rgba(255, 255, 255, .55); } /* black on a dark bar */
+  .bar-dots i { background: var(--dot); }
+  :root[data-theme="dark"] .bar-dots i { box-shadow: 0 0 0 1px rgba(255, 255, 255, .45); } /* (a dark dot on a dark bar) */
   .ghost {
     z-index: 2; pointer-events: none;
     background: var(--accent-soft); border: 1.5px dashed var(--accent); color: var(--accent);
@@ -852,6 +849,41 @@
   .tr-note { margin: -6px 0 0; font-size: 13px; color: var(--ink-2); }
   .top-tools { margin-left: auto; display: flex; gap: 18px; }
   .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 500; }
+  #settings-dlg { width: min(560px, calc(100vw - 32px)); }
+  #settings-dlg .ar-wrap { position: relative; }
+  .set-sec { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .set-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .set-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .set-sub { font-size: 12px; font-weight: 400; color: var(--ink-3); }
+  .set-list { display: grid; gap: 6px; }
+  .set-item { display: grid; grid-template-columns: 34px 72px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+  .set-item.dest { grid-template-columns: 34px minmax(0, 1fr) auto; }
+  .set-item input { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; background: var(--surface); color: var(--ink); font-size: 13px; }
+  .set-item input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+  .set-icon { width: 34px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
+  .set-icon:hover { border-color: var(--line-strong); }
+  .set-dot { width: 34px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); cursor: pointer; display: grid; place-items: center; padding: 0; }
+  .set-dot i { width: 14px; height: 14px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 0 1px rgba(var(--sh), .15); }
+  .set-tools { display: flex; gap: 2px; }
+  .set-tools button { width: 26px; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--ink-3); cursor: pointer; font-size: 14px; }
+  .set-tools button:hover { background: var(--line-soft); color: var(--ink); }
+  .set-tools button:disabled { opacity: .3; cursor: default; background: none; }
+  .set-tools .set-del:hover { color: var(--danger); }
+  .set-add { justify-self: start; border: 1px dashed var(--ctl); border-radius: 8px; padding: 6px 10px; background: var(--surface); color: var(--ink-2); font-size: 13px; cursor: pointer; }
+  .set-quick { display: flex; flex-wrap: wrap; gap: 6px; }
+  .set-quick button { border: 1px dashed var(--ctl); border-radius: 999px; padding: 4px 11px; background: none; color: var(--ink-2); font-size: 12px; font-weight: 500; cursor: pointer; }
+  .set-quick button:hover { border-color: var(--accent); color: var(--accent); }
+  /* the emoji / colour picker, under the button that opened it */
+  .set-pop {
+    position: absolute; z-index: 6; display: grid; grid-template-columns: repeat(10, 32px); gap: 2px; max-height: 240px; overflow-y: auto;
+    padding: 8px; border-radius: 12px; background: var(--surface); box-shadow: 0 12px 32px rgba(var(--sh), .22); border: 1px solid var(--line);
+  }
+  .set-pop[hidden] { display: none; }
+  .set-pop button { width: 32px; height: 32px; border: 0; border-radius: 8px; background: none; cursor: pointer; font-size: 19px; padding: 0; }
+  .set-pop button:hover { background: var(--line-soft); }
+  .set-pop.colors { grid-template-columns: repeat(8, 32px); }
+  .set-pop.colors i { display: block; width: 18px; height: 18px; margin: auto; border-radius: 50%; background: var(--dot); }
+  .pet-btn[hidden] { display: none; }
   .bk-actions { display: flex; flex-wrap: wrap; gap: 8px; }
   .bk-msg { margin: 0; font-size: 13px; color: var(--mint-ink); }
   .bk-msg.bad { color: var(--danger); }
@@ -1337,7 +1369,7 @@
   </div>
   <div class="viewbar">
     <div class="filter dest-filter">
-      <span class="filter-label">Destination</span>
+      <span class="filter-label dest-word">Destination</span>
     </div>
     <div class="board-tools">
       <button class="link" id="reset-order" hidden>Reset order</button>
@@ -1381,7 +1413,7 @@
 
   <div class="viewbar">
     <div class="filter dest-filter">
-      <span class="filter-label">Destination</span>
+      <span class="filter-label dest-word">Destination</span>
     </div>
     <div class="zoom" id="zoom" role="group" aria-label="Zoom">
       <button data-months="3" aria-pressed="true">3 months</button>
@@ -1418,7 +1450,7 @@
   </div>
   <div class="viewbar">
     <div class="filter dest-filter">
-      <span class="filter-label">Destination</span>
+      <span class="filter-label dest-word">Destination</span>
     </div>
     <div class="zoom" id="cal-mode" role="group" aria-label="Calendar view">
       <button data-mode="month">Month</button>
@@ -1467,7 +1499,7 @@
   </div>
   <div class="viewbar">
     <div class="filter dest-filter">
-      <span class="filter-label">Destination</span>
+      <span class="filter-label dest-word">Destination</span>
     </div>
     <input type="search" class="tk-search" id="tk-search" placeholder="Search tasks" autocomplete="off">
   </div>
@@ -1626,6 +1658,27 @@
         <button data-theme-pick="dark" aria-pressed="false">Dark</button>
       </div>
     </div>
+    <section class="set-sec">
+      <div class="set-head"><h3>Markets</h3><span class="set-sub">The Timeline's rows, in this order</span></div>
+      <div class="set-list" id="set-segs"></div>
+      <select class="set-add" id="set-seg-add" aria-label="Add a market"></select>
+    </section>
+    <section class="set-sec">
+      <div class="set-head"><h3>Where campaigns go live</h3>
+        <div class="zoom" id="set-word" role="group" aria-label="Call them">
+          <button data-word="Destination" aria-pressed="true">Destination</button>
+          <button data-word="Channel" aria-pressed="false">Channel</button>
+          <button data-word="Retailer" aria-pressed="false">Retailer</button>
+        </div>
+      </div>
+      <div class="set-list" id="set-dests"></div>
+      <div class="set-quick" id="set-dest-add"></div>
+    </section>
+    <div class="set-row">
+      <span>Mochi <span class="set-sub">the pet that eats finished tasks</span></span>
+      <label class="switch"><input type="checkbox" id="set-pet"><span class="s-hide">Off</span><span class="knob"></span><span class="s-show">On</span></label>
+    </div>
+    <div class="set-pop" id="set-pop" hidden></div>
     <div class="actions">
       <span class="spacer"></span>
       <button type="button" class="btn" id="set-close">Close</button>
@@ -1774,7 +1827,7 @@
       <div class="chips" id="seg-chips"></div>
     </fieldset>
     <fieldset>
-      <legend>Destination</legend>
+      <legend class="dest-word">Destination</legend>
       <div class="chips" id="dest-chips"></div>
     </fieldset>
     <div class="two">
@@ -1835,17 +1888,31 @@
 </dialog>
 
 <script>
-const SEGMENTS = [
-  { id: 'us',    code: 'US',    flag: '🇺🇸', name: 'United States' },
-  { id: 'ca-en', code: 'CA·EN', flag: '🇨🇦', name: 'Canada · English' },
-  { id: 'ca-fr', code: 'CA·FR', flag: '🇨🇦', name: 'Canada · French' },
-  { id: 'br',    code: 'BR',    flag: '🇧🇷', name: 'Brazil' },
-  { id: 'mx',    code: 'MX',    flag: '🇲🇽', name: 'Mexico' },
-];
-const DESTS = [
-  { id: 'dtc',     name: 'DTC' },
-  { id: 'sephora', name: 'Sephora' },
-];
+// markets (Timeline rows, in this order) and destinations are the user's own (Settings); these defaults are the
+// original setup, so a planner from before keeps working unchanged. `flag` is any emoji (a flag, a globe…).
+const SETUP_STORE = 'planner.setup.v1';
+const SETUP_DEFAULT = {
+  segments: [
+    { id: 'us',    code: 'US',    flag: '🇺🇸', name: 'United States' },
+    { id: 'ca-en', code: 'CA·EN', flag: '🇨🇦', name: 'Canada · English' },
+    { id: 'ca-fr', code: 'CA·FR', flag: '🇨🇦', name: 'Canada · French' },
+    { id: 'br',    code: 'BR',    flag: '🇧🇷', name: 'Brazil' },
+    { id: 'mx',    code: 'MX',    flag: '🇲🇽', name: 'Mexico' },
+  ],
+  dests: [
+    { id: 'dtc',     name: 'DTC',     color: '#4b2a8c' },
+    { id: 'sephora', name: 'Sephora', color: '#111111' },
+  ],
+  destLabel: 'Destination', // or 'Channel' / 'Retailer'
+  pet: true,
+};
+const setup = (() => {
+  const d = JSON.parse(JSON.stringify(SETUP_DEFAULT));
+  try { return { ...d, ...JSON.parse(localStorage.getItem(SETUP_STORE)) }; } catch (e) { return d; }
+})();
+// edited in place (never reassigned), so everything holding these arrays sees the changes
+const SEGMENTS = setup.segments;
+const DESTS = setup.dests;
 const COLORS = ['lavender', 'sky', 'mint', 'peach', 'rose', 'butter'];
 const LANE_H = 36, SUB_H = 17, ROW_PAD = 10;
 const STORE = 'planner.timeline.v1';
@@ -2140,7 +2207,7 @@ function render() {
     const title = `${name} · ${dest} · ${dates}${moved ? ' · moved for this market' : ''}`;
     const text = kind === 'lg' ? `<span class="bar-name">Lead gen</span><span class="bar-dates">${dates}</span>`
       : kind === 'sub' ? `<span class="bar-name">↳ ${esc(sub.name)}</span><span class="bar-dates">${dates}</span>`
-      : `<span class="bar-name">${esc(c.name)}</span><span class="bar-dest"><span class="dl">${dest}</span><span class="ds">${destShort}</span></span><span class="bar-dots">${c.destinations.map(x => `<i class="d-${x}"></i>`).join('')}</span><span class="bar-dates">${dates}</span>`;
+      : `<span class="bar-name">${esc(c.name)}</span><span class="bar-dest"><span class="dl">${dest}</span><span class="ds">${destShort}</span></span><span class="bar-dots">${c.destinations.map(x => `<i style="--dot:${DESTS.find(d => d.id === x)?.color || '#888'}"></i>`).join('')}</span><span class="bar-dates">${dates}</span>`;
     const data = kind === 'lg' ? ' data-lg="1"' : kind === 'sub' ? ` data-sub="${sub.id}"` : '';
     return `<button class="${cls}" data-id="${c.id}"${data} title="${title}"
       style="${p.style};left:${from * w + 2}px;width:${Math.max(4, (to - from + 1) * w - 4)}px;top:${top}px${nSubs ? `;height:${22 + nSubs * SUB_H}px` : ""}">
@@ -2387,10 +2454,13 @@ const form = document.getElementById('form');
 const err = document.getElementById('err');
 let editingId = null;
 
-document.getElementById('seg-chips').innerHTML = SEGMENTS.map(s =>
-  `<label class="chip"><input type="checkbox" name="seg" value="${s.id}"><span>${s.name}</span></label>`).join('');
-document.getElementById('dest-chips').innerHTML = DESTS.map(d =>
-  `<label class="chip"><input type="checkbox" name="dest" value="${d.id}"><span>${d.name}</span></label>`).join('');
+function buildSetupChips() {
+  document.getElementById('seg-chips').innerHTML = SEGMENTS.map(s =>
+    `<label class="chip"><input type="checkbox" name="seg" value="${s.id}"><span>${esc(s.name)}</span></label>`).join('');
+  document.getElementById('dest-chips').innerHTML = DESTS.map(d =>
+    `<label class="chip"><input type="checkbox" name="dest" value="${d.id}"><span>${esc(d.name)}</span></label>`).join('');
+}
+buildSetupChips();
 
 // presets, then every custom color already used by a campaign, then "+" to pick a new one
 const swatches = document.getElementById('swatches');
@@ -4148,7 +4218,7 @@ const showBkMsg = (text, bad = false) => { bkMsg.textContent = text; bkMsg.class
 const countTasks = list => list.reduce((n, c) => n + c.tasks.length, 0);
 
 document.getElementById('bk-export').addEventListener('click', () => {
-  const backup = { app: 'planner', version: 1, exportedAt: new Date().toISOString(), campaigns, general: general.tasks, notes, trash, colOrder, dense, pet };
+  const backup = { app: 'planner', version: 1, exportedAt: new Date().toISOString(), campaigns, general: general.tasks, notes, trash, colOrder, dense, pet, setup };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
   a.download = `planner-backup-${toISO(new Date())}.json`;
@@ -4180,6 +4250,13 @@ bkFile.addEventListener('change', async () => {
   trash = (b.trash || []).map(normTrashItem);
   colOrder = Array.isArray(b.colOrder) ? b.colOrder : [];
   dense = !!b.dense;
+  if (b.setup) { // (older backups have none: the current markets stay)
+    SEGMENTS.splice(0, SEGMENTS.length, ...b.setup.segments);
+    DESTS.splice(0, DESTS.length, ...b.setup.dests);
+    Object.assign(setup, { destLabel: b.setup.destLabel || 'Destination', pet: b.setup.pet !== false });
+    saveSetup();
+    applySetup(true);
+  }
   // the pet comes along (an older backup keeps the current one); its tasks already done don't turn into snacks again
   if (b.pet) pet = normPet(b.pet);
   pet.seen = [...new Set([...pet.seen, ...doneIds()])];
@@ -4215,7 +4292,159 @@ document.querySelector('#settings-dlg .zoom').addEventListener('click', e => {
   else apply();
 });
 syncThemePick();
-document.getElementById('open-settings').addEventListener('click', () => openDlg(document.getElementById('settings-dlg')));
+document.getElementById('open-settings').addEventListener('click', () => { renderSetup(); openDlg(document.getElementById('settings-dlg')); });
+
+// ---------- setup: the user's markets, destinations (and what to call them), Mochi on / off ----------
+const saveSetup = () => store(SETUP_STORE, JSON.stringify(setup));
+// country flags for the picker and the "add a market" list (names from the browser); then globes and other symbols
+const COUNTRIES = 'US CA GB IE FR DE IT ES PT NL BE LU CH AT SE NO DK FI IS PL CZ SK HU RO BG GR HR SI RS UA TR IL AE SA QA KW EG MA ZA NG KE IN PK CN JP KR TW HK SG MY TH VN PH ID AU NZ MX BR AR CL CO PE UY EC CR PA DO PR'.split(' ');
+const flagOf = cc => String.fromCodePoint(...[...cc].map(ch => 0x1f1a5 + ch.charCodeAt(0)));
+const regionName = (() => { try { const dn = new Intl.DisplayNames(['en'], { type: 'region' }); return cc => dn.of(cc); } catch (e) { return cc => cc; } })();
+const ICONS = ['🌍', '🌎', '🌏', '🌐', '🗺️', '🇪🇺', '🇺🇳', ...COUNTRIES.map(flagOf), '🏴', '🏳️', '🏬', '🏪', '🛒', '📦', '🏢', '🚚', '✈️', '💻', '📱', '⭐', '💄', '🌸', '🌴', '❄️'];
+const DEST_COLORS = ['#4b2a8c', '#111111', '#0c8a80', '#2c6fc2', '#d6407e', '#e0802a', '#e0b12a', '#3fb883', '#8b85f0', '#9aa0bb'];
+const DEST_PRESETS = ['DTC', 'Amazon', 'Sephora', 'Pharmacy'];
+const setPop = document.getElementById('set-pop');
+const segIdFor = code => { let id = code.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'm'; while (SEGMENTS.some(s => s.id === id)) id += '-' + Math.random().toString(36).slice(2, 4); return id; };
+
+function setItemHTML(x, i, list, kind) {
+  const tools = `<span class="set-tools">
+    <button type="button" data-move="-1" title="Move up"${i ? '' : ' disabled'}>↑</button>
+    <button type="button" data-move="1" title="Move down"${i < list.length - 1 ? '' : ' disabled'}>↓</button>
+    <button type="button" class="set-del" title="Remove"${list.length > 1 ? '' : ' disabled'}>×</button></span>`;
+  return kind === 'seg'
+    ? `<div class="set-item" data-key="${x.id}"><button type="button" class="set-icon flag" title="Pick an icon">${x.flag || '🌐'}</button>
+        <input class="set-code" value="${esc(x.code)}" maxlength="8" aria-label="Short code" placeholder="Code">
+        <input class="set-name" value="${esc(x.name)}" maxlength="40" aria-label="Name" placeholder="Name">${tools}</div>`
+    : `<div class="set-item dest" data-key="${x.id}"><button type="button" class="set-dot" title="Pick a colour"><i style="--dot:${x.color}"></i></button>
+        <input class="set-name" value="${esc(x.name)}" maxlength="30" aria-label="Name" placeholder="Name">${tools}</div>`;
+}
+function renderSetup() {
+  const segBox = document.getElementById('set-segs'), destBox = document.getElementById('set-dests');
+  segBox.innerHTML = SEGMENTS.map((x, i) => setItemHTML(x, i, SEGMENTS, 'seg')).join('');
+  destBox.innerHTML = DESTS.map((x, i) => setItemHTML(x, i, DESTS, 'dest')).join('');
+  const used = new Set(SEGMENTS.map(x => x.code.toUpperCase()));
+  document.getElementById('set-seg-add').innerHTML = '<option value="">+ Add a market…</option><option value="*custom">Your own (code and name)</option><option value="*global">🌐 Global</option>'
+    + COUNTRIES.filter(cc => !used.has(cc)).map(cc => `<option value="${cc}">${flagOf(cc)} ${regionName(cc)}</option>`).join('');
+  const names = new Set(DESTS.map(d => d.name.toLowerCase()));
+  document.getElementById('set-dest-add').innerHTML = DEST_PRESETS.filter(n => !names.has(n.toLowerCase())).map(n => `<button type="button" data-name="${n}">+ ${n}</button>`).join('')
+    + '<button type="button" data-name="">+ Your own</button>';
+  document.querySelectorAll('#set-word [data-word]').forEach(b => b.setAttribute('aria-pressed', b.dataset.word === setup.destLabel));
+  document.getElementById('set-pet').checked = setup.pet;
+}
+// the rest of the app follows the setup
+let setupTimer = 0;
+function applySetup(now) {
+  clearTimeout(setupTimer);
+  const go = () => {
+    general.segments = SEGMENTS.map(x => x.id);
+    general.destinations = DESTS.map(x => x.id);
+    for (const id of [...destFilter]) if (!DESTS.some(d => d.id === id)) destFilter.delete(id);
+    document.querySelectorAll('.dest-word').forEach(el => { el.textContent = setup.destLabel; });
+    buildSetupChips();
+    buildDestFilters();
+    petBtn.hidden = !setup.pet;
+    renderAll();
+  };
+  if (now) go(); else setupTimer = setTimeout(go, 250); // typing a name: redraw once it pauses
+}
+// take a market / destination off every campaign (a campaign left with no destination gets all of them, as before)
+function stripFromCampaigns(kind, id) {
+  for (const c of [...campaigns, ...trash.filter(x => !x.type).map(x => x.c)]) {
+    if (kind === 'seg') {
+      c.segments = c.segments.filter(x => x !== id);
+      if (c.overrides) delete c.overrides[id];
+      if (c.leadgen) { c.leadgen.segments = c.leadgen.segments.filter(x => x !== id); if (c.leadgen.overrides) delete c.leadgen.overrides[id]; }
+      for (const sub of c.subs) { sub.segments = sub.segments.filter(x => x !== id); if (sub.overrides) delete sub.overrides[id]; }
+      for (const t of c.tasks) t.segments = t.segments.filter(x => x !== id);
+    } else {
+      c.destinations = c.destinations.filter(x => x !== id);
+      if (!c.destinations.length) c.destinations = DESTS.map(d => d.id);
+    }
+  }
+  for (const t of general.tasks) if (kind === 'seg') t.segments = t.segments.filter(x => x !== id);
+  save();
+  saveTrash();
+}
+const setDlg = document.getElementById('settings-dlg');
+setDlg.addEventListener('input', e => {
+  const row = e.target.closest('.set-item');
+  if (!row) return;
+  const list = row.classList.contains('dest') ? DESTS : SEGMENTS, x = list.find(y => y.id === row.dataset.key);
+  if (e.target.classList.contains('set-code')) x.code = e.target.value.trim() || x.name.slice(0, 2).toUpperCase();
+  if (e.target.classList.contains('set-name')) x.name = e.target.value.trim() || x.code || 'Untitled';
+  saveSetup();
+  applySetup();
+});
+setDlg.addEventListener('click', async e => {
+  const row = e.target.closest('.set-item');
+  const list = row && (row.classList.contains('dest') ? DESTS : SEGMENTS), box = row?.parentElement;
+  const move = e.target.closest('[data-move]');
+  if (move && !move.disabled) {
+    const i = list.findIndex(y => y.id === row.dataset.key), j = i + +move.dataset.move;
+    flipRows(box, () => { [list[i], list[j]] = [list[j], list[i]]; renderSetup(); });
+    saveSetup();
+    return applySetup(true);
+  }
+  const del = e.target.closest('.set-del');
+  if (del && !del.disabled) {
+    const kind = list === DESTS ? 'dest' : 'seg', x = list.find(y => y.id === row.dataset.key);
+    const n = campaigns.filter(c => (kind === 'seg' ? c.segments : c.destinations).includes(x.id)).length;
+    if (n && !await ask({ title: `Remove ${x.name}?`, text: `${plural(n, 'campaign')} ${n === 1 ? 'uses' : 'use'} it; ${n === 1 ? 'it' : 'they'} will lose it. This can't be undone.`, ok: 'Remove' })) return;
+    if (n) stripFromCampaigns(kind, x.id);
+    flipRows(box, () => { list.splice(list.indexOf(x), 1); renderSetup(); });
+    saveSetup();
+    return applySetup(true);
+  }
+  const quick = e.target.closest('#set-dest-add [data-name]');
+  if (quick) {
+    const name = quick.dataset.name, id = uid();
+    flipRows(document.getElementById('set-dests'), () => { DESTS.push({ id, name: name || 'New', color: DEST_COLORS.find(c => !DESTS.some(d => d.color === c)) || '#9aa0bb' }); renderSetup(); });
+    destFilter.add(id);
+    saveSetup();
+    applySetup(true);
+    if (!name) document.querySelector(`#set-dests [data-key="${id}"] .set-name`).select();
+    return;
+  }
+  const word = e.target.closest('#set-word [data-word]');
+  if (word) { setup.destLabel = word.dataset.word; document.querySelectorAll('#set-word [data-word]').forEach(b => b.setAttribute('aria-pressed', b === word)); saveSetup(); return applySetup(true); }
+  // the picker under an icon / colour button
+  const pick = e.target.closest('.set-icon, .set-dot');
+  const chosen = e.target.closest('#set-pop [data-v]');
+  if (chosen) {
+    const target = setPop.target, x = (target.kind === 'seg' ? SEGMENTS : DESTS).find(y => y.id === target.id);
+    if (target.kind === 'seg') x.flag = chosen.dataset.v; else x.color = chosen.dataset.v;
+    setPop.hidden = true;
+    renderSetup();
+    saveSetup();
+    return applySetup(true);
+  }
+  if (pick) {
+    const kind = pick.classList.contains('set-icon') ? 'seg' : 'dest';
+    if (!setPop.hidden && setPop.target?.id === row.dataset.key) { setPop.hidden = true; return; }
+    setPop.target = { kind, id: row.dataset.key };
+    setPop.className = `set-pop${kind === 'dest' ? ' colors' : ''}`;
+    setPop.innerHTML = kind === 'seg' ? ICONS.map(v => `<button type="button" class="flag" data-v="${v}">${v}</button>`).join('')
+      : DEST_COLORS.map(v => `<button type="button" data-v="${v}" title="${v}"><i style="--dot:${v}"></i></button>`).join('');
+    const wrap = setDlg.querySelector('.ar-wrap').getBoundingClientRect(), r = pick.getBoundingClientRect();
+    Object.assign(setPop.style, { left: `${r.left - wrap.left}px`, top: `${r.bottom - wrap.top + 6}px` });
+    setPop.hidden = false;
+    setPop.animate([{ opacity: 0, transform: 'translateY(-4px)', offset: 0 }], MOTION.enter);
+    return;
+  }
+  if (!e.target.closest('#set-pop')) setPop.hidden = true;
+});
+document.getElementById('set-seg-add').addEventListener('change', e => {
+  const v = e.target.value;
+  e.target.value = '';
+  if (!v) return;
+  const x = v === '*custom' ? { code: 'NEW', name: 'New market', flag: '🌐' } : v === '*global' ? { code: 'GL', name: 'Global', flag: '🌐' } : { code: v, name: regionName(v), flag: flagOf(v) };
+  x.id = segIdFor(v === '*custom' ? 'market' : x.code);
+  flipRows(document.getElementById('set-segs'), () => { SEGMENTS.push(x); renderSetup(); });
+  if (v === '*custom') document.querySelector(`#set-segs [data-key="${x.id}"] .set-code`).select();
+  saveSetup();
+  applySetup(true);
+});
+document.getElementById('set-pet').addEventListener('change', e => { setup.pet = e.target.checked; saveSetup(); applySetup(true); });
 document.getElementById('set-close').addEventListener('click', () => shut(document.getElementById('settings-dlg')));
 
 // ---------- closing dialogs: click outside, the ×, or Esc ----------
@@ -5369,9 +5598,16 @@ document.getElementById('today').addEventListener('click', () => {
   slideTimeline(dir, () => { viewStart = home; render(); scrollToToday(); });
 });
 // one filter shared by both tabs
+function buildDestFilters() {
+  document.querySelectorAll('.dest-filter').forEach(el => {
+    el.querySelectorAll('[data-dest]').forEach(b => b.remove());
+    el.insertAdjacentHTML('beforeend', DESTS.map(d =>
+      `<button class="toggle" data-dest="${d.id}" aria-pressed="${destFilter.has(d.id)}">${esc(d.name)}</button>`).join(''));
+  });
+}
+buildDestFilters();
+document.querySelectorAll('.dest-word').forEach(el => { el.textContent = setup.destLabel; });
 document.querySelectorAll('.dest-filter').forEach(el => {
-  el.insertAdjacentHTML('beforeend', DESTS.map(d =>
-    `<button class="toggle" data-dest="${d.id}" aria-pressed="true">${d.name}</button>`).join(''));
   el.addEventListener('click', e => {
     const btn = e.target.closest('[data-dest]');
     if (!btn) return;
@@ -5583,6 +5819,11 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { pe
 let lastPress = null;
 addEventListener('pointerdown', e => { lastPress = { x: e.clientX, y: e.clientY, t: Date.now() }; }, true);
 function petSync() {
+  if (!setup.pet) { // (switched off: tasks finished meanwhile don't pile up as snacks for later)
+    const seen = new Set(pet.seen), fresh = doneIds().filter(id => !seen.has(id));
+    if (fresh.length) { pet.seen = [...seen, ...fresh].slice(-3000); savePet(); }
+    return;
+  }
   const live = new Map(lists().flatMap(c => c.tasks.map(t => [t.id, t])));
   const seen = new Set(pet.seen), fresh = [];
   for (const t of live.values()) {
@@ -6079,6 +6320,7 @@ function petRefresh() {
 petDecay();
 mountFace();
 petCount();
+petBtn.hidden = !setup.pet;
 afterSave = petSync;
 
 // another tab of the app saved: take its data, so this tab's next save doesn't wipe those changes out.
@@ -6102,6 +6344,16 @@ function syncFromOtherTab() {
 }
 addEventListener('storage', e => {
   if (e.key === NOTES_STORE) { notes = loadNotes(); ntShown = null; if (currentView === 'notes') renderNotes(); return; }
+  if (e.key === SETUP_STORE) {
+    try {
+      const n = JSON.parse(e.newValue);
+      SEGMENTS.splice(0, SEGMENTS.length, ...n.segments);
+      DESTS.splice(0, DESTS.length, ...n.dests);
+      Object.assign(setup, { destLabel: n.destLabel, pet: n.pet });
+      applySetup(true);
+    } catch (err) {}
+    return;
+  }
   if (e.key === PET_STORE || e.key === null) { pet = loadPet() || pet; petDecay(); petRefresh(); if (e.key) return; }
   if (e.key === null || [STORE, GENERAL_STORE, TRASH_STORE, ORDER_STORE].includes(e.key)) syncFromOtherTab();
 });
