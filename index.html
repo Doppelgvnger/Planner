@@ -2250,8 +2250,9 @@ function scrollToToday() {
 const barKey = b => `${b.closest('.track').dataset.seg}|${b.dataset.id}|${b.dataset.lg ? 'lg' : b.dataset.sub || 'main'}`;
 function morphTimeline(update) {
   if (reduceMotion || document.getElementById('view-timeline').hidden) return update();
-  const box = el => ({ left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight });
-  const bars = new Map([...tl.querySelectorAll('.bar')].map(b => [barKey(b), box(b)]));
+  // (from the inline styles, not offsetLeft & co, which round to whole pixels: over 6 months a day isn't one)
+  const box = el => ({ left: parseFloat(el.style.left), top: parseFloat(el.style.top), width: parseFloat(el.style.width), height: el.offsetHeight });
+  const bars = new Map([...tl.querySelectorAll('.bar:not(.gone)')].map(b => [barKey(b), { ...box(b), el: b }]));
   const rows = new Map([...tl.querySelectorAll('.track')].map(t => [t.dataset.seg, t.offsetHeight]));
   const scroll0 = scroller.scrollLeft;
   update();
@@ -2260,12 +2261,28 @@ function morphTimeline(update) {
     const h = rows.get(t.dataset.seg);
     if (h != null && h !== t.offsetHeight) t.animate([{ height: `${h}px` }, { height: `${t.offsetHeight}px` }], MOTION.move);
   }
+  const kept = new Set();
   for (const b of tl.querySelectorAll('.bar')) {
-    const o = bars.get(barKey(b)), n = box(b);
-    if (!o) { b.animate([{ opacity: 0, offset: 0 }], MOTION.enter); continue; } // (offset 0: a lone keyframe would be the end)
-    const from = { left: `${o.left + shift}px`, top: `${o.top}px`, width: `${o.width}px`, height: `${o.height}px` };
-    if (from.left === `${n.left}px` && o.top === n.top && o.width === n.width && o.height === n.height) continue;
-    b.animate([from, { left: `${n.left}px`, top: `${n.top}px`, width: `${n.width}px`, height: `${n.height}px` }], MOTION.move);
+    const key = barKey(b), o = bars.get(key), n = box(b);
+    kept.add(key);
+    if (!o) { b.animate([{ opacity: 0, transform: 'scale(.97)', offset: 0 }], MOTION.enter); continue; } // (offset 0: a lone keyframe would be the end)
+    const dx = o.left + shift - n.left, dy = o.top - n.top;
+    // the move is a transform (the bar is on its own layer, so its text glides with it instead of snapping to whole
+    // pixels every frame); only a real change of size is animated as a size
+    if (dx || dy) b.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], MOTION.move);
+    if (o.width !== n.width || o.height !== n.height) b.animate([{ width: `${o.width}px`, height: `${o.height}px` }, { width: `${n.width}px`, height: `${n.height}px` }], MOTION.move);
+  }
+  // bars that are gone (filtered out, deleted): a stand-in fades out where it was
+  for (const [key, o] of bars) {
+    if (kept.has(key)) continue;
+    const track = tl.querySelector(`.track[data-seg="${key.split('|')[0]}"]`);
+    if (!track) continue;
+    const ghost = o.el.cloneNode(true);
+    ghost.classList.remove('lift');
+    ghost.classList.add('gone');
+    Object.assign(ghost.style, { left: `${o.left + shift}px`, top: `${o.top}px`, pointerEvents: 'none' });
+    track.appendChild(ghost);
+    ghost.animate([{ opacity: 1 }, { opacity: 0, transform: 'scale(.97)' }], { ...MOTION.leave, fill: 'forwards' }).finished.then(() => ghost.remove());
   }
 }
 // slide: another stretch of time comes in from the side it lies on (dir 1 = later, from the right; -1 = earlier).
