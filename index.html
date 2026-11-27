@@ -895,6 +895,24 @@
     background: var(--butter-bg); color: var(--butter-ink); font-size: 13px; font-weight: 500;
   }
   .ex-banner[hidden] { display: none; }
+
+  /* ---------- the tour: a spotlight on one thing at a time and a card that explains it ---------- */
+  .tour-q { width: 22px; height: 22px; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: none; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .tour-q:hover { border-color: var(--accent); color: var(--accent); }
+  .tour { position: fixed; inset: 0; z-index: 50; }
+  .tour[hidden] { display: none; }
+  .tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(var(--sh), .45), 0 0 0 2px var(--today); pointer-events: none; }
+  :root[data-theme="dark"] .tour-spot { box-shadow: 0 0 0 9999px rgba(0, 0, 0, .6), 0 0 0 2px var(--today); }
+  .tour-card {
+    position: fixed; width: 300px; box-sizing: border-box; display: grid; gap: 4px; padding: 14px 16px 12px;
+    border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 16px 40px rgba(var(--sh), .3);
+  }
+  .tour-n { font-size: 11px; font-weight: 600; color: var(--accent); }
+  .tour-card b { font-size: 15px; }
+  .tour-card p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+  .tour-act { display: flex; align-items: center; gap: 6px; }
+  .tour-act .btn { padding: 5px 12px; font-size: 13px; }
+  @media (max-width: 600px) { .tour-card { left: 12px !important; right: 12px; top: auto !important; bottom: 12px; width: auto; } }
   .ex-banner .btn { padding: 4px 11px; font-size: 12px; background: var(--surface); border-color: var(--butter-edge); color: var(--butter-ink); }
   #settings-dlg .ar-wrap { position: relative; }
   .set-sec { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
@@ -1402,12 +1420,24 @@
   <div class="top-tools">
     <button class="link subtle" id="open-backup">Backup</button>
     <button class="link subtle" id="open-settings">Settings</button>
+    <button type="button" class="tour-q" id="open-tour" title="Take the tour" aria-label="Take the tour">?</button>
     <button type="button" class="pet-btn" id="open-pet" aria-label="Your pet"><i class="pet-cnt" id="pet-cnt" hidden></i></button>
   </div>
 </header>
 <div class="ex-banner" id="ex-banner" hidden>
   <span>✨ You're looking at an example planner.</span><span class="spacer"></span>
+  <button type="button" class="btn" id="ex-tour">Take the tour</button>
   <button type="button" class="btn" id="ex-clear">Clear examples</button>
+</div>
+<div class="tour" id="tour" hidden>
+  <div class="tour-spot" id="tour-spot"></div>
+  <div class="tour-card" id="tour-card" role="dialog" aria-live="polite" aria-labelledby="tour-title">
+    <div class="tour-n" id="tour-n"></div>
+    <b id="tour-title"></b>
+    <p id="tour-text"></p>
+    <div class="tour-act"><button type="button" class="link subtle" id="tour-skip">Skip tour</button><span class="spacer"></span>
+      <button type="button" class="btn" id="tour-back">Back</button><button type="button" class="btn primary" id="tour-next">Next</button></div>
+  </div>
 </div>
 <div class="save-warn" id="save-warn" role="alert" hidden>
   Changes can't be saved in this browser right now (its storage is full or blocked).
@@ -4739,6 +4769,7 @@ function onbFinish(segs, dests, word, example) {
   applySetup(true);
   syncExBanner();
   shut(onbDlg);
+  if (example) setTimeout(startTour, 450); // the example planner gets the tour straight away
 }
 // the example planner: a handful of campaigns around today on the user's own markets, each showing a feature
 function seedExample() {
@@ -4790,6 +4821,98 @@ document.getElementById('ex-clear').addEventListener('click', async () => {
   renderAll();
   syncExBanner();
 });
+
+// ---------- the tour: seven stops, each a spotlight with a card; it opens the tab a stop is on ----------
+const TOUR = [
+  { view: null, at: '.tabs', title: 'Five views of one plan',
+    text: "Timeline for dates, Campaigns for each campaign's to-dos, Tasks for everything at once, Calendar by due date, Notes for the rest." },
+  { view: 'timeline', at: '#view-timeline .dest-filter', title: () => `Filter by ${setup.destLabel.toLowerCase()}`,
+    text: () => `Each campaign goes live in one or more ${setup.destLabel.toLowerCase()}s (${DESTS.slice(0, 3).map(d => d.name).join(', ')}…). Untick one to see only the others; it works on every tab.` },
+  { view: 'timeline', at: '#tl .row', title: 'Add a campaign',
+    text: "Drag across a market's row over the days it runs. Click a campaign to edit it: lead gen, sub-campaigns, dates per market." },
+  { view: 'campaigns', at: '#cboard .ccol', title: 'Every campaign and its to-dos',
+    text: 'A column per campaign with its status and tasks. Park the ones you are not working on; ended ones move to Past.' },
+  { view: 'tasks', at: '#tk-main', title: 'All tasks in one place',
+    text: 'Pick a list on the left, drag tasks to reorder, + New task for the full form. General holds tasks that belong to no campaign.' },
+  { view: null, at: '#open-pet', title: 'Meet Mochi', when: () => setup.pet,
+    text: 'Every task you finish becomes a snack. Click the face to feed it. Not your thing? Switch it off in Settings.' },
+  { view: null, at: '#open-backup', title: 'Keep a backup',
+    text: 'Everything is saved in this browser only. Export a backup now and then, and to move to another computer.' },
+];
+const tourEl = document.getElementById('tour'), tourSpot = document.getElementById('tour-spot'), tourCard = document.getElementById('tour-card');
+let tourSteps = [], tourI = 0, tourFrom = null;
+function startTour() {
+  if (!tourEl.hidden) return;
+  tourSteps = TOUR.filter(x => !x.when || x.when());
+  tourFrom = currentView;
+  tourEl.hidden = false;
+  tourSpot.style.cssText = '';
+  if (!reduceMotion) tourEl.animate([{ opacity: 0, offset: 0 }], MOTION.enter);
+  tourGo(0, true);
+}
+function endTour() {
+  if (tourEl.hidden) return;
+  const back = tourFrom && tourFrom !== currentView ? tourFrom : null;
+  const done = () => { tourEl.hidden = true; if (back) showView(back); };
+  if (reduceMotion) return done();
+  tourEl.animate([{ opacity: 1 }, { opacity: 0 }], MOTION.leave).finished.then(done);
+}
+// the spotlight's box around a stop, kept inside the window (a tall stop is lit where it shows)
+function tourBox(el) {
+  const r = el.getBoundingClientRect(), pad = 6;
+  const top = Math.max(8, r.top - pad), bottom = Math.min(innerHeight - 8, r.bottom + pad);
+  return { left: Math.round(Math.max(8, r.left - pad)), top: Math.round(top), width: Math.round(Math.min(innerWidth - 16, r.width + 2 * pad)), height: Math.round(Math.max(24, bottom - top)) };
+}
+function tourPlace(animate) {
+  const step = tourSteps[tourI], el = document.querySelector(step.at);
+  if (!el) return;
+  const b = tourBox(el), from = tourSpot.style.width ? { left: tourSpot.style.left, top: tourSpot.style.top, width: tourSpot.style.width, height: tourSpot.style.height } : null;
+  const to = { left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` };
+  Object.assign(tourSpot.style, to);
+  // (the light has no text in it, so it can glide by its box)
+  if (animate && from && !reduceMotion) tourSpot.animate([from, to], MOTION.move);
+  // the card: under the stop if it fits, else above, else inside its lower corner; never off screen
+  const cw = tourCard.offsetWidth, ch = tourCard.offsetHeight;
+  let top = b.top + b.height + 12;
+  if (top + ch > innerHeight - 12) top = b.top - ch - 12 >= 12 ? b.top - ch - 12 : innerHeight - ch - 24;
+  const left = Math.min(innerWidth - cw - 12, Math.max(12, b.left + (b.left + b.width / 2 > innerWidth / 2 ? b.width - cw : 0)));
+  Object.assign(tourCard.style, { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` });
+}
+function tourGo(i, first) {
+  tourI = i;
+  const step = tourSteps[i], val = v => (typeof v === 'function' ? v() : v);
+  const switched = step.view && currentView !== step.view;
+  if (switched) showView(step.view);
+  document.getElementById('tour-n').textContent = `${i + 1} of ${tourSteps.length}`;
+  document.getElementById('tour-title').textContent = val(step.title);
+  document.getElementById('tour-text').textContent = val(step.text);
+  document.getElementById('tour-back').hidden = i === 0;
+  document.getElementById('tour-next').textContent = i === tourSteps.length - 1 ? 'Done' : 'Next';
+  scrollTo(0, 0);
+  document.querySelector(step.at)?.scrollIntoView({ block: 'nearest' });
+  // a tab that just opened rises in for a moment: light the stop once it has settled
+  // (the card fades in at its new place: a fade, not a slide, since sliding text goes soft)
+  const show = () => { tourCard.style.visibility = ''; tourPlace(!first); if (!reduceMotion) tourCard.animate([{ opacity: 0, offset: 0 }], MOTION.enter); };
+  if (switched) {
+    tourCard.style.visibility = 'hidden';
+    Promise.all(document.getElementById(`view-${step.view}`).getAnimations().map(a => a.finished.catch(() => {}))).then(show);
+  } else show();
+  document.getElementById('tour-next').focus({ preventScroll: true });
+}
+document.getElementById('tour-next').addEventListener('click', () => (tourI < tourSteps.length - 1 ? tourGo(tourI + 1) : endTour()));
+document.getElementById('tour-back').addEventListener('click', () => { if (tourI) tourGo(tourI - 1); });
+document.getElementById('tour-skip').addEventListener('click', endTour);
+tourEl.addEventListener('click', e => { if (!tourCard.contains(e.target)) endTour(); });
+addEventListener('keydown', e => {
+  if (tourEl.hidden) return;
+  if (e.key === 'Escape') { e.preventDefault(); endTour(); }
+  if (e.key === 'ArrowRight') document.getElementById('tour-next').click();
+  if (e.key === 'ArrowLeft') document.getElementById('tour-back').click();
+});
+addEventListener('resize', () => { if (!tourEl.hidden) tourPlace(false); });
+addEventListener('scroll', () => { if (!tourEl.hidden) tourPlace(false); }, { passive: true });
+document.getElementById('open-tour').addEventListener('click', startTour);
+document.getElementById('ex-tour').addEventListener('click', startTour);
 
 // ---------- closing dialogs: click outside, the ×, or Esc ----------
 // The campaign and task forms remember how they looked when opened; closing an edited one asks Save / Discard.
