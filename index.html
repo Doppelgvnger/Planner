@@ -414,8 +414,9 @@
   .dlg-head #dlg-title { padding-right: 0; }
   .dlg-head .dlg-x { position: static; margin: 0 -8px 0 0; flex: none; }
   .dlg-foot { bottom: 0; display: grid; gap: 12px; margin-bottom: -24px; padding-block: 12px 18px; border-top: 1px solid var(--line); }
-  .foot-row { display: flex; align-items: center; gap: 12px; }
-  .foot-label { font-size: 13px; font-weight: 500; color: var(--ink-2); }
+  /* one row of colours; more custom ones than fit scroll sideways (the padding keeps the picked one's ring unclipped) */
+  .foot-row .swatches { flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding: 5px; margin: -5px; scrollbar-width: none; }
+  .foot-row .swatch { flex: none; }
   #dlg { width: min(520px, calc(100vw - 32px)); } /* room for per-market date pairs inside sub-campaign cards */
   .field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink-2); }
   .field input {
@@ -1807,7 +1808,7 @@
     <p class="err" id="err"></p>
     <div class="dlg-foot">
       <fieldset class="foot-color" aria-label="Color">
-        <div class="foot-row"><span class="foot-label">Color</span><div class="swatches" id="swatches"></div></div>
+        <div class="foot-row"><div class="swatches" id="swatches"></div></div>
         <div class="cw" id="cw" hidden>
           <div class="cw-wheel" id="cw-wheel"><canvas id="cw-canvas"></canvas><div class="cw-marker" id="cw-marker"></div></div>
           <div class="cw-side">
