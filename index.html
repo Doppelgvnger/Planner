@@ -925,7 +925,9 @@
   /* ---------- the tour: a spotlight on one thing at a time and a card that explains it ---------- */
   .tour-q { width: 22px; height: 22px; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: none; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; }
   .tour-q:hover { border-color: var(--accent); color: var(--accent); }
-  .tour { position: fixed; inset: 0; z-index: 50; }
+  /* the page underneath stays clickable (try what's lit); only the card takes clicks of its own */
+  .tour { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+  .tour-card { pointer-events: auto; }
   .tour[hidden] { display: none; }
   .tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(var(--sh), .45), 0 0 0 2px var(--today); pointer-events: none; }
   :root[data-theme="dark"] .tour-spot { box-shadow: 0 0 0 9999px rgba(0, 0, 0, .6), 0 0 0 2px var(--today); }
@@ -4966,11 +4968,16 @@ const TOUR = [
     text: 'Pick a list on the left, drag tasks to reorder, + New task for the full form. General holds tasks that belong to no campaign.' },
   { view: null, at: '#open-pet', title: 'Meet Mochi', when: () => setup.pet,
     text: 'Every task you finish becomes a snack. Click the face to feed it. Not your thing? Switch it off in Settings.' },
-  { view: null, at: '#open-backup', title: 'Keep a backup',
-    text: 'Everything is saved in this browser only. Export a backup now and then, and to move to another computer.' },
+  // signed in: the account keeps everything; signed out: sign in, or keep a backup
+  { view: null, at: () => (user ? '#acct-btn' : sb ? '#open-auth' : '#open-backup'),
+    title: () => (user ? 'Saved to your account' : sb ? 'Open it on any computer' : 'Keep a backup'),
+    text: () => (user ? 'Every change goes to your account by itself; sign in on any computer to see the same planner. The dot shows it: green is saved. Backup is in this menu.'
+      : sb ? 'Without an account your planner lives only in this browser. Sign in to keep it in the cloud and open it anywhere; Backup still makes a copy.'
+      : 'Everything is saved in this browser only. Export a backup now and then, and to move to another computer.') },
 ];
 const tourEl = document.getElementById('tour'), tourSpot = document.getElementById('tour-spot'), tourCard = document.getElementById('tour-card');
-let tourSteps = [], tourI = 0, tourFrom = null;
+let tourSteps = [], tourI = 0, tourFrom = null, tourWatch = 0;
+const tourAt = step => (typeof step.at === 'function' ? step.at() : step.at);
 function startTour() {
   if (!tourEl.hidden) return;
   tourSteps = TOUR.filter(x => !x.when || x.when());
@@ -4979,9 +4986,12 @@ function startTour() {
   tourSpot.style.cssText = '';
   if (!reduceMotion) tourEl.animate([{ opacity: 0, offset: 0 }], MOTION.enter);
   tourGo(0, true);
+  // the page stays usable during the tour: the light follows its stop when the page moves under it
+  tourWatch = setInterval(() => { if (tourCard.style.visibility !== 'hidden') tourPlace(false); }, 250);
 }
 function endTour() {
   if (tourEl.hidden) return;
+  clearInterval(tourWatch);
   const back = tourFrom && tourFrom !== currentView ? tourFrom : null;
   const done = () => { tourEl.hidden = true; if (back) showView(back); };
   if (reduceMotion) return done();
@@ -4994,7 +5004,7 @@ function tourBox(el) {
   return { left: Math.round(Math.max(8, r.left - pad)), top: Math.round(top), width: Math.round(Math.min(innerWidth - 16, r.width + 2 * pad)), height: Math.round(Math.max(24, bottom - top)) };
 }
 function tourPlace(animate) {
-  const step = tourSteps[tourI], el = document.querySelector(step.at);
+  const step = tourSteps[tourI], el = document.querySelector(tourAt(step));
   if (!el) return;
   const b = tourBox(el), from = tourSpot.style.width ? { left: tourSpot.style.left, top: tourSpot.style.top, width: tourSpot.style.width, height: tourSpot.style.height } : null;
   const to = { left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` };
@@ -5019,7 +5029,7 @@ function tourGo(i, first) {
   document.getElementById('tour-back').hidden = i === 0;
   document.getElementById('tour-next').textContent = i === tourSteps.length - 1 ? 'Done' : 'Next';
   scrollTo(0, 0);
-  document.querySelector(step.at)?.scrollIntoView({ block: 'nearest' });
+  document.querySelector(tourAt(step))?.scrollIntoView({ block: 'nearest' });
   // a tab that just opened rises in for a moment: light the stop once it has settled
   // (the card fades in at its new place: a fade, not a slide, since sliding text goes soft)
   const show = () => { tourCard.style.visibility = ''; tourPlace(!first); if (!reduceMotion) tourCard.animate([{ opacity: 0, offset: 0 }], MOTION.enter); };
@@ -5032,10 +5042,10 @@ function tourGo(i, first) {
 document.getElementById('tour-next').addEventListener('click', () => (tourI < tourSteps.length - 1 ? tourGo(tourI + 1) : endTour()));
 document.getElementById('tour-back').addEventListener('click', () => { if (tourI) tourGo(tourI - 1); });
 document.getElementById('tour-skip').addEventListener('click', endTour);
-tourEl.addEventListener('click', e => { if (!tourCard.contains(e.target)) endTour(); });
 addEventListener('keydown', e => {
   if (tourEl.hidden) return;
   if (e.key === 'Escape') { e.preventDefault(); endTour(); }
+  if (e.target.matches('input, textarea, [contenteditable="true"]')) return; // (typing in the page during the tour)
   if (e.key === 'ArrowRight') document.getElementById('tour-next').click();
   if (e.key === 'ArrowLeft') document.getElementById('tour-back').click();
 });
