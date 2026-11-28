@@ -907,6 +907,21 @@
   }
   .ex-banner[hidden] { display: none; }
 
+  /* ---------- account ---------- */
+  .acct-btn { position: relative; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .acct-btn[hidden], #open-auth[hidden], #open-backup[hidden] { display: none; }
+  .acct-dot { position: absolute; right: -2px; bottom: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--ink-3); box-shadow: 0 0 0 2px var(--surface); transition: background .3s; }
+  .acct-btn[data-state="saved"] .acct-dot { background: var(--mint-edge); }
+  .acct-btn[data-state="saving"] .acct-dot { background: var(--butter-edge); }
+  .acct-btn[data-state="error"] .acct-dot { background: var(--danger); }
+  .acct-who { display: grid; gap: 4px; }
+  .acct-who span { font-size: 13px; color: var(--ink-3); }
+  #auth-dlg .field[hidden] { display: none; }
+  #auth-submit { justify-self: start; }
+  .auth-switch { margin: 0; font-size: 13px; color: var(--ink-3); }
+  .auth-switch:empty { display: none; }
+  .onb-have { margin: -6px 0 0; font-size: 13px; color: var(--ink-3); }
+
   /* ---------- the tour: a spotlight on one thing at a time and a card that explains it ---------- */
   .tour-q { width: 22px; height: 22px; padding: 0; border: 1px solid var(--line-strong); border-radius: 50%; background: none; color: var(--ink-3); font-size: 12px; font-weight: 600; cursor: pointer; }
   .tour-q:hover { border-color: var(--accent); color: var(--accent); }
@@ -1429,8 +1444,10 @@
     <button class="tab" data-view="notes">Notes</button>
   </nav>
   <div class="top-tools">
+    <button class="link subtle" id="open-auth" hidden>Sign in</button>
     <button class="link subtle" id="open-backup">Backup</button>
     <button class="link subtle" id="open-settings">Settings</button>
+    <button type="button" class="acct-btn" id="acct-btn" hidden aria-label="Your account"><span class="acct-ini"></span><i class="acct-dot"></i></button>
     <button type="button" class="tour-q" id="open-tour" title="Take the tour" aria-label="Take the tour">?</button>
     <button type="button" class="pet-btn" id="open-pet" aria-label="Your pet"><i class="pet-cnt" id="pet-cnt" hidden></i></button>
   </div>
@@ -1852,6 +1869,7 @@
     <section class="onb-step" data-step="1">
       <h2 id="onb-title">Where do your campaigns run?</h2>
       <p class="onb-lead">Each market becomes a row on your Timeline. Pick yours; you can change them any time in Settings.</p>
+      <p class="onb-have">Already have an account? <button type="button" class="link" id="onb-signin">Sign in</button></p>
       <input class="onb-search" id="onb-find" type="search" placeholder="Search a country…" autocomplete="off" aria-label="Search a country">
       <div class="chips onb-chips" id="onb-countries"></div>
       <div class="onb-picked-head"><span>Your markets, in this order</span><span class="onb-hint" id="onb-seg-hint"></span></div>
@@ -1890,6 +1908,28 @@
       <span class="spacer"></span>
       <button type="button" class="btn primary" id="onb-next">Next</button>
     </div>
+  </div>
+</dialog>
+
+<dialog id="auth-dlg" class="ask">
+  <form id="auth-form" novalidate>
+    <button type="button" class="dlg-x" aria-label="Close" title="Close">×</button>
+    <h2 id="auth-title">Sign in</h2>
+    <p class="ask-text" id="auth-lead"></p>
+    <label class="field" id="auth-email-row">Email <input type="email" id="auth-email" autocomplete="email" spellcheck="false"></label>
+    <label class="field" id="auth-pass-row">Password <input type="password" id="auth-pass" autocomplete="current-password"></label>
+    <p class="bk-msg" id="auth-msg" aria-live="polite"></p>
+    <button type="submit" class="btn primary" id="auth-submit">Sign in</button>
+    <p class="auth-switch" id="auth-switch"></p>
+  </form>
+</dialog>
+
+<dialog id="acct-dlg" class="ask">
+  <div class="ar-wrap">
+    <button type="button" class="dlg-x" aria-label="Close" title="Close">×</button>
+    <div class="ar-top"><h2>Your account</h2></div>
+    <div class="acct-who"><b id="acct-email"></b><span id="acct-state"></span></div>
+    <div class="actions"><button type="button" class="btn" id="acct-backup">Backup…</button><span class="spacer"></span><button type="button" class="btn" id="acct-out">Sign out</button></div>
   </div>
 </dialog>
 
@@ -2113,9 +2153,11 @@ function load() {
 }
 // every write goes through store(): a write the browser refuses (storage full, blocked, private mode) shows a
 // warning instead of failing silently; the next write that works hides it again
+let afterStore = null; // set by the account: a saved key goes to the cloud too
 function store(key, value) {
   try { localStorage.setItem(key, value); } catch (e) { setSaveWarn(true); return false; }
   setSaveWarn(false);
+  afterStore?.(key);
   return true;
 }
 function setSaveWarn(on) {
@@ -6948,6 +6990,323 @@ petCount();
 petBtn.hidden = !setup.pet;
 afterSave = petSync;
 
+// ---------- account: sign in to keep the planner in the cloud (Supabase) and open it on any computer ----------
+// The browser keeps working on its local copy (fast, works offline); every save marks its key, and the changed
+// campaigns / tasks / other data go up as rows shortly after. Changes made on another computer come back live.
+// Without an account nothing changes: the planner lives in this browser, as before.
+const SB_URL = 'https://oskdkiofhkqzgzlshngg.supabase.co', SB_KEY = 'sb_publishable_3T9HyJlfH7mPdS6RbXPu_Q_DSODQWP2';
+const CLOUD_STORE = 'planner.cloud.v1'; // { owner: the account this browser's planner belongs to, dirty: keys not sent yet }
+const CLOUD_DOCS = ['planner.setup.v1', 'planner.notes.v1', 'planner.pet.v1', 'planner.trash.v1', 'planner.colorder.v1', 'planner.dense.v1',
+  'planner.past.v1', 'planner.rtcolors.v1', 'planner.calendar.v1', 'planner.tasksview.v1', 'planner.theme.v1'];
+const CLOUD_KEYS = ['planner.timeline.v1', 'planner.general.v1', ...CLOUD_DOCS];
+let cloud = (() => { try { return { owner: null, dirty: [], ...JSON.parse(localStorage.getItem(CLOUD_STORE)) }; } catch (e) { return { owner: null, dirty: [] }; } })();
+const saveCloudMeta = () => { try { localStorage.setItem(CLOUD_STORE, JSON.stringify(cloud)); } catch (e) {} };
+let sb = null, user = null, cloudState = 'off', pushing = false, pushTimer = 0, pullTimer = 0, cloudChannel = null;
+const again = new Set(); // keys saved while a push was on its way
+const lastRows = { campaigns: new Map(), tasks: new Map(), docs: new Map() }; // what the cloud has (row id → JSON)
+const readJSON = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+
+// every save of the planner's data (store) lands here
+// (also while signed out: the copy still belongs to that account, and its changes go up at the next sign-in)
+afterStore = key => {
+  if (!cloud.owner || !CLOUD_KEYS.includes(key)) return;
+  if (!cloud.dirty.includes(key)) { cloud.dirty.push(key); saveCloudMeta(); }
+  if (pushing) again.add(key);
+  if (user && cloud.owner === user.id) schedulePush(800);
+};
+function schedulePush(ms) {
+  clearTimeout(pushTimer);
+  if (user && cloud.dirty.length) { setCloud('saving'); pushTimer = setTimeout(push, ms); }
+}
+
+// the planner in this browser as cloud rows
+function localRows() {
+  const c = new Map(), t = new Map(), d = new Map();
+  (readJSON(STORE) || []).forEach((x, i) => {
+    const { tasks, ...rest } = x;
+    c.set(x.id, { pos: i, data: rest });
+    (tasks || []).forEach((y, j) => t.set(y.id, { campaign_id: x.id, pos: j, data: y }));
+  });
+  (readJSON(GENERAL_STORE) || []).forEach((y, j) => t.set(y.id, { campaign_id: 'general', pos: j, data: y }));
+  for (const k of CLOUD_DOCS) { const v = localStorage.getItem(k); if (v !== null) d.set(k, { value: v }); }
+  return { campaigns: c, tasks: t, docs: d };
+}
+const rowKey = tbl => (tbl === 'docs' ? 'key' : 'id');
+const strip = (tbl, r) => (tbl === 'campaigns' ? { pos: r.pos, data: r.data } : tbl === 'tasks' ? { campaign_id: r.campaign_id, pos: r.pos, data: r.data } : { value: r.value });
+// cloud rows → the text each local key holds
+function cloudToLocal(rows) {
+  const byCamp = new Map();
+  for (const r of [...rows.tasks].sort((a, b) => a.pos - b.pos)) {
+    if (!byCamp.has(r.campaign_id)) byCamp.set(r.campaign_id, []);
+    byCamp.get(r.campaign_id).push(r.data);
+  }
+  const out = {
+    [STORE]: JSON.stringify([...rows.campaigns].sort((a, b) => a.pos - b.pos).map(r => ({ ...r.data, tasks: byCamp.get(r.id) || [] }))),
+    [GENERAL_STORE]: JSON.stringify(byCamp.get('general') || []),
+  };
+  for (const r of rows.docs) if (r.value !== null) out[r.key] = r.value;
+  return out;
+}
+async function pullAll() {
+  const res = await Promise.all(['campaigns', 'tasks', 'docs'].map(tbl => sb.from(tbl).select('*').eq('user_id', user.id)));
+  const bad = res.find(r => r.error);
+  if (bad) throw bad.error;
+  const rows = { campaigns: res[0].data, tasks: res[1].data, docs: res[2].data };
+  for (const tbl of ['campaigns', 'tasks', 'docs']) lastRows[tbl] = new Map(rows[tbl].map(r => [r[rowKey(tbl)], JSON.stringify(strip(tbl, r))]));
+  return rows;
+}
+const cloudEmpty = rows => !rows.campaigns.length && !rows.tasks.length && !rows.docs.some(r => r.key === 'planner.notes.v1' && r.value && r.value !== '[]');
+const localHasPlanner = () => [STORE, GENERAL_STORE, 'planner.notes.v1'].some(k => (readJSON(k) || []).length);
+
+// send what changed (and remove what's gone) since the cloud last had it
+async function push() {
+  if (!user || pushing || cloud.owner !== user.id) return;
+  if (!navigator.onLine) return setCloud('offline');
+  pushing = true;
+  again.clear();
+  const dirty = new Set(cloud.dirty), cur = localRows();
+  try {
+    for (const tbl of ['campaigns', 'tasks', 'docs']) {
+      if (tbl !== 'docs' ? !dirty.has(STORE) && !dirty.has(GENERAL_STORE) : !CLOUD_DOCS.some(k => dirty.has(k))) continue;
+      const up = [], gone = [];
+      for (const [id, r] of cur[tbl]) if (lastRows[tbl].get(id) !== JSON.stringify(r)) up.push({ user_id: user.id, [rowKey(tbl)]: id, ...r });
+      for (const id of lastRows[tbl].keys()) if (!cur[tbl].has(id)) gone.push(id);
+      if (up.length) { const { error } = await sb.from(tbl).upsert(up, { onConflict: `user_id,${rowKey(tbl)}` }); if (error) throw error; }
+      if (gone.length) { const { error } = await sb.from(tbl).delete().eq('user_id', user.id).in(rowKey(tbl), gone); if (error) throw error; }
+      for (const r of up) lastRows[tbl].set(r[rowKey(tbl)], JSON.stringify(strip(tbl, r)));
+      for (const id of gone) lastRows[tbl].delete(id);
+    }
+    cloud.dirty = cloud.dirty.filter(k => !dirty.has(k) || again.has(k));
+    saveCloudMeta();
+    setCloud(cloud.dirty.length ? 'saving' : 'saved');
+  } catch (e) {
+    setCloud(navigator.onLine ? 'error' : 'offline');
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(push, 15000); // try again shortly
+  } finally {
+    pushing = false;
+    if (cloud.dirty.length && cloudState === 'saving') schedulePush(300);
+  }
+}
+addEventListener('online', () => schedulePush(0));
+addEventListener('offline', () => { if (user) setCloud('offline'); });
+
+// cloud data into this browser: only keys with no unsent changes; the tab redraws as if another tab had saved
+function applyCloud(rows, replace) {
+  const next = cloudToLocal(rows), changed = [];
+  for (const k of CLOUD_KEYS) {
+    if (!replace && cloud.dirty.includes(k)) continue;
+    const v = k in next ? next[k] : null;
+    if (localStorage.getItem(k) === v || (v === null && !replace)) continue;
+    try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { continue; }
+    changed.push(k);
+  }
+  return changed;
+}
+function remoteSoon() {
+  clearTimeout(pullTimer);
+  pullTimer = setTimeout(async () => {
+    if (!user || pushing) return remoteSoon();
+    try {
+      const changed = applyCloud(await pullAll(), false);
+      for (const key of changed) dispatchEvent(new StorageEvent('storage', { key, newValue: localStorage.getItem(key) }));
+      if (cloud.dirty.length) schedulePush(300);
+    } catch (e) {}
+  }, 400);
+}
+function listen() {
+  cloudChannel?.unsubscribe();
+  cloudChannel = sb.channel(`planner-${user.id}`);
+  for (const table of ['campaigns', 'tasks', 'docs']) cloudChannel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${user.id}` }, remoteSoon);
+  cloudChannel.subscribe();
+}
+
+// signed in: this browser's planner and the account's come together
+async function startCloud(u) {
+  user = u;
+  syncAcct();
+  setCloud('saving');
+  let rows;
+  try { rows = await pullAll(); } catch (e) { setCloud('offline'); setTimeout(() => user && startCloud(user), 20000); return; }
+  if (cloud.owner === user.id) {
+    // the same account as before: the cloud's changes come in, this browser's unsent ones go up
+    const changed = applyCloud(rows, false);
+    listen();
+    for (const key of changed) dispatchEvent(new StorageEvent('storage', { key, newValue: localStorage.getItem(key) }));
+    if (cloud.dirty.length) schedulePush(0); else setCloud('saved');
+    return;
+  }
+  const local = localHasPlanner(), empty = cloudEmpty(rows);
+  if (!local) {
+    // nothing here yet: the account's planner comes down (a new account starts with the setup steps)
+    cloud = { owner: user.id, dirty: [] };
+    saveCloudMeta();
+    if (empty) {
+      cloud.dirty = CLOUD_KEYS.filter(k => localStorage.getItem(k) !== null);
+      saveCloudMeta();
+      listen();
+      schedulePush(0);
+      if (!localStorage.getItem(SETUP_STORE) && !onbDlg.open) onbStart(); // a new account: the setup steps
+      return;
+    }
+    applyCloud(rows, true);
+    return location.reload();
+  }
+  if (empty) {
+    const up = await ask({ title: 'Upload this planner to your account?', text: "This browser has a planner. Upload it, and it opens on any computer you sign in on. If you don't, you're signed out and it stays only here.", ok: 'Upload', danger: false });
+    if (!up) return signOut(true);
+    cloud = { owner: user.id, dirty: [...CLOUD_KEYS] };
+    saveCloudMeta();
+    listen();
+    return schedulePush(0);
+  }
+  // both have a planner: keep one (the other is saved to a backup file first)
+  const pick = await ask({ title: 'Which planner do you want to keep?', text: 'Your account and this browser each have a planner. The one you don’t keep is downloaded as a backup file first, so nothing is lost.', ok: 'My account’s', alt: 'This browser’s', danger: false });
+  if (!pick) return signOut(true);
+  if (pick === 'alt') {
+    downloadJSON({ app: 'planner', version: 1, exportedAt: new Date().toISOString(), ...backupFromRows(rows) }, 'planner-account-backup');
+    cloud = { owner: user.id, dirty: [...CLOUD_KEYS] };
+    saveCloudMeta();
+    listen();
+    return schedulePush(0);
+  }
+  document.getElementById('bk-export').click(); // this browser's planner, as a file
+  cloud = { owner: user.id, dirty: [] };
+  saveCloudMeta();
+  applyCloud(rows, true);
+  setTimeout(() => location.reload(), 600);
+}
+function backupFromRows(rows) {
+  const l = cloudToLocal(rows), j = k => { try { return JSON.parse(l[k]); } catch (e) { return undefined; } };
+  return { campaigns: j(STORE) || [], general: j(GENERAL_STORE) || [], notes: j('planner.notes.v1') || [], trash: j('planner.trash.v1') || [], colOrder: j('planner.colorder.v1') || [], pet: j('planner.pet.v1'), setup: j(SETUP_STORE) };
+}
+function downloadJSON(obj, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+  a.download = `${name}-${toISO(new Date())}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function signOut(quiet) {
+  if (!quiet) {
+    const unsent = cloud.dirty.length && !navigator.onLine;
+    const r = await ask({ title: 'Sign out?', text: `${unsent ? 'Some changes haven’t reached your account yet (you’re offline). ' : ''}Keep a copy of the planner on this computer, or remove it (handy on a shared computer).`, ok: 'Sign out', alt: 'Sign out and remove', danger: false });
+    if (!r) return;
+    if (r === 'alt') {
+      await sb.auth.signOut();
+      for (const k of [...CLOUD_KEYS, CLOUD_STORE]) try { localStorage.removeItem(k); } catch (e) {}
+      return location.reload();
+    }
+  }
+  cloudChannel?.unsubscribe();
+  cloudChannel = null;
+  user = null;
+  await sb.auth.signOut();
+  setCloud('off');
+  syncAcct();
+}
+
+// ---------- the top bar: Sign in, or the account button with the sync state ----------
+const acctBtn = document.getElementById('acct-btn'), authDlg = document.getElementById('auth-dlg'), acctDlg = document.getElementById('acct-dlg');
+const CLOUD_WORDS = { saved: 'All changes saved', saving: 'Saving…', offline: 'Offline: changes are kept here and sent when you’re back online', error: 'Couldn’t reach your account; trying again', off: '' };
+function setCloud(state) {
+  cloudState = state;
+  acctBtn.dataset.state = state;
+  acctBtn.title = `${user?.email || ''}\n${CLOUD_WORDS[state]}`;
+  document.getElementById('acct-state').textContent = CLOUD_WORDS[state];
+}
+function syncAcct() {
+  document.getElementById('open-auth').hidden = !!user || !sb;
+  document.getElementById('open-backup').hidden = !!user;
+  acctBtn.hidden = !user;
+  if (user) {
+    acctBtn.querySelector('.acct-ini').textContent = (user.email || '?')[0].toUpperCase();
+    document.getElementById('acct-email').textContent = user.email;
+  }
+}
+// the sign-in dialog: sign in, create an account, forgotten password, a new password
+let authMode = 'in';
+function authShow(mode) {
+  authMode = mode;
+  const $a = id => document.getElementById(`auth-${id}`);
+  $a('title').textContent = { in: 'Sign in', up: 'Create your account', forgot: 'Reset your password', reset: 'Choose a new password' }[mode];
+  $a('lead').textContent = { in: 'Your planner, on any computer you sign in on.', up: 'Your planner is kept in your account, so it opens on any computer.', forgot: 'We’ll email you a link to choose a new password.', reset: 'Type the new password for your account.' }[mode];
+  $a('email-row').hidden = mode === 'reset';
+  $a('pass-row').hidden = mode === 'forgot';
+  $a('pass').autocomplete = mode === 'in' ? 'current-password' : 'new-password';
+  $a('submit').textContent = { in: 'Sign in', up: 'Create account', forgot: 'Send the link', reset: 'Save password' }[mode];
+  $a('switch').innerHTML = mode === 'in' ? 'New here? <button type="button" class="link" data-auth="up">Create an account</button> · <button type="button" class="link" data-auth="forgot">Forgot password?</button>'
+    : mode === 'up' ? 'Have an account? <button type="button" class="link" data-auth="in">Sign in</button>'
+    : mode === 'forgot' ? '<button type="button" class="link" data-auth="in">Back to sign in</button>' : '';
+  $a('msg').textContent = '';
+  $a('msg').classList.remove('bad');
+}
+function openAuth(mode = 'in') {
+  if (!sb) return;
+  authShow(mode);
+  openDlg(authDlg);
+  document.getElementById(mode === 'reset' ? 'auth-pass' : 'auth-email').focus();
+}
+authDlg.addEventListener('click', e => { const b = e.target.closest('[data-auth]'); if (b) authShow(b.dataset.auth); });
+document.getElementById('auth-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim(), password = document.getElementById('auth-pass').value;
+  const msg = document.getElementById('auth-msg'), say = (t, bad) => { msg.textContent = t; msg.classList.toggle('bad', !!bad); };
+  if (authMode !== 'reset' && !/^\S+@\S+\.\S+$/.test(email)) return say('Enter your email address.', true);
+  if (authMode !== 'forgot' && password.length < 8) return say('The password needs at least 8 characters.', true);
+  const btn = document.getElementById('auth-submit');
+  btn.disabled = true;
+  say(authMode === 'forgot' ? 'Sending…' : 'One moment…');
+  const site = location.origin + location.pathname;
+  const { data, error } = authMode === 'in' ? await sb.auth.signInWithPassword({ email, password })
+    : authMode === 'up' ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: site } })
+    : authMode === 'forgot' ? await sb.auth.resetPasswordForEmail(email, { redirectTo: site })
+    : await sb.auth.updateUser({ password });
+  btn.disabled = false;
+  if (error) return say(/invalid login/i.test(error.message) ? 'That email and password don’t match.' : /already registered/i.test(error.message) ? 'There’s already an account with this email. Sign in instead.' : error.message, true);
+  if (authMode === 'forgot') return say('Check your email for the link.');
+  if (authMode === 'up' && !data.session) return say('Check your email: click the link in it to finish creating your account.');
+  if (authMode === 'reset') say('Password saved.');
+  document.getElementById('auth-pass').value = '';
+  shut(authDlg);
+});
+document.getElementById('open-auth').addEventListener('click', () => openAuth('in'));
+acctBtn.addEventListener('click', () => { setCloud(cloudState); openDlg(acctDlg); });
+document.getElementById('acct-backup').addEventListener('click', () => { shut(acctDlg); showBkMsg(''); openDlg(bkDlg); });
+document.getElementById('acct-out').addEventListener('click', () => { shut(acctDlg); signOut(); });
+document.getElementById('onb-signin').addEventListener('click', () => openAuth('in'));
+// the account dialogs close like the others: Esc, the ×, a click outside
+for (const d of [authDlg, acctDlg]) {
+  d.addEventListener('cancel', e => { e.preventDefault(); shut(d); });
+  let downOut = false;
+  const out = e => { const r = d.getBoundingClientRect(); return e.target === d && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom); };
+  d.addEventListener('pointerdown', e => { downOut = out(e); });
+  d.addEventListener('click', e => { if (downOut && out(e)) shut(d); downOut = false; });
+}
+
+// start: load the cloud library (the planner works without it), pick up a session, follow sign-ins and outs
+const hasSession = () => { try { return Object.keys(localStorage).some(k => /^sb-.*-auth-token$/.test(k)); } catch (e) { return false; } };
+function cloudInit() {
+  sb = window.supabase.createClient(SB_URL, SB_KEY, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: true } });
+  syncAcct();
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') return setTimeout(() => openAuth('reset'), 0);
+    const u = session?.user || null;
+    if (u && u.id !== user?.id) setTimeout(() => startCloud(u), 0);
+    if (!u && user && event === 'SIGNED_OUT') { user = null; syncAcct(); setCloud('off'); }
+  });
+}
+if (window.supabase) cloudInit();
+else {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js';
+  s.onload = cloudInit;
+  s.onerror = syncAcct; // offline or blocked: the planner carries on without an account
+  document.head.appendChild(s);
+}
+
 // another tab of the app saved: take its data, so this tab's next save doesn't wipe those changes out.
 // Open editors hold the old objects, so they're found again by id.
 function syncFromOtherTab() {
@@ -7003,7 +7362,7 @@ addEventListener('focus', checkNewDay);
 
 showView(['campaigns', 'tasks', 'calendar', 'notes'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'timeline');
 document.getElementById('ex-banner').hidden = !hasExample();
-if (FIRST_VISIT) onbStart();
+if (FIRST_VISIT && !hasSession()) onbStart(); // (signed in on a new computer: the account's planner comes down instead)
 </script>
 </body>
 </html>
