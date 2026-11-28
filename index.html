@@ -7004,6 +7004,8 @@ const saveCloudMeta = () => { try { localStorage.setItem(CLOUD_STORE, JSON.strin
 let sb = null, user = null, cloudState = 'off', pushing = false, pushTimer = 0, pullTimer = 0, cloudChannel = null;
 const again = new Set(); // keys saved while a push was on its way
 const lastRows = { campaigns: new Map(), tasks: new Map(), docs: new Map() }; // what the cloud has (row id → JSON)
+const cloudRows = { campaigns: new Map(), tasks: new Map(), docs: new Map() }; // and the rows themselves
+const cloudList = () => ({ campaigns: [...cloudRows.campaigns.values()], tasks: [...cloudRows.tasks.values()], docs: [...cloudRows.docs.values()] });
 const readJSON = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 
 // every save of the planner's data (store) lands here
@@ -7052,7 +7054,10 @@ async function pullAll() {
   const bad = res.find(r => r.error);
   if (bad) throw bad.error;
   const rows = { campaigns: res[0].data, tasks: res[1].data, docs: res[2].data };
-  for (const tbl of ['campaigns', 'tasks', 'docs']) lastRows[tbl] = new Map(rows[tbl].map(r => [r[rowKey(tbl)], JSON.stringify(strip(tbl, r))]));
+  for (const tbl of ['campaigns', 'tasks', 'docs']) {
+    lastRows[tbl] = new Map(rows[tbl].map(r => [r[rowKey(tbl)], JSON.stringify(strip(tbl, r))]));
+    cloudRows[tbl] = new Map(rows[tbl].map(r => [r[rowKey(tbl)], r]));
+  }
   return rows;
 }
 const cloudEmpty = rows => !rows.campaigns.length && !rows.tasks.length && !rows.docs.some(r => r.key === 'planner.notes.v1' && r.value && r.value !== '[]');
@@ -7073,8 +7078,8 @@ async function push() {
       for (const id of lastRows[tbl].keys()) if (!cur[tbl].has(id)) gone.push(id);
       if (up.length) { const { error } = await sb.from(tbl).upsert(up, { onConflict: `user_id,${rowKey(tbl)}` }); if (error) throw error; }
       if (gone.length) { const { error } = await sb.from(tbl).delete().eq('user_id', user.id).in(rowKey(tbl), gone); if (error) throw error; }
-      for (const r of up) lastRows[tbl].set(r[rowKey(tbl)], JSON.stringify(strip(tbl, r)));
-      for (const id of gone) lastRows[tbl].delete(id);
+      for (const r of up) { lastRows[tbl].set(r[rowKey(tbl)], JSON.stringify(strip(tbl, r))); cloudRows[tbl].set(r[rowKey(tbl)], r); }
+      for (const id of gone) { lastRows[tbl].delete(id); cloudRows[tbl].delete(id); }
     }
     cloud.dirty = cloud.dirty.filter(k => !dirty.has(k) || again.has(k));
     saveCloudMeta();
@@ -7103,23 +7108,48 @@ function applyCloud(rows, replace) {
   }
   return changed;
 }
-function remoteSoon() {
+// a change from another computer carries its row: only that row comes in (the rest is already here); the keys it
+// touches are rebuilt from the rows on hand. (Our own saves echo back too; they change nothing.)
+let applyTimer = 0;
+function onRemote(table, payload) {
+  const k = rowKey(table);
+  if (payload.eventType === 'DELETE') {
+    const id = payload.old?.[k];
+    if (id == null) return resyncSoon(); // (a delete without its row id: fetch everything once)
+    cloudRows[table].delete(id);
+    lastRows[table].delete(id);
+  } else if (payload.new?.[k] != null) {
+    cloudRows[table].set(payload.new[k], payload.new);
+    lastRows[table].set(payload.new[k], JSON.stringify(strip(table, payload.new)));
+  } else return resyncSoon();
+  clearTimeout(applyTimer);
+  applyTimer = setTimeout(applyRemote, 150); // a batch of rows (a whole campaign moving) lands as one redraw
+}
+function applyRemote() {
+  const changed = applyCloud(cloudList(), false);
+  for (const key of changed) dispatchEvent(new StorageEvent('storage', { key, newValue: localStorage.getItem(key) }));
+  if (cloud.dirty.length) schedulePush(300);
+}
+// after the live connection dropped (sleep, no network) something may have been missed: fetch everything once
+function resyncSoon() {
   clearTimeout(pullTimer);
   pullTimer = setTimeout(async () => {
-    if (!user || pushing) return remoteSoon();
-    try {
-      const changed = applyCloud(await pullAll(), false);
-      for (const key of changed) dispatchEvent(new StorageEvent('storage', { key, newValue: localStorage.getItem(key) }));
-      if (cloud.dirty.length) schedulePush(300);
-    } catch (e) {}
+    if (!user || pushing) return resyncSoon();
+    try { await pullAll(); applyRemote(); } catch (e) {}
   }, 400);
 }
 function listen() {
   cloudChannel?.unsubscribe();
   cloudChannel = sb.channel(`planner-${user.id}`);
-  for (const table of ['campaigns', 'tasks', 'docs']) cloudChannel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${user.id}` }, remoteSoon);
-  cloudChannel.subscribe();
+  for (const table of ['campaigns', 'tasks', 'docs']) cloudChannel.on('postgres_changes', { event: '*', schema: 'public', table, filter: `user_id=eq.${user.id}` }, p => onRemote(table, p));
+  let joined = false;
+  cloudChannel.subscribe(status => {
+    if (status !== 'SUBSCRIBED') return;
+    if (joined) resyncSoon(); // (back after a drop)
+    joined = true;
+  });
 }
+addEventListener('online', () => { if (user) resyncSoon(); });
 
 // signed in: this browser's planner and the account's come together
 async function startCloud(u) {
